@@ -26,3 +26,7 @@ When complete:
 2. summarize extracted signals
 3. explain architecture decisions
 4. identify remaining lead-analysis gaps honestly
+
+## Batch Mode
+
+For lead spreadsheets, add deterministic batch processing: load CSV/XLSX, extract website URLs, run sequential audits, write per-site artifacts, and produce an aggregate ranked report.

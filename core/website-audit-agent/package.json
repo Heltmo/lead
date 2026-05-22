@@ -8,7 +8,8 @@
   },
   "scripts": {
     "audit": "node cli/audit-url.js",
-    "test": "node tests/smoke.test.js"
+    "audit:batch": "node cli/audit-batch.js",
+    "test": "node tests/smoke.test.js && node tests/batch.test.js"
   },
   "keywords": [],
   "author": "",
@@ -16,7 +17,8 @@
   "type": "commonjs",
   "dependencies": {
     "@axe-core/playwright": "^4.11.3",
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "read-excel-file": "^9.0.9"
   },
   "bin": {
     "website-audit": "./cli/audit-url.js"

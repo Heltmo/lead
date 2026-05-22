@@ -1,0 +1,27 @@
+{
+  "sourceFile": "/path/to/leads.xlsx",
+  "processedAt": "2026-05-22T00:00:00.000Z",
+  "startedAt": "2026-05-22T00:00:00.000Z",
+  "totalSites": 1,
+  "successfulAudits": 1,
+  "failedAudits": 0,
+  "pendingAudits": 0,
+  "topLeads": [{ "name": "Example", "url": "https://example.com", "title": "Example", "leadScore": 90, "issues": ["Missing meta description"] }],
+  "results": [{
+    "name": "Example",
+    "url": "https://example.com",
+    "sourceRow": 2,
+    "sheetName": "Leads",
+    "status": "passed",
+    "title": "Example",
+    "metaDescription": "",
+    "emails": [],
+    "phones": [],
+    "ctas": [],
+    "accessibilityIssues": [],
+    "leadScore": 90,
+    "screenshots": {},
+    "issues": ["Missing meta description"],
+    "errors": []
+  }]
+}
