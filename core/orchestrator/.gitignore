@@ -1,0 +1,4 @@
+runs/
+reports/*.json
+*.log
+tests/runs-smoke/

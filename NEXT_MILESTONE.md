@@ -6,6 +6,7 @@ Add deterministic website intelligence improvements before operational scaling.
 
 - improve technology detector coverage
 - add richer SEO signals and export formats
+- add run history comparison and report exports
 - add export formats for enriched lead reports
 
 ## Principles

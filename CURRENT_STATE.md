@@ -18,6 +18,7 @@ Webconsult is split into two Git histories:
 - technology-stack detection
 - classified lead issues
 - browser-observed performance signals
+- deterministic orchestration harness
 
 ## Application Capabilities
 
@@ -31,4 +32,5 @@ Webconsult is split into two Git histories:
 ```bash
 ~/webconsult/verifications/verify-frontend.sh ~/webconsult/projects/landing-page-test
 ~/webconsult/verifications/verify-website-audit-agent.sh
+~/webconsult/verifications/verify-orchestrator.sh
 ```

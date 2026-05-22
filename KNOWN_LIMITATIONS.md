@@ -16,3 +16,10 @@
 - no CRM export yet
 - no outreach automation yet
 - no enrichment from third-party APIs yet
+
+## Orchestrator
+
+- orchestrator is sequential by design
+- no parallel workers yet
+- no dashboard yet
+- no external persistence database yet

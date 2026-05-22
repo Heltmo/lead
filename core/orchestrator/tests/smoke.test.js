@@ -1,0 +1,17 @@
+const fs = require('fs')
+const path = require('path')
+const { spawnSync } = require('child_process')
+
+const runs = path.join(__dirname, 'runs-smoke')
+fs.rmSync(runs, { recursive: true, force: true })
+const result = spawnSync(process.execPath, ['cli/run-audit-queue.js', '--urls', 'http://127.0.0.1:5173', '--runs', runs, '--retries', '1'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' })
+if (result.status !== 0) { console.error(result.stdout); console.error(result.stderr); process.exit(result.status) }
+const payload = JSON.parse(result.stdout)
+assert(payload.totalItems === 1, 'one queue item should be processed')
+assert(payload.completedItems === 1, 'one queue item should complete')
+assert(fs.existsSync(payload.statePath), 'state file should exist')
+assert(fs.existsSync(payload.summaryPath), 'summary file should exist')
+const summary = JSON.parse(fs.readFileSync(payload.summaryPath, 'utf8'))
+assert(summary.results[0].status === 'completed', 'summary item should be completed')
+assert(fs.existsSync(summary.results[0].reportPath), 'worker report should exist')
+function assert(condition, message) { if (!condition) throw new Error(message) }
