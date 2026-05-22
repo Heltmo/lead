@@ -17,6 +17,7 @@ Webconsult is split into two Git histories:
 - deterministic lead scoring
 - technology-stack detection
 - classified lead issues
+- browser-observed performance signals
 
 ## Application Capabilities
 

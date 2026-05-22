@@ -5,7 +5,7 @@ Add deterministic website intelligence improvements before operational scaling.
 ## Current Target
 
 - improve technology detector coverage
-- add SEO/performance signals
+- add richer SEO signals and export formats
 - add export formats for enriched lead reports
 
 ## Principles

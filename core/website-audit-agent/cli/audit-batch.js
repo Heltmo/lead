@@ -21,7 +21,7 @@ async function main() {
 
   for (const lead of leads) {
     if (dryRun) {
-      results.push({ name: lead.name, url: lead.url, sourceRow: lead.sourceRow, sheetName: lead.sheetName, status: 'pending', title: '', emails: [], phones: [], accessibilityIssues: [], technologies: [], issueCategories: {}, leadScore: null, screenshots: {}, issues: ['Dry run only'] })
+      results.push({ name: lead.name, url: lead.url, sourceRow: lead.sourceRow, sheetName: lead.sheetName, status: 'pending', title: '', emails: [], phones: [], accessibilityIssues: [], technologies: [], issueCategories: {}, issueSeverities: {}, performance: null, leadScore: null, screenshots: {}, issues: ['Dry run only'] })
       continue
     }
     const slug = slugify(`${lead.name || 'lead'}-${lead.sourceRow}`)
@@ -49,10 +49,25 @@ function toBatchResult(lead, report) {
     accessibilityIssues: report.accessibility?.violations ?? [],
     technologies: report.technology?.technologies ?? [],
     issueCategories: report.issueClassification?.counts ?? {},
+    issueSeverities: report.issueClassification?.severityCounts ?? {},
+    performance: summarizePerformance(report.performance),
     leadScore: report.leadQuality?.score ?? 0,
     screenshots: report.screenshots ?? {},
     issues: report.leadQuality?.issues ?? report.errors.map((error) => error.message),
     errors: report.errors,
+  }
+}
+
+function summarizePerformance(performance) {
+  if (!performance) return null
+  return {
+    responseStatus: performance.responseStatus,
+    domContentLoadedMs: performance.domContentLoadedMs,
+    loadMs: performance.loadMs,
+    transferSizeBytes: performance.transferSizeBytes,
+    imageCount: performance.imageCount,
+    failedRequestCount: performance.failedRequests.length,
+    consoleErrorCount: performance.consoleErrors.length,
   }
 }
 

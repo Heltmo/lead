@@ -15,4 +15,5 @@ assert(typeof report.accessibility.violationCount === 'number', 'accessibility c
 assert(typeof report.leadQuality.score === 'number', 'lead score should be numeric')
 assert(report.technology && Array.isArray(report.technology.technologies), 'technology should be present')
 assert(report.issueClassification && Array.isArray(report.issueClassification.issues), 'issue classification should be present')
+assert(report.performance && typeof report.performance.resourceCount === 'number', 'performance should be present')
 function assert(condition, message) { if (!condition) throw new Error(message) }

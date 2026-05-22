@@ -3,7 +3,7 @@
 ## Website Audit Agent
 
 - no crawling beyond the submitted URL
-- no performance/Lighthouse audit yet
+- no Lighthouse audit yet; performance layer uses lightweight browser-observed signals
 - no visual regression diffing yet
 - technology detection is heuristic and limited to deterministic DOM/script/meta/link signals
 - mobile quality is currently represented by screenshot capture, not layout scoring

@@ -6,7 +6,8 @@
   "signals": { "title": "Example", "metaDescription": "Example description", "canonicalUrl": "https://example.com/", "headings": [{ "level": "h1", "text": "Example" }], "emails": [], "phones": [], "ctas": [], "links": [], "socialLinks": [], "technologySignals": { "generator": "", "scripts": [] } },
   "accessibility": { "violationCount": 0, "seriousViolationCount": 0, "violations": [] },
   "technology": { "technologies": [], "evidence": [] },
-  "issueClassification": { "counts": {}, "issues": [] },
+  "performance": { "responseStatus": 200, "domContentLoadedMs": 500, "loadMs": 900, "resourceCount": 12, "transferSizeBytes": 250000, "encodedBodySizeBytes": 200000, "imageCount": 3, "missingImageDimensions": 0, "oversizedImages": 0, "failedRequests": [], "consoleErrors": [] },
+  "issueClassification": { "counts": {}, "severityCounts": {}, "issues": [] },
   "screenshots": { "desktop": "screenshots/latest/desktop.png", "mobile": "screenshots/latest/mobile.png" },
   "leadQuality": { "score": 100, "issues": [], "summary": "No obvious deterministic lead-quality issues detected.", "classifiedIssues": [] },
   "errors": []

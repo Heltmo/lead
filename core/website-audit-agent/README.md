@@ -28,6 +28,23 @@ The audit report includes deterministic intelligence fields:
 
 Detection is explainable and signal-based. It does not use AI inference in version 1.
 
+## Performance Signals
+
+The agent collects lightweight browser-observed performance and technical signals:
+
+- response status
+- DOMContentLoaded timing
+- load timing
+- resource count
+- transfer size estimate
+- image count
+- missing image dimensions
+- oversized image hints
+- failed network requests
+- console errors
+
+These signals are deterministic and are classified into performance, UX, and technical issues. Lighthouse is intentionally not part of version 1.
+
 ## Batch Audits
 
 Audit a CSV or XLSX spreadsheet:

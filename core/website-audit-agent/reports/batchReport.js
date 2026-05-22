@@ -17,7 +17,7 @@ function createBatchReport({ sourceFile, startedAt, results }) {
 }
 
 function toLeadSummary(result) {
-  return { name: result.name, url: result.url, title: result.title, leadScore: result.leadScore, technologies: result.technologies, issueCategories: result.issueCategories, issues: result.issues }
+  return { name: result.name, url: result.url, title: result.title, leadScore: result.leadScore, technologies: result.technologies, issueCategories: result.issueCategories, issueSeverities: result.issueSeverities, performance: result.performance, issues: result.issues }
 }
 
 module.exports = { createBatchReport }
