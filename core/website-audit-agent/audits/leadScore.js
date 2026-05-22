@@ -1,13 +1,34 @@
 function scoreLead(report) {
-  const issues = []
+  const classifiedIssues = report.issueClassification?.issues ?? []
   let score = 100
-  if (!report.signals.metaDescription) { score -= 10; issues.push('Missing meta description') }
-  if (report.signals.ctas.length === 0) { score -= 20; issues.push('No clear CTA detected') }
-  if (report.signals.emails.length === 0 && report.signals.phones.length === 0) { score -= 15; issues.push('No email or phone detected') }
-  if (report.accessibility.seriousViolationCount > 0) { score -= Math.min(30, report.accessibility.seriousViolationCount * 10); issues.push('Serious accessibility issues detected') }
-  const h1Count = report.signals.headings.filter((heading) => heading.level === 'h1').length
-  if (h1Count !== 1) { score -= 10; issues.push(`Expected exactly one h1, found ${h1Count}`) }
-  return { score: Math.max(0, score), issues, summary: issues.length === 0 ? 'No obvious deterministic lead-quality issues detected.' : issues.join('; ') }
+
+  for (const issue of classifiedIssues) {
+    score -= penaltyFor(issue.category)
+  }
+
+  if ((report.technology?.technologies ?? []).some((tech) => ['Wix', 'Squarespace'].includes(tech.name))) {
+    score += 5
+  }
+
+  const issues = classifiedIssues.map((issue) => issue.label)
+  return {
+    score: Math.max(0, Math.min(100, score)),
+    issues,
+    classifiedIssues,
+    summary: issues.length === 0 ? 'No obvious deterministic lead-quality issues detected.' : issues.join('; '),
+  }
+}
+
+function penaltyFor(category) {
+  return {
+    seo: 10,
+    ux: 10,
+    conversion: 20,
+    accessibility: 20,
+    contactability: 15,
+    technical: 5,
+    trust: 5,
+  }[category] ?? 5
 }
 
 module.exports = { scoreLead }

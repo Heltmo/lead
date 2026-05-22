@@ -6,7 +6,7 @@
   "successfulAudits": 1,
   "failedAudits": 0,
   "pendingAudits": 0,
-  "topLeads": [{ "name": "Example", "url": "https://example.com", "title": "Example", "leadScore": 90, "issues": ["Missing meta description"] }],
+  "topLeads": [{ "name": "Example", "url": "https://example.com", "title": "Example", "leadScore": 90, "technologies": [], "issueCategories": { "seo": 1 }, "issues": ["Missing meta description"] }],
   "results": [{
     "name": "Example",
     "url": "https://example.com",
@@ -19,6 +19,8 @@
     "phones": [],
     "ctas": [],
     "accessibilityIssues": [],
+    "technologies": [],
+    "issueCategories": { "seo": 1 },
     "leadScore": 90,
     "screenshots": {},
     "issues": ["Missing meta description"],

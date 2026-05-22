@@ -5,7 +5,9 @@
   "status": "passed",
   "signals": { "title": "Example", "metaDescription": "Example description", "canonicalUrl": "https://example.com/", "headings": [{ "level": "h1", "text": "Example" }], "emails": [], "phones": [], "ctas": [], "links": [], "socialLinks": [], "technologySignals": { "generator": "", "scripts": [] } },
   "accessibility": { "violationCount": 0, "seriousViolationCount": 0, "violations": [] },
+  "technology": { "technologies": [], "evidence": [] },
+  "issueClassification": { "counts": {}, "issues": [] },
   "screenshots": { "desktop": "screenshots/latest/desktop.png", "mobile": "screenshots/latest/mobile.png" },
-  "leadQuality": { "score": 100, "issues": [], "summary": "No obvious deterministic lead-quality issues detected." },
+  "leadQuality": { "score": 100, "issues": [], "summary": "No obvious deterministic lead-quality issues detected.", "classifiedIssues": [] },
   "errors": []
 }

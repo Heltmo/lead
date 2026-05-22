@@ -20,6 +20,8 @@ async function main() {
   assert(report.successfulAudits === 1, 'batch should have one successful audit')
   assert(report.results[0].title === 'Webconsult', 'batch should extract page title')
   assert(typeof report.results[0].leadScore === 'number', 'batch should include lead score')
+assert(report.results[0].issueCategories && typeof report.results[0].issueCategories === 'object', 'issue categories should exist')
+assert(Array.isArray(report.results[0].technologies), 'technologies should exist')
 }
 function assert(condition, message) { if (!condition) throw new Error(message) }
 main().catch((error) => { console.error(error); process.exit(1) })

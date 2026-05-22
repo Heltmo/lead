@@ -2,7 +2,9 @@ const fs = require('fs')
 const path = require('path')
 const { chromium } = require('playwright')
 const { runAccessibilityAudit } = require('./accessibility')
+const { classifyIssues } = require('./issueClassification')
 const { scoreLead } = require('./leadScore')
+const { detectTechnology } = require('./technology')
 const { extractPageSignals } = require('../extractors/pageSignals')
 
 async function auditWebsite(inputUrl, options = {}) {
@@ -11,7 +13,7 @@ async function auditWebsite(inputUrl, options = {}) {
   fs.mkdirSync(screenshotDir, { recursive: true })
   const browser = options.browser || await chromium.launch({ headless: true })
   const shouldCloseBrowser = !options.browser
-  const report = { url: normalizedUrl, startedAt: new Date().toISOString(), finishedAt: '', status: 'failed', signals: null, accessibility: null, screenshots: {}, leadQuality: null, errors: [] }
+  const report = { url: normalizedUrl, startedAt: new Date().toISOString(), finishedAt: '', status: 'failed', signals: null, accessibility: null, screenshots: {}, technology: null, issueClassification: null, leadQuality: null, errors: [] }
   try {
     const desktopContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } })
     const desktop = await desktopContext.newPage()
@@ -19,6 +21,8 @@ async function auditWebsite(inputUrl, options = {}) {
     await desktop.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
     report.signals = await extractPageSignals(desktop)
     report.accessibility = await runAccessibilityAudit(desktop)
+    report.technology = detectTechnology(report.signals)
+    report.issueClassification = classifyIssues(report)
     const desktopScreenshot = path.join(screenshotDir, 'desktop.png')
     await desktop.screenshot({ path: desktopScreenshot, fullPage: true })
     report.screenshots.desktop = desktopScreenshot
