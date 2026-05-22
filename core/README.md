@@ -13,3 +13,7 @@ This folder is intentionally lightweight. It is a place for reusable patterns to
 ## Rule
 
 Only promote something into core after it has proven useful in a real project.
+
+## Browser Intelligence
+
+- website-audit-agent: deterministic URL audit primitive for screenshots, structured signal extraction, accessibility checks, and lead-quality reporting.

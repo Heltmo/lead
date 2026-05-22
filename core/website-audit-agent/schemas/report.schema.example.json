@@ -1,0 +1,11 @@
+{
+  "url": "https://example.com",
+  "startedAt": "2026-05-22T00:00:00.000Z",
+  "finishedAt": "2026-05-22T00:00:01.000Z",
+  "status": "passed",
+  "signals": { "title": "Example", "metaDescription": "Example description", "canonicalUrl": "https://example.com/", "headings": [{ "level": "h1", "text": "Example" }], "emails": [], "phones": [], "ctas": [], "links": [], "socialLinks": [], "technologySignals": { "generator": "", "scripts": [] } },
+  "accessibility": { "violationCount": 0, "seriousViolationCount": 0, "violations": [] },
+  "screenshots": { "desktop": "screenshots/latest/desktop.png", "mobile": "screenshots/latest/mobile.png" },
+  "leadQuality": { "score": 100, "issues": [], "summary": "No obvious deterministic lead-quality issues detected." },
+  "errors": []
+}

@@ -1,0 +1,16 @@
+const fs = require('fs')
+const { spawnSync } = require('child_process')
+
+const out = 'reports/smoke-local.json'
+const screenshots = 'screenshots/smoke-local'
+const result = spawnSync(process.execPath, ['cli/audit-url.js', 'http://127.0.0.1:5173', '--out', out, '--screenshots', screenshots], { cwd: `${__dirname}/..`, encoding: 'utf8' })
+if (result.status !== 0) { console.error(result.stdout); console.error(result.stderr); process.exit(result.status) }
+const report = JSON.parse(fs.readFileSync(`${__dirname}/../${out}`, 'utf8'))
+assert(report.status === 'passed', 'report should pass')
+assert(report.signals.title === 'Webconsult', 'title should be extracted')
+assert(report.signals.headings.some((heading) => heading.level === 'h1'), 'h1 should be extracted')
+assert(fs.existsSync(report.screenshots.desktop), 'desktop screenshot should exist')
+assert(fs.existsSync(report.screenshots.mobile), 'mobile screenshot should exist')
+assert(typeof report.accessibility.violationCount === 'number', 'accessibility count should be numeric')
+assert(typeof report.leadQuality.score === 'number', 'lead score should be numeric')
+function assert(condition, message) { if (!condition) throw new Error(message) }
