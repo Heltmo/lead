@@ -78,17 +78,15 @@ xdg-open ~/webconsult/core/orchestrator/runs/<run-id>/review-workspace/index.htm
 
 If GUI opening is unavailable, paste the full path into a browser.
 
-Review:
+Review each lead card in this order:
 
-- score
-- URL and title
-- technologies
-- issue categories
-- top issues
-- screenshots
-- HTML report
-- contact data
-- suggested angle in the CRM export
+- business opportunity summary
+- suggested angle
+- score and urgency label
+- top 3 issues
+- contactability signals
+- review metadata: status, priority, next action, owner, tags
+- technical evidence only when needed: issue categories, technologies, HTML report, JSON, screenshots
 
 ## 5. Shortlist Leads
 

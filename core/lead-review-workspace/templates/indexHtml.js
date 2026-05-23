@@ -10,6 +10,10 @@ function renderIndexHtml(model) {
     technologies: item.technologies,
     issueCategories: item.issueCategories,
     issues: item.issues,
+    emails: item.emails || [],
+    phones: item.phones || [],
+    performance: item.performance || {},
+    suggestedAngle: item.suggestedAngle || 'General website improvement opportunity',
     reviewStatus: model.reviewStatus.items[item.id]?.status || 'unreviewed',
     priority: model.reviewStatus.items[item.id]?.priority || 'unset',
     nextAction: model.reviewStatus.items[item.id]?.nextAction || 'unset',
@@ -37,11 +41,25 @@ label { display: grid; gap: 6px; color: #a1a1aa; font-size: 13px; }
 select, input { background: #111113; color: #f4f4f5; border: 1px solid #3f3f46; border-radius: 6px; padding: 9px; }
 .summary { display: flex; flex-wrap: wrap; gap: 12px; color: #d4d4d8; }
 .lead { border: 1px solid #27272a; background: #111113; border-radius: 8px; padding: 18px; margin: 14px 0; }
-.lead h2 { margin: 0 0 10px; font-size: 18px; }
+.lead.opportunity-high { border-color: #f59e0b; box-shadow: inset 3px 0 0 #f59e0b; }
+.lead.opportunity-medium { border-color: #52525b; box-shadow: inset 3px 0 0 #71717a; }
+.lead-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.lead h2 { margin: 0 0 8px; font-size: 18px; line-height: 1.3; }
+.lead-url { margin: 0; color: #a1a1aa; word-break: break-all; }
+.score-badge { min-width: 88px; text-align: center; border: 1px solid #52525b; border-radius: 8px; padding: 8px; background: #18181b; }
+.score-badge strong { display: block; font-size: 24px; color: #facc15; }
+.triage-grid { display: grid; grid-template-columns: minmax(260px, 1.15fr) minmax(260px, 1fr) minmax(220px, .8fr); gap: 14px; margin-top: 16px; }
+.panel { border: 1px solid #27272a; border-radius: 8px; padding: 14px; background: #0c0c0f; }
+.panel-title { margin: 0 0 10px; color: #a1a1aa; font-size: 12px; text-transform: uppercase; letter-spacing: 0; }
+.angle { margin: 0 0 10px; font-size: 16px; font-weight: 700; color: #f4f4f5; }
 .meta, .links, .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .chip { border: 1px solid #3f3f46; border-radius: 999px; padding: 4px 8px; color: #d4d4d8; font-size: 12px; }
+.chip.urgent { border-color: #f59e0b; color: #fde68a; }
+.issue-list { margin: 8px 0 0; padding-left: 18px; }
+.issue-list li { margin: 6px 0; }
 .score { font-weight: 700; color: #facc15; }
 .note { color: #a1a1aa; }
+@media (max-width: 900px) { .triage-grid { grid-template-columns: 1fr; } .lead-header { display: block; } .score-badge { margin-top: 12px; } }
 </style>
 </head>
 <body>
@@ -114,18 +132,45 @@ function render() {
 }
 function renderCard(item) {
   const el = document.createElement('article');
-  el.className = 'lead';
-  el.innerHTML = '<h2>' + escapeHtml(item.rank + '. ' + (item.name || item.url)) + '</h2>' +
-    '<div class="meta"><span class="score">Score ' + item.leadScore + '</span><span>' + escapeHtml(item.reviewStatus) + '</span><span>Priority ' + escapeHtml(item.priority) + '</span><span>Next ' + escapeHtml(item.nextAction) + '</span><span>' + escapeHtml(item.status) + '</span></div>' +
-    '<p><a href="' + escapeAttr(item.url) + '">' + escapeHtml(item.url) + '</a></p>' +
-    '<p>' + escapeHtml(item.title || '') + '</p>' +
-    '<div class="chips">' + item.technologies.map((value) => '<span class="chip">' + escapeHtml(value) + '</span>').join('') + item.tags.map((value) => '<span class="chip">tag:' + escapeHtml(value) + '</span>').join('') + Object.keys(item.issueCategories).map((value) => '<span class="chip">' + escapeHtml(value + ':' + item.issueCategories[value]) + '</span>').join('') + '</div>' +
-    '<ul>' + (item.issues.length ? item.issues.slice(0, 6) : ['No issues recorded']).map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +
-    '<div class="links">' + link('HTML report', item.links.htmlReport) + link('JSON', item.links.jsonArtifact) + link('Desktop', item.links.desktopScreenshot) + link('Mobile', item.links.mobileScreenshot) + '</div>' +
-    (item.owner ? '<p class="note">Owner: ' + escapeHtml(item.owner) + '</p>' : '') +
-    (item.lastReviewedAt ? '<p class="note">Last reviewed: ' + escapeHtml(item.lastReviewedAt) + '</p>' : '') +
-    (item.notes ? '<p class="note">Notes: ' + escapeHtml(item.notes) + '</p>' : '');
+  el.className = 'lead ' + opportunityClass(item);
+  const topIssues = item.issues.length ? item.issues.slice(0, 3) : ['No issues recorded'];
+  el.innerHTML = '<div class="lead-header">' +
+    '<div><h2>' + escapeHtml(item.rank + '. ' + (item.name || item.title || item.url)) + '</h2><p class="lead-url"><a href="' + escapeAttr(item.url) + '">' + escapeHtml(item.url) + '</a></p></div>' +
+    '<div class="score-badge"><span>Lead score</span><strong>' + item.leadScore + '</strong><small>' + escapeHtml(scoreLabel(item)) + '</small></div>' +
+    '</div>' +
+    '<div class="triage-grid">' +
+      '<section class="panel"><p class="panel-title">Business opportunity</p><p class="angle">' + escapeHtml(item.suggestedAngle) + '</p>' +
+        '<div class="chips"><span class="chip urgent">Review: ' + escapeHtml(item.reviewStatus) + '</span><span class="chip">Priority: ' + escapeHtml(item.priority) + '</span><span class="chip">Next: ' + escapeHtml(item.nextAction) + '</span></div>' +
+        '<p class="note">' + escapeHtml(contactability(item)) + '</p></section>' +
+      '<section class="panel"><p class="panel-title">Top evidence</p><ul class="issue-list">' + topIssues.map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +
+        '<div class="chips">' + Object.keys(item.issueCategories).map((value) => '<span class="chip">' + escapeHtml(value + ':' + item.issueCategories[value]) + '</span>').join('') + '</div></section>' +
+      '<section class="panel"><p class="panel-title">Review metadata</p>' +
+        '<p>Audit status: <strong>' + escapeHtml(item.status || 'unknown') + '</strong></p>' +
+        (item.owner ? '<p>Owner: <strong>' + escapeHtml(item.owner) + '</strong></p>' : '<p>Owner: unassigned</p>') +
+        (item.lastReviewedAt ? '<p>Last reviewed: ' + escapeHtml(item.lastReviewedAt) + '</p>' : '') +
+        (item.notes ? '<p class="note">Notes: ' + escapeHtml(item.notes) + '</p>' : '') +
+        '<div class="chips">' + item.tags.map((value) => '<span class="chip">tag:' + escapeHtml(value) + '</span>').join('') + '</div></section>' +
+    '</div>' +
+    '<div class="chips"><span class="chip">Tech: ' + escapeHtml(item.technologies.length ? item.technologies.join(', ') : 'unknown') + '</span><span class="chip">Email: ' + escapeHtml(item.emails.length ? 'found' : 'missing') + '</span><span class="chip">Phone: ' + escapeHtml(item.phones.length ? 'found' : 'missing') + '</span></div>' +
+    '<div class="links">' + link('HTML report', item.links.htmlReport) + link('JSON', item.links.jsonArtifact) + link('Desktop screenshot', item.links.desktopScreenshot) + link('Mobile screenshot', item.links.mobileScreenshot) + '</div>';
   return el;
+}
+function opportunityClass(item) {
+  const issueTotal = Object.values(item.issueCategories || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  if (item.leadScore <= 20 || issueTotal >= 6) return 'opportunity-high';
+  if (item.leadScore <= 50 || issueTotal >= 3) return 'opportunity-medium';
+  return '';
+}
+function scoreLabel(item) {
+  if (item.leadScore <= 20) return 'High opportunity';
+  if (item.leadScore <= 50) return 'Review closely';
+  return 'Lower urgency';
+}
+function contactability(item) {
+  const parts = [];
+  parts.push(item.emails.length ? 'email found' : 'email missing');
+  parts.push(item.phones.length ? 'phone found' : 'phone missing');
+  return 'Contactability: ' + parts.join(', ');
 }
 function matchesScore(value, range) {
   if (range === 'all') return true;
