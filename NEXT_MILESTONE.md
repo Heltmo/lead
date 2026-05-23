@@ -1,60 +1,64 @@
 # Next Milestone
 
-The system now has a deterministic discovery front door with multi-source ingestion, metadata-preserving handoff, and a general Norwegian/English industry taxonomy. The next phase is operational validation across one or two real industries, not new architecture by default.
+The system now has taxonomy-backed deterministic discovery plus a live search provider abstraction. The next phase is operational validation of provider-backed discovery, not new architecture by default.
 
-## Priority 1: Run A 10-Lead Discovery-To-Export Workflow
+## Priority 1: Run A Live Provider 10-Lead Workflow
 
-Run the existing discovery-to-export workflow on about 10 realistic leads and judge whether the CRM output is useful for manual outreach.
+Run the existing discovery-to-export workflow from a real query using the configured Brave provider.
 
-Targets:
+Target example:
 
-- pick one taxonomy-supported query, such as `dentists in Halden`, `advokater i Oslo`, `rørlegger Moss`, or `frisør Halden`
-- collect multiple deterministic source files for that query
-- include at least two source types, for example CSV plus TXT or JSON plus saved HTML
-- run `core/lead-discovery-agent` and inspect `canonicalIndustry` plus `expandedQueries` in `discovery-summary.json`
-- hand off discovered candidates to the orchestrator
-- audit the discovered candidates
+```text
+tannleger i Halden
+or
+advokater i Oslo
+```
+
+Procedure:
+
+- run `--provider brave --dry-run true` first and inspect `provider.queries` in the summary
+- set `BRAVE_SEARCH_API_KEY` only in the shell environment
+- run `--provider brave --max-results 10`
+- inspect discovered business names, websites, source provenance, and reachability
+- hand off provider candidates to the orchestrator
+- audit candidates
 - open the review workspace
-- shortlist/export leads
-- inspect whether the CRM export has enough context for manual outreach
+- shortlist/export 3 to 5 leads
+- inspect whether CRM export fields and suggestedAngleDetail are good enough for manual outreach
 
-Reason: the MVP is only useful if the reviewed CRM export supports real manual sales work without excessive cleanup.
+Reason: the MVP becomes more useful only if provider-backed discovery produces businesses worth contacting, not merely more URLs.
 
-## Priority 2: Fix Only Discovery Workflow Blockers
+## Priority 2: Fix Only Provider Workflow Blockers
 
-Only fix issues that block deterministic discovery and handoff.
+Only fix issues that block live/semi-live discovery and handoff.
 
 Examples:
 
-- taxonomy terms missing for a real source/query
-- poor field mapping from real CSV/source files
-- saved HTML source parsing too narrow for manually saved public directory pages
-- bad URL normalization
-- duplicate domains not collapsing correctly
-- source provenance not clear enough for review
-- discovered business names not available in real source files
-- reachability checks too slow or too strict
-- handoff file not accepted by orchestrator
+- provider result titles are too noisy for businessName
+- wrong pages/domains are returned for a local business query
+- query expansion is too broad or too narrow
+- max result/query limits need adjustment
+- source provenance is unclear in review/export
+- reachability checks reject good provider results too aggressively
+- orchestrator handoff does not carry enough provider metadata
 
-Do not add live search APIs, scraping, dashboards, AI outreach, or databases yet.
+Do not add dashboards, databases, AI outreach, historical comparison, Lighthouse, parallel workers, or multi-agent orchestration yet.
 
 ## Paused Work
 
 Do not prioritize these yet:
 
 - live Google scraping
-- paid search APIs
-- historical comparison
+- protected/private source scraping
 - dashboard UI
 - database
 - AI outreach
+- historical comparison
 - Lighthouse
 - parallel workers
 - monitoring
 - multi-agent orchestration
 
-These can come later, after deterministic taxonomy-backed discovery plus the manual lead review workflow proves useful.
-
 ## Operating Principle
 
-The current question is whether Webconsult can go from a query like `advokater i Oslo` or `dentists in Halden` through manually expanded deterministic source files to a usable reviewed lead export.
+The current question is whether Webconsult can go from a natural query such as `tannleger i Halden` through provider-backed discovery to a usable reviewed CRM export.

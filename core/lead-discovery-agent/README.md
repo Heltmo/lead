@@ -5,7 +5,7 @@ Deterministic local business discovery for Webconsult.
 This module is the front door before the existing audit pipeline:
 
 ```text
-search phrase + deterministic source files
+search phrase + deterministic source files or configured live provider
 -> lead-candidates.json
 -> orchestrator URL handoff
 -> website audits
@@ -14,7 +14,7 @@ search phrase + deterministic source files
 -> CRM export
 ```
 
-It does not scrape Google, use paid APIs, or parse protected/private sources. Discovery reads operator-provided source files, normalizes candidates, deduplicates by domain, optionally validates reachability, and writes handoff artifacts for the orchestrator.
+It does not scrape Google or parse protected/private sources. Discovery reads operator-provided source files and can also call a configured search API provider. Both modes normalize candidates, deduplicate by domain, optionally validate reachability, and write handoff artifacts for the orchestrator.
 
 ## Industry Taxonomy And Query Expansion
 
@@ -69,6 +69,48 @@ Outputs:
 - `reports/orchestrator-urls.txt`
 
 The summary includes raw candidate count, invalid candidates, duplicates removed, reachable/unreachable websites, handoff-ready candidates, and candidates grouped by source. The handoff file is newline-delimited JSON so businessName, source, location, industry, confidence, and source provenance survive into the orchestrator.
+
+## Live Search Provider Mode
+
+Discovery also supports a provider abstraction for API-based search. The first live provider is Brave Search. It uses the official Web Search endpoint and requires an API key in an environment variable; no key is stored in this repo.
+
+```bash
+export BRAVE_SEARCH_API_KEY="your-key-here"
+cd ~/webconsult/core/lead-discovery-agent
+npm run discover -- \
+  --query "tannleger i Halden" \
+  --provider brave \
+  --max-results 10 \
+  --out reports/tannleger-halden-live-candidates.json \
+  --summary reports/tannleger-halden-live-summary.json \
+  --handoff reports/tannleger-halden-live-handoff.jsonl
+```
+
+Provider candidates can be merged with deterministic sources in the same run:
+
+```bash
+npm run discover -- \
+  --query "advokater i Oslo" \
+  --provider brave \
+  --source ~/webconsult/data/discovery-sources/advokater-oslo/manual-urls.txt \
+  --max-results 10 \
+  --out reports/advokater-oslo-candidates.json \
+  --summary reports/advokater-oslo-summary.json \
+  --handoff reports/advokater-oslo-handoff.jsonl
+```
+
+Use dry-run mode to inspect deterministic taxonomy expansion and provider queries without making a network call:
+
+```bash
+npm run discover -- \
+  --query "tannleger i Halden" \
+  --provider brave \
+  --dry-run true \
+  --max-results 10 \
+  --summary reports/tannleger-halden-dry-run-summary.json
+```
+
+The summary includes a `provider` block with provider name, dry-run status, max result target, and planned queries. Provider tests use mocked fixtures, so verification does not require live network access or API credentials.
 
 ## Handoff To Orchestrator
 

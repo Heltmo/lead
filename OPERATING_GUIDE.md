@@ -59,9 +59,41 @@ cd ~/webconsult/core/orchestrator
 node cli/run-audit-queue.js --file ../lead-discovery-agent/reports/orchestrator-urls.txt --runs runs --run-id dentists-halden-sample --retries 1
 ```
 
-Discovery remains deterministic and source-file based. Do not use protected/private scraping sources, live Google scraping, or paid APIs until a provider is explicitly added and verified. To add a new industry, extend `core/lead-discovery-agent/taxonomy/industries.json` with English terms, Norwegian terms, and search patterns.
+Discovery remains deterministic when source-file based. Do not use protected/private scraping sources or live Google scraping. To add a new industry, extend `core/lead-discovery-agent/taxonomy/industries.json` with English terms, Norwegian terms, and search patterns.
 
-## 3. Create A Small Real Lead Batch
+## 3. Optional: Run Live Search Provider Discovery
+
+Use this when you want the system to discover candidates from a configured search API instead of manually collected source files. The first supported live provider is `brave`, configured through `BRAVE_SEARCH_API_KEY`.
+
+Dry-run first. This shows the taxonomy-expanded provider queries without calling the API:
+
+```bash
+cd ~/webconsult/core/lead-discovery-agent
+npm run discover -- \
+  --query "tannleger i Halden" \
+  --provider brave \
+  --dry-run true \
+  --max-results 10 \
+  --summary reports/tannleger-halden-live-dry-run-summary.json
+```
+
+Live run with an API key:
+
+```bash
+export BRAVE_SEARCH_API_KEY="your-key-here"
+cd ~/webconsult/core/lead-discovery-agent
+npm run discover -- \
+  --query "tannleger i Halden" \
+  --provider brave \
+  --max-results 10 \
+  --out reports/tannleger-halden-live-candidates.json \
+  --summary reports/tannleger-halden-live-summary.json \
+  --handoff reports/tannleger-halden-live-handoff.jsonl
+```
+
+Provider results can be combined with manual `--source` files in the same command. The discovery agent merges, deduplicates, validates reachability, and writes the same orchestrator handoff format as deterministic source mode.
+
+## 4. Create A Small Real Lead Batch
 
 Start with 5 to 10 leads. Do not process the whole spreadsheet until the review/export workflow has been checked manually.
 
@@ -77,7 +109,7 @@ cd ~/webconsult
 node -e "const fs=require('fs'); const report=JSON.parse(fs.readFileSync('core/website-audit-agent/reports/advokat-operating-dry-run.json','utf8')); fs.mkdirSync('core/orchestrator/runs',{recursive:true}); fs.writeFileSync('core/orchestrator/runs/advokat-first-5-urls.txt', report.results.map((lead)=>lead.url).filter(Boolean).slice(0,5).join('\n') + '\n');"
 ```
 
-## 4. Run The Orchestrator
+## 5. Run The Orchestrator
 
 Use a unique run ID. Example:
 
@@ -107,7 +139,7 @@ review-workspace/crm-shortlisted-leads.csv
 
 Generated run artifacts are ignored by Git.
 
-## 5. Open The Review Workspace
+## 6. Open The Review Workspace
 
 ```bash
 xdg-open ~/webconsult/core/orchestrator/runs/<run-id>/review-workspace/index.html
@@ -126,7 +158,7 @@ Review each lead card in this order. The card title prefers the discovered busin
 - review metadata: status, priority, next action, owner, tags
 - technical evidence only when needed: issue categories, technologies, HTML report, JSON, screenshots
 
-## 6. Shortlist Leads
+## 7. Shortlist Leads
 
 Edit:
 
@@ -154,7 +186,7 @@ Allowed statuses:
 unreviewed, reviewed, shortlisted, rejected
 ```
 
-## 7. Export CRM-Ready Shortlisted Leads
+## 8. Export CRM-Ready Shortlisted Leads
 
 After editing `review-status.json`, run:
 

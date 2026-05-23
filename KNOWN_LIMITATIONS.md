@@ -4,16 +4,17 @@ This file distinguishes operational capabilities from work that is not reliable 
 
 ## Lead Discovery Agent
 
-- discovery uses operator-provided deterministic source files, not live search
+- discovery supports deterministic source files and a first live provider abstraction, but live provider quality depends on the configured API
 - supported source files are JSON, CSV, TXT URL lists, and conservative saved/static HTML link extraction
 - industry taxonomy is an initial finite map and will need more terms as real source data exposes gaps
-- query expansion generates deterministic search phrases but does not execute live search
+- query expansion generates deterministic search phrases and can feed a configured provider, but provider ranking/noise is external
 - static HTML parsing is intentionally simple and may miss complex search-result markup
 - no Google scraping or protected-source scraping
-- no paid search API integration yet
+- Brave Search is the first provider; it requires `BRAVE_SEARCH_API_KEY` and is not used by tests
+- no multi-provider fallback/ranking strategy yet
 - reachability checks are simple HTTP/HTTPS checks and may be affected by timeouts or bot protections
 - deduplication is domain-based and may merge distinct branches on the same domain
-- candidate quality depends on the quality of the source data
+- candidate quality depends on the quality of the source data or provider result quality
 - discovered business names are preserved when source data provides them, but URL-only inputs still depend on audited page titles
 
 ## Website Audit Agent

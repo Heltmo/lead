@@ -1,12 +1,13 @@
 const fs = require('fs')
 const path = require('path')
 const { loadDiscoverySources } = require('./providers/searchProvider')
+const { loadLiveSearchResults } = require('./providers/liveSearchProvider')
 const { createDiscoveryReport } = require('./reports/discoveryReport')
 const { deduplicateCandidates, normalizeLeadCandidate, parseDiscoveryQuery } = require('./normalizers/leadCandidate')
 const { validateWebsiteReachability } = require('./normalizers/websiteReachability')
 
 async function discoverLocalBusinesses(options) {
-  if (!options || (!options.sourceFile && !options.sourceFiles)) throw new Error('sourceFile or sourceFiles is required for deterministic discovery')
+  if (!options || (!options.sourceFile && !options.sourceFiles && !options.provider)) throw new Error('sourceFile, sourceFiles, or provider is required for discovery')
   const parsed = parseDiscoveryQuery(options.query || [options.industry, options.location].filter(Boolean).join(' in '))
   const industry = options.industry ? parseDiscoveryQuery(options.industry).industry : parsed.industry
   const canonicalIndustry = options.canonicalIndustry || parsed.canonicalIndustry || industry
@@ -18,18 +19,48 @@ async function discoverLocalBusinesses(options) {
   const startedAt = new Date().toISOString()
   const sourceFiles = normalizeSourceFiles(options.sourceFiles || options.sourceFile)
   const resolvedSourceFiles = sourceFiles.map((sourceFile) => path.resolve(sourceFile))
-  const rawResults = loadDiscoverySources(resolvedSourceFiles, { industry, canonicalIndustry, industryTerms, location })
+  const sourceResults = resolvedSourceFiles.length ? loadDiscoverySources(resolvedSourceFiles, { industry, canonicalIndustry, industryTerms, location }) : []
+  const providerResult = await loadLiveSearchResults({
+    provider: options.provider,
+    query,
+    industry,
+    canonicalIndustry,
+    location,
+    expandedQueries,
+    maxResults: options.maxResults,
+    maxProviderQueries: options.maxProviderQueries,
+    dryRun: options.dryRun,
+    env: options.env,
+    fetchImpl: options.fetchImpl,
+    mockResults: options.mockResults,
+    mockResultsPath: options.mockResultsPath,
+    braveEndpoint: options.braveEndpoint,
+  })
+  const rawResults = [...sourceResults, ...providerResult.rows]
   const normalized = rawResults
-    .map((row) => normalizeLeadCandidate(row, { industry, canonicalIndustry, location, source: options.sourceName || row.source || 'fixed-sample', sourceFile: row.sourceFile, sourceFormat: row.sourceFormat }))
+    .map((row) => normalizeLeadCandidate(row, { industry, canonicalIndustry, location, source: row.source || options.sourceName || 'fixed-sample', sourceFile: row.sourceFile, sourceFormat: row.sourceFormat }))
     .filter(Boolean)
   const candidates = deduplicateCandidates(normalized)
-  if (options.validate !== false) {
+  if (options.validate !== false && !options.dryRun) {
     for (const candidate of candidates) {
       candidate.reachability = await validateWebsiteReachability(candidate.website, { timeoutMs: options.timeoutMs })
       candidate.websiteReachable = candidate.reachability.reachable
     }
   }
-  const report = createDiscoveryReport({ query, industry, canonicalIndustry, industryTerm, expandedQueries, location, sourceFiles: resolvedSourceFiles, startedAt, rawResults, normalizedCandidates: normalized, candidates })
+  const report = createDiscoveryReport({
+    query,
+    industry,
+    canonicalIndustry,
+    industryTerm,
+    expandedQueries,
+    location,
+    sourceFiles: resolvedSourceFiles,
+    provider: providerResult.plan,
+    startedAt,
+    rawResults,
+    normalizedCandidates: normalized,
+    candidates,
+  })
   return report
 }
 
@@ -68,6 +99,7 @@ function toSummary(report) {
     location: report.location,
     sourceFile: report.sourceFile,
     sourceFiles: report.sourceFiles,
+    provider: report.provider,
     processedAt: report.processedAt,
     totalRawCandidates: report.totalRawCandidates,
     invalidCandidates: report.invalidCandidates,

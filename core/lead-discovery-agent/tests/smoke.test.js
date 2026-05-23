@@ -76,6 +76,42 @@ async function main() {
   assert(lawyerReport.candidates.length === 1, 'taxonomy filtering should match advokatfirma and exclude tannlege')
   assert(lawyerReport.candidates[0].businessName === 'Oslo Advokatfirma', 'taxonomy filtering should keep matching lawyer candidate')
 
+  const mockProviderFixture = path.join(root, 'brave.mock-results.json')
+  fs.writeFileSync(mockProviderFixture, JSON.stringify({
+    web: {
+      results: [
+        { title: 'Provider Halden Tannklinikk - Bestilling', url: 'https://provider-halden.example', description: 'Dental clinic in Halden' },
+        { title: 'Provider Duplicate', url: 'https://provider-halden.example/about', description: 'Duplicate domain' },
+        { title: 'Provider Oslo Tannlege', url: 'https://provider-oslo.example', description: 'Different location in search text' },
+      ],
+    },
+  }, null, 2))
+
+  const providerDryRunReport = await discoverLocalBusinesses({
+    query: 'tannlege Halden',
+    provider: 'brave',
+    dryRun: true,
+    maxResults: 10,
+    validate: false,
+  })
+  assert(providerDryRunReport.provider.provider === 'brave', 'dry-run should keep selected provider')
+  assert(providerDryRunReport.provider.dryRun === true, 'dry-run should be marked in provider plan')
+  assert(providerDryRunReport.provider.queries.includes('tannlege Halden'), 'dry-run should show expanded/provider queries')
+  assert(providerDryRunReport.candidates.length === 0, 'dry-run should not create live candidates')
+
+  const providerReport = await discoverLocalBusinesses({
+    query: 'tannlege Halden',
+    provider: 'mock',
+    mockResultsPath: mockProviderFixture,
+    maxResults: 3,
+    validate: false,
+  })
+  assert(providerReport.provider.provider === 'mock', 'mock provider should be recorded in report')
+  assert(providerReport.totalRawCandidates === 3, 'mock provider should load raw provider results')
+  assert(providerReport.candidates.length === 2, 'mock provider should dedupe duplicate domains')
+  assert(providerReport.candidates[0].sources[0].sourceFormat === 'provider', 'provider provenance should be preserved')
+  assert(providerReport.candidatesBySource['mock:tannlege Halden'] === 2, 'provider source should be counted in summary')
+
   const reportPayload = await discoverLocalBusinesses({ query: 'dentists in Halden', sourceFile: jsonFixture, timeoutMs: 3000 })
   writeDiscoveryOutputs(reportPayload, { outPath: out, summaryPath: summary, handoffPath: handoff })
   server.close()

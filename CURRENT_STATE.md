@@ -72,6 +72,7 @@ search phrase or spreadsheet
 
 - deterministic local business discovery from JSON, CSV, TXT, and saved/static HTML source files
 - Norwegian/English industry taxonomy with canonicalIndustry and expandedQueries
+- live search provider abstraction with Brave Search support, env-var API key configuration, and dry-run query inspection
 - candidate URL normalization, source provenance, deduplication by domain, and reachability checks
 - metadata-preserving orchestrator handoff from discovered candidates
 - deterministic single-site website audits
@@ -115,7 +116,7 @@ Core files:
 - `normalizers/websiteReachability.js`
 - `reports/discoveryReport.js`
 
-The discovery agent accepts industry/location queries such as `dentists in Halden`, `tannlege Halden`, `advokater i Oslo`, and `regnskapsfører Sarpsborg`. It maps English/Norwegian terms through a deterministic taxonomy, emits `canonicalIndustry` and `expandedQueries`, reads one or more deterministic source files, normalizes source provenance, deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and a metadata-preserving orchestrator handoff file. Supported source formats are manual JSON candidates, CSV candidates, TXT URL lists, and saved/static HTML pages with public links.
+The discovery agent accepts industry/location queries such as `dentists in Halden`, `tannlege Halden`, `advokater i Oslo`, and `regnskapsfører Sarpsborg`. It maps English/Norwegian terms through a deterministic taxonomy, emits `canonicalIndustry` and `expandedQueries`, reads one or more deterministic source files, can call a configured live provider such as Brave Search, normalizes source provenance, deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and a metadata-preserving orchestrator handoff file. Supported source formats are manual JSON candidates, CSV candidates, TXT URL lists, saved/static HTML pages with public links, and provider results. Live provider tests use mock fixtures; `--dry-run true` exposes planned provider queries without network calls.
 
 ## Website Audit Agent
 
@@ -187,6 +188,18 @@ Example deterministic discovery run from `~/webconsult/core/lead-discovery-agent
 
 ```bash
 npm run discover -- --query "dentists in Halden" --source tests/fixtures/dentists-halden.sample.json --source tests/fixtures/dentists-halden.directory.csv --source tests/fixtures/dentists-halden.extra-urls.txt --source tests/fixtures/dentists-halden.search-results.html --out reports/lead-candidates.json --summary reports/discovery-summary.json --handoff reports/orchestrator-urls.txt --validate false
+```
+
+Example live provider dry run from `~/webconsult/core/lead-discovery-agent`:
+
+```bash
+npm run discover -- --query "tannleger i Halden" --provider brave --dry-run true --max-results 10 --summary reports/tannleger-halden-live-dry-run-summary.json
+```
+
+Example Brave provider run requires `BRAVE_SEARCH_API_KEY`:
+
+```bash
+BRAVE_SEARCH_API_KEY=<key> npm run discover -- --query "tannleger i Halden" --provider brave --max-results 10 --out reports/tannleger-halden-live-candidates.json --summary reports/tannleger-halden-live-summary.json --handoff reports/tannleger-halden-live-handoff.jsonl
 ```
 
 Example orchestrator run from `~/webconsult`:
