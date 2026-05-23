@@ -17,6 +17,8 @@ Location: `~/webconsult`
 
 Current major commits:
 
+- `0dc0f42` Add deterministic audit report surfaces
+- `16df415` Finalize operational memory docs
 - `3307066` Add deterministic audit orchestration harness
 - `c22c613` Add lightweight performance signal scoring
 - `f45bcf7` Add technology detection and issue classification
@@ -28,6 +30,7 @@ Important directories:
 
 - `core/website-audit-agent`: deterministic browser intelligence agent
 - `core/orchestrator`: persistent queue and worker harness
+- `core/lead-review-workspace`: static lead review and selection workspace
 - `prompts/`: reusable execution prompts
 - `templates/`: reusable project and goal templates
 - `verifications/`: reusable quality gates
@@ -58,6 +61,7 @@ spreadsheet
 -> classification
 -> scoring
 -> report generation
+-> lead review workspace
 -> persistent run state
 ```
 
@@ -75,6 +79,9 @@ spreadsheet
 - severity-weighted deterministic lead scoring
 - structured JSON reports
 - downstream Markdown, HTML, and CSV report surfaces
+- static lead review workspace generation
+- separate review-status state for operator decisions
+- shortlisted lead CSV exports
 - persistent orchestration runs
 - resumable queue processing
 - retry handling
@@ -117,7 +124,22 @@ Core files:
 - `state/store.js`
 - `reports/runSummary.js`
 
-The first harness is intentionally sequential and deterministic. It creates persistent run IDs, stores queue state, writes per-item reports, tracks failures, supports retries, can resume interrupted runs by run ID, and emits downstream Markdown, HTML, and CSV report surfaces without mutating raw audit JSON artifacts.
+The first harness is intentionally sequential and deterministic. It creates persistent run IDs, stores queue state, writes per-item reports, tracks failures, supports retries, can resume interrupted runs by run ID, emits downstream Markdown/HTML/CSV report surfaces, and generates a static lead review workspace without mutating raw audit JSON artifacts.
+
+## Lead Review Workspace
+
+Location: `~/webconsult/core/lead-review-workspace`
+
+Core files:
+
+- `cli/generate-review-workspace.js`
+- `generateReviewWorkspace.js`
+- `readers/runArtifacts.js`
+- `exports/selectedLeadsCsv.js`
+- `state/reviewStatus.js`
+- `templates/indexHtml.js`
+
+The workspace reads orchestrator `summary.json` and `report-surfaces/leads.csv`, then writes `review-workspace/index.html`, `review-workspace/review-status.json`, and `review-workspace/selected-leads.csv`. Review state is separate from raw audit artifacts.
 
 ## Verification Commands
 
@@ -127,6 +149,7 @@ Run from anywhere unless otherwise noted:
 ~/webconsult/verifications/verify-frontend.sh ~/webconsult/projects/landing-page-test
 ~/webconsult/verifications/verify-website-audit-agent.sh
 ~/webconsult/verifications/verify-orchestrator.sh
+~/webconsult/verifications/verify-lead-review-workspace.sh
 ```
 
 Example orchestrator run from `~/webconsult`:
@@ -145,6 +168,12 @@ Example deterministic report generation from an existing artifact:
 
 ```bash
 npm run reports -- reports/batch-smoke.json --out reports/surfaces
+```
+
+Example static review workspace generation from an orchestrator run:
+
+```bash
+node core/lead-review-workspace/cli/generate-review-workspace.js core/orchestrator/runs/<run-id>/summary.json
 ```
 
 ## Architecture Principles

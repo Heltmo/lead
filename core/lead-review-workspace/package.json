@@ -1,0 +1,12 @@
+{
+  "name": "lead-review-workspace",
+  "version": "1.0.0",
+  "description": "Static lead review workspace for Webconsult audit runs",
+  "main": "generateReviewWorkspace.js",
+  "scripts": {
+    "generate": "node cli/generate-review-workspace.js",
+    "test": "node tests/smoke.test.js"
+  },
+  "license": "ISC",
+  "type": "commonjs"
+}

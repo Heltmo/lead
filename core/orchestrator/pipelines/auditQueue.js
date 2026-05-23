@@ -4,6 +4,7 @@ const { buildRunSummary } = require('../reports/runSummary')
 const { ensureDir, exists, readJson, writeJson } = require('../state/store')
 const { runWebsiteAuditTask } = require('../workers/websiteAuditWorker')
 const { generateReportSurfaces } = require('../../website-audit-agent/reports/reportSurfaces')
+const { generateReviewWorkspace } = require('../../lead-review-workspace/generateReviewWorkspace')
 
 function createRun({ runId, urls, rootDir, maxRetries = 1 }) {
   const now = new Date().toISOString()
@@ -59,7 +60,8 @@ async function runAuditQueue(options) {
   persist(run, statePath, runDir)
   const summaryPath = path.join(runDir, 'summary.json')
   const reportSurfaces = generateReportSurfaces(summaryPath, { outDir: path.join(runDir, 'report-surfaces'), title: 'Website Audit Run Report' })
-  return { run, summary: buildRunSummary(run), statePath, summaryPath, reportSurfaces }
+  const reviewWorkspace = generateReviewWorkspace({ summaryPath, leadsCsvPath: reportSurfaces.csvPath, outDir: path.join(runDir, 'review-workspace') })
+  return { run, summary: buildRunSummary(run), statePath, summaryPath, reportSurfaces, reviewWorkspace }
 }
 
 function persist(run, statePath, runDir) {

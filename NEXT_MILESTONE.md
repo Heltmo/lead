@@ -1,6 +1,6 @@
 # Next Milestone
 
-The report-surface layer now exists. The next phase should improve continuity, comparison, and operational use of generated intelligence without jumping straight to agent swarms or heavy AI reasoning.
+The platform now has deterministic audit intelligence, report surfaces, and a static lead review workspace. The next phase should improve continuity and practical lead operations without introducing heavy infrastructure too early.
 
 ## Priority 1: Historical Comparisons
 
@@ -19,7 +19,21 @@ Targets:
 
 Reason: change over time creates stronger lead timing signals than one-off snapshots.
 
-## Priority 2: Richer Deterministic SEO Signals
+## Priority 2: Review Workflow Hardening
+
+Improve the static review workspace while keeping it file-based.
+
+Targets:
+
+- preserve review-status.json cleanly across regenerations
+- add selected/rejected/reviewed counts to generated metadata
+- improve shortlisted CSV columns for CRM import
+- add clearer operator instructions in the generated workspace
+- support optional seeded review-status input
+
+Reason: review operations are now the bridge between raw intelligence and sales action.
+
+## Priority 3: Richer Deterministic SEO Signals
 
 Expand SEO extraction without introducing Lighthouse or AI summaries yet.
 
@@ -37,13 +51,13 @@ Targets:
 
 Reason: these are fast, deterministic, explainable, and commercially useful.
 
-## Priority 3: CRM And Export Integration
+## Priority 4: CRM And Export Integration
 
 Add exports that match practical lead workflows.
 
 Targets:
 
-- enriched CSV export from report surfaces
+- enriched CSV export from shortlisted leads
 - normalized lead schema
 - source spreadsheet row mapping
 - stable lead IDs
@@ -51,7 +65,7 @@ Targets:
 
 Reason: Webconsult ultimately needs lead-processing output, not only audit artifacts.
 
-## Priority 4: Multi-Run Analytics
+## Priority 5: Multi-Run Analytics
 
 Aggregate audit results across runs.
 
@@ -67,45 +81,17 @@ Targets:
 
 Reason: this turns many audits into operational intelligence.
 
-## Priority 5: Parallel Execution
-
-Only add concurrency after sequential orchestration remains stable.
-
-Targets:
-
-- configurable worker count
-- per-domain throttling
-- retry backoff
-- timeout controls
-- safe interruption/resume behavior
-
-Reason: parallelism is useful, but reliability and recoverability matter more.
-
-## Priority 6: Dashboard
-
-A dashboard should come after reports, history, and exports exist.
-
-Targets:
-
-- run list
-- run status
-- top leads
-- issue category filters
-- screenshots
-- per-site detail pages
-
-Reason: dashboards are valuable once the underlying data model is stable.
-
 ## Later Layers
 
+- parallel worker execution
+- dashboard UI
 - outreach intelligence
 - LLM-assisted summaries
 - proposal generation
 - autonomous outreach drafts
-- deeper orchestration routing
 - distributed execution
 
-These should remain later-stage work. The current advantage is deterministic browser-observed intelligence.
+These should remain later-stage work. The current advantage is deterministic browser-observed intelligence with file-based operational surfaces.
 
 ## Operating Principles
 

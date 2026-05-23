@@ -16,7 +16,7 @@ This file distinguishes operational capabilities from work that is not reliable 
 - technology detection can miss server-side platforms that leave few client-side traces
 - CSV parser is intentionally simple and may not cover every quoted CSV edge case
 - batch audits are sequential by design
-- Markdown, HTML, and CSV report surfaces exist, but they are still first-pass operational views
+- Markdown, HTML, CSV report surfaces, and static review workspace exist, but they are still first-pass operational views
 
 ## Lead Intelligence
 
@@ -25,7 +25,7 @@ This file distinguishes operational capabilities from work that is not reliable 
 - no historical comparison layer yet
 - no recurring monitoring yet
 - no CRM integration yet
-- no CRM-native export package yet beyond deterministic CSV report surfaces
+- no CRM-native export package yet beyond deterministic CSV report surfaces and shortlisted lead exports
 - no third-party enrichment APIs
 - no business-category classification beyond extracted spreadsheet/source data
 - no outreach automation
@@ -39,6 +39,7 @@ This file distinguishes operational capabilities from work that is not reliable 
 - no external database; state is file-based JSON
 - no web dashboard
 - no queue UI
+- review workspace is static and does not write review-status.json from the browser
 - no scheduling layer
 - no cross-machine locking
 - retry handling is basic
