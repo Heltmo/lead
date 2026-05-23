@@ -1,0 +1,13 @@
+{
+  "name": "lead-discovery-agent",
+  "version": "1.0.0",
+  "description": "Deterministic local business lead discovery for Webconsult",
+  "main": "discoverLocalBusinesses.js",
+  "scripts": {
+    "discover": "node cli/discover-local-businesses.js",
+    "handoff": "node cli/handoff-candidates.js",
+    "test": "node tests/smoke.test.js"
+  },
+  "license": "ISC",
+  "type": "commonjs"
+}

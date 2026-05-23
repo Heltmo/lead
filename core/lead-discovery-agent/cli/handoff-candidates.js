@@ -1,0 +1,30 @@
+#!/usr/bin/env node
+const fs = require('fs')
+const path = require('path')
+
+function main() {
+  const args = parseArgs(process.argv.slice(2))
+  const input = args.input || args._[0]
+  if (!input) throw new Error('Usage: node cli/handoff-candidates.js <lead-candidates.json> [--out reports/orchestrator-urls.txt] [--include-unreachable true]')
+  const report = JSON.parse(fs.readFileSync(input, 'utf8'))
+  const includeUnreachable = args['include-unreachable'] === 'true'
+  const urls = report.candidates
+    .filter((candidate) => includeUnreachable || candidate.websiteReachable !== false)
+    .map((candidate) => candidate.website)
+    .filter(Boolean)
+  const outPath = path.resolve(args.out || 'reports/orchestrator-urls.txt')
+  fs.mkdirSync(path.dirname(outPath), { recursive: true })
+  fs.writeFileSync(outPath, `${urls.join('\n')}\n`)
+  console.log(JSON.stringify({ handoffPath: outPath, totalUrls: urls.length }, null, 2))
+}
+
+function parseArgs(args) {
+  const parsed = { _: [] }
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i]
+    if (arg.startsWith('--')) { parsed[arg.slice(2)] = args[i + 1] ?? true; i += 1 } else { parsed._.push(arg) }
+  }
+  return parsed
+}
+
+try { main() } catch (error) { console.error(error); process.exit(1) }

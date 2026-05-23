@@ -1,0 +1,20 @@
+{
+  "results": [
+    {
+      "businessName": "Example Halden Tannklinikk",
+      "website": "https://example-tannklinikk.no",
+      "source": "sample-directory",
+      "location": "Halden",
+      "industry": "dentists",
+      "confidence": "high"
+    },
+    {
+      "businessName": "Example Halden Dental",
+      "website": "https://example-halden-dental.no",
+      "source": "sample-directory",
+      "location": "Halden",
+      "industry": "dentists",
+      "confidence": "medium"
+    }
+  ]
+}

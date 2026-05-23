@@ -5,8 +5,8 @@ This guide documents the minimum real-lead workflow. The goal is to produce usab
 ## Current MVP Workflow
 
 ```text
-Advokat-Leads.xlsx
--> extract first batch URLs
+search query or Advokat-Leads.xlsx
+-> discover candidates or extract first batch URLs
 -> orchestrator audit run
 -> report surfaces
 -> review workspace
@@ -24,7 +24,25 @@ Run from anywhere:
 ~/webconsult/verifications/verify-website-audit-agent.sh
 ```
 
-## 2. Create A Small Real Lead Batch
+## 2. Optional: Discover Local Business Candidates
+
+Use this when starting from a query and a deterministic source file instead of an existing spreadsheet.
+
+```bash
+cd ~/webconsult/core/lead-discovery-agent
+npm run discover -- --query "dentists in Halden" --source tests/fixtures/dentists-halden.sample.json --out reports/lead-candidates.json --summary reports/discovery-summary.json --handoff reports/orchestrator-urls.txt --validate false
+```
+
+Then audit discovered URLs:
+
+```bash
+cd ~/webconsult/core/orchestrator
+node cli/run-audit-queue.js --file ../lead-discovery-agent/reports/orchestrator-urls.txt --runs runs --run-id dentists-halden-sample --retries 1
+```
+
+Discovery v1 is deterministic and source-file based. Do not use protected/private scraping sources.
+
+## 3. Create A Small Real Lead Batch
 
 Start with 5 to 10 leads. Do not process the whole spreadsheet until the review/export workflow has been checked manually.
 
@@ -40,7 +58,7 @@ cd ~/webconsult
 node -e "const fs=require('fs'); const report=JSON.parse(fs.readFileSync('core/website-audit-agent/reports/advokat-operating-dry-run.json','utf8')); fs.mkdirSync('core/orchestrator/runs',{recursive:true}); fs.writeFileSync('core/orchestrator/runs/advokat-first-5-urls.txt', report.results.map((lead)=>lead.url).filter(Boolean).slice(0,5).join('\n') + '\n');"
 ```
 
-## 3. Run The Orchestrator
+## 4. Run The Orchestrator
 
 Use a unique run ID. Example:
 
@@ -70,7 +88,7 @@ review-workspace/crm-shortlisted-leads.csv
 
 Generated run artifacts are ignored by Git.
 
-## 4. Open The Review Workspace
+## 5. Open The Review Workspace
 
 ```bash
 xdg-open ~/webconsult/core/orchestrator/runs/<run-id>/review-workspace/index.html
@@ -88,7 +106,7 @@ Review each lead card in this order:
 - review metadata: status, priority, next action, owner, tags
 - technical evidence only when needed: issue categories, technologies, HTML report, JSON, screenshots
 
-## 5. Shortlist Leads
+## 6. Shortlist Leads
 
 Edit:
 
@@ -116,7 +134,7 @@ Allowed statuses:
 unreviewed, reviewed, shortlisted, rejected
 ```
 
-## 6. Export CRM-Ready Shortlisted Leads
+## 7. Export CRM-Ready Shortlisted Leads
 
 After editing `review-status.json`, run:
 

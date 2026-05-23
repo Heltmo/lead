@@ -2,6 +2,15 @@
 
 This file distinguishes operational capabilities from work that is not reliable yet.
 
+## Lead Discovery Agent
+
+- discovery v1 uses fixed source JSON data, not live search
+- no Google scraping or protected-source scraping
+- no paid search API integration yet
+- reachability checks are simple HTTP/HTTPS checks and may be affected by timeouts or bot protections
+- deduplication is domain-based and may merge distinct branches on the same domain
+- candidate quality depends on the quality of the source data
+
 ## Website Audit Agent
 
 - no crawling beyond the submitted URL

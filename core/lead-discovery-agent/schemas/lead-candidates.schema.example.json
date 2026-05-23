@@ -1,0 +1,28 @@
+{
+  "query": "dentists in Halden",
+  "industry": "dentists",
+  "location": "Halden",
+  "sourceFile": "sample-discovery.json",
+  "startedAt": "2026-05-23T00:00:00.000Z",
+  "processedAt": "2026-05-23T00:00:00.000Z",
+  "totalCandidates": 1,
+  "reachableCandidates": 1,
+  "unreachableCandidates": 0,
+  "candidates": [
+    {
+      "businessName": "Example Tannklinikk",
+      "website": "https://example.no",
+      "source": "fixed-sample",
+      "location": "Halden",
+      "industry": "dentists",
+      "confidence": "high",
+      "normalizedDomain": "example.no",
+      "websiteReachable": true,
+      "reachability": {
+        "reachable": true,
+        "statusCode": 200,
+        "error": ""
+      }
+    }
+  ]
+}

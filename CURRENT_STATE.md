@@ -29,6 +29,7 @@ Current major commits:
 Important directories:
 
 - `OPERATING_GUIDE.md`: real-lead operating workflow and commands
+- `core/lead-discovery-agent`: deterministic local business discovery and URL handoff
 - `core/website-audit-agent`: deterministic browser intelligence agent
 - `core/orchestrator`: persistent queue and worker harness
 - `core/lead-review-workspace`: static lead review and selection workspace
@@ -53,7 +54,8 @@ The project is a modular React/Vite/Tailwind landing page used to prove autonomo
 ## System Flow
 
 ```text
-spreadsheet
+search phrase or spreadsheet
+-> lead discovery or URL extraction
 -> queue
 -> orchestrator
 -> worker
@@ -68,6 +70,9 @@ spreadsheet
 
 ## Verified Capabilities
 
+- deterministic local business discovery from fixed source data
+- candidate URL normalization, deduplication, and reachability checks
+- orchestrator URL handoff from discovered candidates
 - deterministic single-site website audits
 - CSV/XLSX spreadsheet ingestion
 - browser execution with Playwright
@@ -91,6 +96,22 @@ spreadsheet
 - failure logging
 - run summaries
 - Git-tracked capability evolution
+
+## Lead Discovery Agent
+
+Location: `~/webconsult/core/lead-discovery-agent`
+
+Core files:
+
+- `cli/discover-local-businesses.js`
+- `cli/handoff-candidates.js`
+- `discoverLocalBusinesses.js`
+- `providers/searchProvider.js`
+- `normalizers/leadCandidate.js`
+- `normalizers/websiteReachability.js`
+- `reports/discoveryReport.js`
+
+The discovery agent accepts an industry/location query such as `dentists in Halden`, reads deterministic fixed source data, normalizes and deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and an orchestrator URL handoff file.
 
 ## Website Audit Agent
 
@@ -151,10 +172,17 @@ The workspace reads orchestrator `summary.json` and `report-surfaces/leads.csv`,
 Run from anywhere unless otherwise noted:
 
 ```bash
+~/webconsult/verifications/verify-lead-discovery-agent.sh
 ~/webconsult/verifications/verify-frontend.sh ~/webconsult/projects/landing-page-test
 ~/webconsult/verifications/verify-website-audit-agent.sh
 ~/webconsult/verifications/verify-orchestrator.sh
 ~/webconsult/verifications/verify-lead-review-workspace.sh
+```
+
+Example deterministic discovery run from `~/webconsult/core/lead-discovery-agent`:
+
+```bash
+npm run discover -- --query "dentists in Halden" --source tests/fixtures/dentists-halden.sample.json --out reports/lead-candidates.json --summary reports/discovery-summary.json --handoff reports/orchestrator-urls.txt --validate false
 ```
 
 Example orchestrator run from `~/webconsult`:
