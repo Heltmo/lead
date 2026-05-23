@@ -15,7 +15,7 @@ function generateReviewWorkspace(options) {
   const items = artifacts.items.map((item) => ({ ...item, relativeLinks: relativizeLinks(item.links, outDir) }))
   const statusPath = path.join(outDir, 'review-status.json')
   const reviewStatus = loadOrCreateReviewStatus(statusPath, items)
-  const model = { runId: artifacts.summary.runId, items, reviewStatus, filters: buildFilterConfig(items) }
+  const model = { runId: artifacts.summary.runId, items, reviewStatus, filters: buildFilterConfig(items, reviewStatus) }
   const indexPath = path.join(outDir, 'index.html')
   const selectedLeadsPath = path.join(outDir, 'selected-leads.csv')
   const crmShortlistedPath = path.join(outDir, 'crm-shortlisted-leads.csv')

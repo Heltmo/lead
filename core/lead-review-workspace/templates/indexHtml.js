@@ -11,6 +11,11 @@ function renderIndexHtml(model) {
     issueCategories: item.issueCategories,
     issues: item.issues,
     reviewStatus: model.reviewStatus.items[item.id]?.status || 'unreviewed',
+    priority: model.reviewStatus.items[item.id]?.priority || 'unset',
+    nextAction: model.reviewStatus.items[item.id]?.nextAction || 'unset',
+    owner: model.reviewStatus.items[item.id]?.owner || '',
+    lastReviewedAt: model.reviewStatus.items[item.id]?.lastReviewedAt || '',
+    tags: model.reviewStatus.items[item.id]?.tags || [],
     notes: model.reviewStatus.items[item.id]?.notes || '',
     links: item.relativeLinks,
   })))
@@ -49,6 +54,10 @@ select, input { background: #111113; color: #f4f4f5; border: 1px solid #3f3f46; 
 <section class="filters">
 <label>Score range<select id="scoreFilter"></select></label>
 <label>Review status<select id="statusFilter"></select></label>
+<label>Priority<select id="priorityFilter"></select></label>
+<label>Next action<select id="nextActionFilter"></select></label>
+<label>Owner<select id="ownerFilter"></select></label>
+<label>Tag<select id="tagFilter"></select></label>
 <label>Technology<select id="technologyFilter"></select></label>
 <label>Issue category<select id="issueFilter"></select></label>
 <label>Search<input id="searchFilter" type="search" placeholder="URL, title, issue"></label>
@@ -60,7 +69,7 @@ select, input { background: #111113; color: #f4f4f5; border: 1px solid #3f3f46; 
 const items = ${itemsJson};
 const filters = ${JSON.stringify(model.filters)};
 const list = document.getElementById('leadList');
-for (const [id, values] of Object.entries({ scoreFilter: filters.scoreRanges, statusFilter: filters.reviewStatuses, technologyFilter: filters.technologies, issueFilter: filters.issueCategories })) {
+for (const [id, values] of Object.entries({ scoreFilter: filters.scoreRanges, statusFilter: filters.reviewStatuses, priorityFilter: filters.priorities, nextActionFilter: filters.nextActions, ownerFilter: filters.owners, tagFilter: filters.tags, technologyFilter: filters.technologies, issueFilter: filters.issueCategories })) {
   const select = document.getElementById(id);
   for (const value of values) {
     const option = document.createElement('option');
@@ -74,6 +83,10 @@ document.getElementById('searchFilter').addEventListener('input', render);
 function render() {
   const score = document.getElementById('scoreFilter').value;
   const status = document.getElementById('statusFilter').value;
+  const priority = document.getElementById('priorityFilter').value;
+  const nextAction = document.getElementById('nextActionFilter').value;
+  const owner = document.getElementById('ownerFilter').value;
+  const tag = document.getElementById('tagFilter').value;
   const technology = document.getElementById('technologyFilter').value;
   const issue = document.getElementById('issueFilter').value;
   const query = document.getElementById('searchFilter').value.toLowerCase();
@@ -85,9 +98,13 @@ function render() {
     if (item.reviewStatus === 'rejected') rejected += 1;
     if (!matchesScore(item.leadScore, score)) continue;
     if (status !== 'all' && item.reviewStatus !== status) continue;
+    if (priority !== 'all' && item.priority !== priority) continue;
+    if (nextAction !== 'all' && item.nextAction !== nextAction) continue;
+    if (owner !== 'all' && item.owner !== owner) continue;
+    if (tag !== 'all' && !item.tags.includes(tag)) continue;
     if (technology !== 'all' && !item.technologies.includes(technology)) continue;
     if (issue !== 'all' && !Object.keys(item.issueCategories).includes(issue)) continue;
-    const haystack = [item.url, item.title, item.name, item.issues.join(' ')].join(' ').toLowerCase();
+    const haystack = [item.url, item.title, item.name, item.owner, item.nextAction, item.priority, item.notes, item.tags.join(' '), item.issues.join(' ')].join(' ').toLowerCase();
     if (query && !haystack.includes(query)) continue;
     list.appendChild(renderCard(item));
   }
@@ -99,12 +116,14 @@ function renderCard(item) {
   const el = document.createElement('article');
   el.className = 'lead';
   el.innerHTML = '<h2>' + escapeHtml(item.rank + '. ' + (item.name || item.url)) + '</h2>' +
-    '<div class="meta"><span class="score">Score ' + item.leadScore + '</span><span>' + escapeHtml(item.reviewStatus) + '</span><span>' + escapeHtml(item.status) + '</span></div>' +
+    '<div class="meta"><span class="score">Score ' + item.leadScore + '</span><span>' + escapeHtml(item.reviewStatus) + '</span><span>Priority ' + escapeHtml(item.priority) + '</span><span>Next ' + escapeHtml(item.nextAction) + '</span><span>' + escapeHtml(item.status) + '</span></div>' +
     '<p><a href="' + escapeAttr(item.url) + '">' + escapeHtml(item.url) + '</a></p>' +
     '<p>' + escapeHtml(item.title || '') + '</p>' +
-    '<div class="chips">' + item.technologies.map((value) => '<span class="chip">' + escapeHtml(value) + '</span>').join('') + Object.keys(item.issueCategories).map((value) => '<span class="chip">' + escapeHtml(value + ':' + item.issueCategories[value]) + '</span>').join('') + '</div>' +
+    '<div class="chips">' + item.technologies.map((value) => '<span class="chip">' + escapeHtml(value) + '</span>').join('') + item.tags.map((value) => '<span class="chip">tag:' + escapeHtml(value) + '</span>').join('') + Object.keys(item.issueCategories).map((value) => '<span class="chip">' + escapeHtml(value + ':' + item.issueCategories[value]) + '</span>').join('') + '</div>' +
     '<ul>' + (item.issues.length ? item.issues.slice(0, 6) : ['No issues recorded']).map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +
     '<div class="links">' + link('HTML report', item.links.htmlReport) + link('JSON', item.links.jsonArtifact) + link('Desktop', item.links.desktopScreenshot) + link('Mobile', item.links.mobileScreenshot) + '</div>' +
+    (item.owner ? '<p class="note">Owner: ' + escapeHtml(item.owner) + '</p>' : '') +
+    (item.lastReviewedAt ? '<p class="note">Last reviewed: ' + escapeHtml(item.lastReviewedAt) + '</p>' : '') +
     (item.notes ? '<p class="note">Notes: ' + escapeHtml(item.notes) + '</p>' : '');
   return el;
 }

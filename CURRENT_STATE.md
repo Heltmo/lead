@@ -80,7 +80,8 @@ spreadsheet
 - structured JSON reports
 - downstream Markdown, HTML, and CSV report surfaces
 - static lead review workspace generation
-- separate review-status state for operator decisions
+- normalized review-status state for operator decisions
+- richer operator fields: priority, nextAction, owner, lastReviewedAt, tags
 - shortlisted lead CSV exports
 - CRM-ready shortlisted lead exports with deterministic suggested angles
 - persistent orchestration runs
@@ -142,7 +143,7 @@ Core files:
 - `state/reviewStatus.js`
 - `templates/indexHtml.js`
 
-The workspace reads orchestrator `summary.json` and `report-surfaces/leads.csv`, then writes `review-workspace/index.html`, `review-workspace/review-status.json`, `review-workspace/selected-leads.csv`, and `review-workspace/crm-shortlisted-leads.csv`. Review state and CRM exports are separate from raw audit artifacts.
+The workspace reads orchestrator `summary.json` and `report-surfaces/leads.csv`, then writes `review-workspace/index.html`, `review-workspace/review-status.json`, `review-workspace/selected-leads.csv`, and `review-workspace/crm-shortlisted-leads.csv`. Review state is normalized in a dedicated module and remains separate from raw audit artifacts.
 
 ## Verification Commands
 

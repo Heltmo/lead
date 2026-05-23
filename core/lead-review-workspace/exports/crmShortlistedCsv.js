@@ -14,6 +14,11 @@ const CRM_SHORTLISTED_COLUMNS = [
   'mobileScreenshotPath',
   'suggestedAngle',
   'reviewStatus',
+  'priority',
+  'nextAction',
+  'owner',
+  'lastReviewedAt',
+  'tags',
   'notes',
 ]
 
@@ -36,6 +41,11 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
         mobileScreenshotPath: item.links.mobileScreenshot,
         suggestedAngle: suggestAngle(item),
         reviewStatus: review.status || 'unreviewed',
+        priority: review.priority || 'unset',
+        nextAction: review.nextAction || 'unset',
+        owner: review.owner || '',
+        lastReviewedAt: review.lastReviewedAt || '',
+        tags: (review.tags || []).join('|'),
         notes: review.notes || '',
       }
     })
@@ -55,7 +65,7 @@ function suggestAngle(item) {
 }
 
 function formatIssueCategories(categories) {
-  return Object.keys(categories || {}).sort().map((key) => `${key}:${categories[key]}`).join('|')
+  return Object.keys(categories || {}).sort().map((key) => key + ':' + categories[key]).join('|')
 }
 
 module.exports = { CRM_SHORTLISTED_COLUMNS, buildCrmShortlistedCsv, suggestAngle }
