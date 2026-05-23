@@ -74,6 +74,7 @@ spreadsheet
 - lightweight browser-observed performance signals
 - severity-weighted deterministic lead scoring
 - structured JSON reports
+- downstream Markdown, HTML, and CSV report surfaces
 - persistent orchestration runs
 - resumable queue processing
 - retry handling
@@ -98,6 +99,8 @@ Core files:
 - `extractors/pageSignals.js`
 - `extractors/spreadsheet.js`
 - `reports/batchReport.js`
+- `reports/reportSurfaces.js`
+- `cli/generate-reports.js`
 
 The agent has been tested against a real spreadsheet: `/home/xman/Downloads/Advokat-Leads.xlsx`. Real dataset validation found actionable issues including HTTP 404, missing meta description, missing H1, weak CTA/contactability, and runtime/browser failures.
 
@@ -114,7 +117,7 @@ Core files:
 - `state/store.js`
 - `reports/runSummary.js`
 
-The first harness is intentionally sequential and deterministic. It creates persistent run IDs, stores queue state, writes per-item reports, tracks failures, supports retries, and can resume interrupted runs by run ID.
+The first harness is intentionally sequential and deterministic. It creates persistent run IDs, stores queue state, writes per-item reports, tracks failures, supports retries, can resume interrupted runs by run ID, and emits downstream Markdown, HTML, and CSV report surfaces without mutating raw audit JSON artifacts.
 
 ## Verification Commands
 
@@ -136,6 +139,12 @@ Example real spreadsheet dry run from `~/webconsult/core/website-audit-agent`:
 
 ```bash
 npm run audit:batch -- /home/xman/Downloads/Advokat-Leads.xlsx --dry-run true --out reports/advokat-dry-run.json --limit 5
+```
+
+Example deterministic report generation from an existing artifact:
+
+```bash
+npm run reports -- reports/batch-smoke.json --out reports/surfaces
 ```
 
 ## Architecture Principles

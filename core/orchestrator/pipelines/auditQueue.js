@@ -3,6 +3,7 @@ const { createQueue, nextRunnableItem } = require('../queue/urlQueue')
 const { buildRunSummary } = require('../reports/runSummary')
 const { ensureDir, exists, readJson, writeJson } = require('../state/store')
 const { runWebsiteAuditTask } = require('../workers/websiteAuditWorker')
+const { generateReportSurfaces } = require('../../website-audit-agent/reports/reportSurfaces')
 
 function createRun({ runId, urls, rootDir, maxRetries = 1 }) {
   const now = new Date().toISOString()
@@ -56,7 +57,9 @@ async function runAuditQueue(options) {
   run.status = run.queue.some((queueItem) => queueItem.status === 'failed') ? 'completed_with_failures' : 'completed'
   run.updatedAt = new Date().toISOString()
   persist(run, statePath, runDir)
-  return { run, summary: buildRunSummary(run), statePath, summaryPath: path.join(runDir, 'summary.json') }
+  const summaryPath = path.join(runDir, 'summary.json')
+  const reportSurfaces = generateReportSurfaces(summaryPath, { outDir: path.join(runDir, 'report-surfaces'), title: 'Website Audit Run Report' })
+  return { run, summary: buildRunSummary(run), statePath, summaryPath, reportSurfaces }
 }
 
 function persist(run, statePath, runDir) {

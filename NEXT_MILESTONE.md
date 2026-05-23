@@ -1,22 +1,8 @@
 # Next Milestone
 
-The next phase should improve operational usefulness of the intelligence already being generated. Do not jump straight to agent swarms or heavy AI reasoning.
+The report-surface layer now exists. The next phase should improve continuity, comparison, and operational use of generated intelligence without jumping straight to agent swarms or heavy AI reasoning.
 
-## Priority 1: Report Surfaces
-
-Build human-usable and CRM-friendly outputs on top of existing structured JSON.
-
-Targets:
-
-- Markdown lead reports
-- HTML review reports
-- CSV export for ranked leads
-- compact sales-review summaries
-- links to screenshots and per-site JSON reports
-
-Reason: the intelligence exists, but it needs better surfaces for sales review, CRM import, and human decision-making.
-
-## Priority 2: Historical Comparisons
+## Priority 1: Historical Comparisons
 
 Add lightweight run-to-run comparison before building full monitoring.
 
@@ -29,10 +15,11 @@ Targets:
 - new/resolved/persisting issues
 - last seen HTTP status
 - last audit timestamp
+- stable site identity for comparison
 
 Reason: change over time creates stronger lead timing signals than one-off snapshots.
 
-## Priority 3: Richer Deterministic SEO Signals
+## Priority 2: Richer Deterministic SEO Signals
 
 Expand SEO extraction without introducing Lighthouse or AI summaries yet.
 
@@ -50,13 +37,13 @@ Targets:
 
 Reason: these are fast, deterministic, explainable, and commercially useful.
 
-## Priority 4: CRM And Export Integration
+## Priority 3: CRM And Export Integration
 
 Add exports that match practical lead workflows.
 
 Targets:
 
-- enriched CSV export
+- enriched CSV export from report surfaces
 - normalized lead schema
 - source spreadsheet row mapping
 - stable lead IDs
@@ -64,7 +51,7 @@ Targets:
 
 Reason: Webconsult ultimately needs lead-processing output, not only audit artifacts.
 
-## Priority 5: Multi-Run Analytics
+## Priority 4: Multi-Run Analytics
 
 Aggregate audit results across runs.
 
@@ -80,7 +67,7 @@ Targets:
 
 Reason: this turns many audits into operational intelligence.
 
-## Priority 6: Parallel Execution
+## Priority 5: Parallel Execution
 
 Only add concurrency after sequential orchestration remains stable.
 
@@ -94,7 +81,7 @@ Targets:
 
 Reason: parallelism is useful, but reliability and recoverability matter more.
 
-## Priority 7: Dashboard
+## Priority 6: Dashboard
 
 A dashboard should come after reports, history, and exports exist.
 

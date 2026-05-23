@@ -6,7 +6,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2))
   const urls = collectUrls(args)
   const result = await runAuditQueue({ urls, runId: args['run-id'], rootDir: args.runs || 'runs', maxRetries: args.retries ? Number(args.retries) : 1 })
-  console.log(JSON.stringify({ runId: result.run.runId, status: result.run.status, statePath: result.statePath, summaryPath: result.summaryPath, totalItems: result.summary.totalItems, completedItems: result.summary.completedItems, failedItems: result.summary.failedItems }, null, 2))
+  console.log(JSON.stringify({ runId: result.run.runId, status: result.run.status, statePath: result.statePath, summaryPath: result.summaryPath, reportSurfaces: result.reportSurfaces, totalItems: result.summary.totalItems, completedItems: result.summary.completedItems, failedItems: result.summary.failedItems }, null, 2))
   if (result.summary.failedItems > 0) process.exitCode = 1
 }
 

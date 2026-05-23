@@ -4,6 +4,7 @@ const path = require('path')
 const { extractLeadsFromSpreadsheet } = require('../extractors/spreadsheet')
 const { auditWebsite } = require('../audits/auditWebsite')
 const { createBatchReport } = require('../reports/batchReport')
+const { generateReportSurfaces } = require('../reports/reportSurfaces')
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
@@ -31,7 +32,8 @@ async function main() {
 
   const batchReport = createBatchReport({ sourceFile: path.resolve(sourceFile), startedAt, results })
   fs.writeFileSync(outPath, `${JSON.stringify(batchReport, null, 2)}\n`)
-  console.log(JSON.stringify({ report: outPath, totalSites: batchReport.totalSites, successfulAudits: batchReport.successfulAudits, failedAudits: batchReport.failedAudits, pendingAudits: batchReport.pendingAudits }, null, 2))
+  const reportSurfaces = args['report-dir'] ? generateReportSurfaces(outPath, { outDir: args['report-dir'], title: 'Website Audit Batch Report' }) : null
+  console.log(JSON.stringify({ report: outPath, reportSurfaces, totalSites: batchReport.totalSites, successfulAudits: batchReport.successfulAudits, failedAudits: batchReport.failedAudits, pendingAudits: batchReport.pendingAudits }, null, 2))
 }
 
 function toBatchResult(lead, report) {
