@@ -19,6 +19,7 @@ search query or Advokat-Leads.xlsx
 Run from anywhere:
 
 ```bash
+~/webconsult/verifications/verify-lead-discovery-agent.sh
 ~/webconsult/verifications/verify-lead-review-workspace.sh
 ~/webconsult/verifications/verify-orchestrator.sh
 ~/webconsult/verifications/verify-website-audit-agent.sh
@@ -26,12 +27,30 @@ Run from anywhere:
 
 ## 2. Optional: Discover Local Business Candidates
 
-Use this when starting from a query and a deterministic source file instead of an existing spreadsheet.
+Use this when starting from a query and deterministic source files instead of an existing spreadsheet. Discovery can combine operator-provided JSON, CSV, TXT, and saved/static HTML files, then normalize, deduplicate, validate, and hand off URLs to the orchestrator.
+
+Example multi-source discovery run:
 
 ```bash
 cd ~/webconsult/core/lead-discovery-agent
-npm run discover -- --query "dentists in Halden" --source tests/fixtures/dentists-halden.sample.json --out reports/lead-candidates.json --summary reports/discovery-summary.json --handoff reports/orchestrator-urls.txt --validate false
+npm run discover -- \
+  --query "dentists in Halden" \
+  --source tests/fixtures/dentists-halden.sample.json \
+  --source tests/fixtures/dentists-halden.directory.csv \
+  --source tests/fixtures/dentists-halden.extra-urls.txt \
+  --source tests/fixtures/dentists-halden.search-results.html \
+  --out reports/lead-candidates.json \
+  --summary reports/discovery-summary.json \
+  --handoff reports/orchestrator-urls.txt \
+  --validate false
 ```
+
+Supported deterministic discovery sources:
+
+- manual JSON candidate files
+- CSV candidate files
+- plain text URL lists, including `Business Name | https://example.no`
+- saved/static HTML files with public external links
 
 Then audit discovered URLs:
 
@@ -40,7 +59,7 @@ cd ~/webconsult/core/orchestrator
 node cli/run-audit-queue.js --file ../lead-discovery-agent/reports/orchestrator-urls.txt --runs runs --run-id dentists-halden-sample --retries 1
 ```
 
-Discovery v1 is deterministic and source-file based. Do not use protected/private scraping sources.
+Discovery remains deterministic and source-file based. Do not use protected/private scraping sources, live Google scraping, or paid APIs until a provider is explicitly added and verified.
 
 ## 3. Create A Small Real Lead Batch
 

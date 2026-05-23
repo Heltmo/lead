@@ -1,0 +1,2 @@
+# Optional manual URL list. Use "Name | URL" when a business name is known.
+Fixture TXT Dental | https://fixture-txt-dental.example

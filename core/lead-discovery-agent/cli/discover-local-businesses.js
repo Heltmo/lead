@@ -4,13 +4,13 @@ const { discoverLocalBusinesses, writeDiscoveryOutputs } = require('../discoverL
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   const query = args.query || args._.join(' ')
-  if (!query && (!args.industry || !args.location)) throw new Error('Usage: node cli/discover-local-businesses.js --query "dentists in Halden" --source sample.json [--out reports/lead-candidates.json]')
-  if (!args.source) throw new Error('Deterministic discovery requires --source <fixed-results.json>')
+  if (!query && (!args.industry || !args.location)) throw new Error('Usage: node cli/discover-local-businesses.js --query "dentists in Halden" --source sample.json [--source extra.csv] [--out reports/lead-candidates.json]')
+  if (!args.source) throw new Error('Deterministic discovery requires at least one --source <json|csv|txt|html>')
   const report = await discoverLocalBusinesses({
     query,
     industry: args.industry,
     location: args.location,
-    sourceFile: args.source,
+    sourceFiles: args.source,
     sourceName: args['source-name'],
     validate: args.validate !== 'false',
     timeoutMs: args.timeout ? Number(args.timeout) : 5000,
@@ -23,7 +23,15 @@ function parseArgs(args) {
   const parsed = { _: [] }
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i]
-    if (arg.startsWith('--')) { parsed[arg.slice(2)] = args[i + 1] ?? true; i += 1 } else { parsed._.push(arg) }
+    if (arg.startsWith('--')) {
+      const key = arg.slice(2)
+      const value = args[i + 1] ?? true
+      if (parsed[key] == null) parsed[key] = value
+      else parsed[key] = Array.isArray(parsed[key]) ? parsed[key].concat(value) : [parsed[key], value]
+      i += 1
+    } else {
+      parsed._.push(arg)
+    }
   }
   return parsed
 }

@@ -1,15 +1,16 @@
 # Next Milestone
 
-The system now has a deterministic discovery front door, audit/review/export pipeline, and deterministic suggestedAngle plus suggestedAngleDetail fields. The next phase is validating the workflow on a larger 10-lead operating run, not adding more architecture by default.
+The system now has a deterministic discovery front door that can merge multiple source files, plus the existing audit/review/export pipeline. The next phase is operational validation with broader deterministic source coverage, not new architecture by default.
 
-## Priority 1: Run 10 Leads Through The Operating Workflow
+## Priority 1: Run A 10-Lead Discovery-To-Export Workflow
 
-Run the existing discovery-to-export workflow on 10 realistic leads and judge whether the CRM output is useful for manual outreach.
+Run the existing discovery-to-export workflow on about 10 realistic leads and judge whether the CRM output is useful for manual outreach.
 
 Targets:
 
-- create or collect a fixed source file with about 10 businesses
-- run `core/lead-discovery-agent` to produce `lead-candidates.json`
+- collect multiple deterministic source files for one query, such as `dentists in Halden`
+- include at least two source types, for example CSV plus TXT or JSON plus saved HTML
+- run `core/lead-discovery-agent` to merge, normalize, deduplicate, validate, and produce `lead-candidates.json`
 - hand off discovered URLs to the orchestrator
 - audit the discovered candidates
 - open the review workspace
@@ -24,10 +25,12 @@ Only fix issues that block deterministic discovery and handoff.
 
 Examples:
 
+- poor field mapping from real CSV/source files
+- saved HTML source parsing too narrow for manually saved public directory pages
 - bad URL normalization
 - duplicate domains not collapsing correctly
+- source provenance not clear enough for review
 - reachability checks too slow or too strict
-- source data fields not mapping cleanly
 - handoff file not accepted by orchestrator
 
 Do not add live search APIs, scraping, dashboards, AI outreach, or databases yet.
@@ -51,4 +54,4 @@ These can come later, after deterministic discovery plus the manual lead review 
 
 ## Operating Principle
 
-The current question is whether Webconsult can go from a query like `dentists in Halden` to a usable reviewed lead export through deterministic source data and the existing audit pipeline.
+The current question is whether Webconsult can go from a query like `dentists in Halden` through manually expanded deterministic source files to a usable reviewed lead export.

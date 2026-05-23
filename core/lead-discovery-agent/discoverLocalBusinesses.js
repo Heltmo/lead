@@ -1,21 +1,22 @@
 const fs = require('fs')
 const path = require('path')
-const { loadFixedSearchResults } = require('./providers/searchProvider')
+const { loadDiscoverySources } = require('./providers/searchProvider')
 const { createDiscoveryReport } = require('./reports/discoveryReport')
 const { deduplicateCandidates, normalizeLeadCandidate, parseDiscoveryQuery } = require('./normalizers/leadCandidate')
 const { validateWebsiteReachability } = require('./normalizers/websiteReachability')
 
 async function discoverLocalBusinesses(options) {
-  if (!options || !options.sourceFile) throw new Error('sourceFile is required for deterministic discovery')
+  if (!options || (!options.sourceFile && !options.sourceFiles)) throw new Error('sourceFile or sourceFiles is required for deterministic discovery')
   const parsed = parseDiscoveryQuery(options.query || '')
   const industry = options.industry || parsed.industry
   const location = options.location || parsed.location
   const query = options.query || [industry, location].filter(Boolean).join(' in ')
   const startedAt = new Date().toISOString()
-  const sourceFile = path.resolve(options.sourceFile)
-  const rawResults = loadFixedSearchResults(sourceFile, { industry, location })
+  const sourceFiles = normalizeSourceFiles(options.sourceFiles || options.sourceFile)
+  const resolvedSourceFiles = sourceFiles.map((sourceFile) => path.resolve(sourceFile))
+  const rawResults = loadDiscoverySources(resolvedSourceFiles, { industry, location })
   const normalized = rawResults
-    .map((row) => normalizeLeadCandidate(row, { industry, location, source: options.sourceName || 'fixed-sample' }))
+    .map((row) => normalizeLeadCandidate(row, { industry, location, source: options.sourceName || row.source || 'fixed-sample', sourceFile: row.sourceFile, sourceFormat: row.sourceFormat }))
     .filter(Boolean)
   const candidates = deduplicateCandidates(normalized)
   if (options.validate !== false) {
@@ -24,7 +25,7 @@ async function discoverLocalBusinesses(options) {
       candidate.websiteReachable = candidate.reachability.reachable
     }
   }
-  const report = createDiscoveryReport({ query, industry, location, sourceFile, startedAt, candidates })
+  const report = createDiscoveryReport({ query, industry, location, sourceFiles: resolvedSourceFiles, startedAt, rawResults, normalizedCandidates: normalized, candidates })
   return report
 }
 
@@ -47,12 +48,24 @@ function toSummary(report) {
     industry: report.industry,
     location: report.location,
     sourceFile: report.sourceFile,
+    sourceFiles: report.sourceFiles,
     processedAt: report.processedAt,
+    totalRawCandidates: report.totalRawCandidates,
+    invalidCandidates: report.invalidCandidates,
+    duplicatesRemoved: report.duplicatesRemoved,
     totalCandidates: report.totalCandidates,
     reachableCandidates: report.reachableCandidates,
     unreachableCandidates: report.unreachableCandidates,
+    candidatesBySource: report.candidatesBySource,
     handoffReadyCandidates: report.candidates.filter((candidate) => candidate.websiteReachable !== false).length,
   }
 }
 
-module.exports = { discoverLocalBusinesses, writeDiscoveryOutputs, toSummary }
+function normalizeSourceFiles(value) {
+  return (Array.isArray(value) ? value : [value])
+    .flatMap((item) => String(item || '').split(','))
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+module.exports = { discoverLocalBusinesses, writeDiscoveryOutputs, toSummary, normalizeSourceFiles }

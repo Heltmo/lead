@@ -5,7 +5,7 @@ Deterministic local business discovery for Webconsult.
 This module is the front door before the existing audit pipeline:
 
 ```text
-search phrase / fixed source data
+search phrase + deterministic source files
 -> lead-candidates.json
 -> orchestrator URL handoff
 -> website audits
@@ -14,13 +14,33 @@ search phrase / fixed source data
 -> CRM export
 ```
 
-Version 1 does not scrape Google or protected/private sources. It reads fixed sample/source data and converts it into normalized lead candidates.
+It does not scrape Google, use paid APIs, or parse protected/private sources. Discovery reads operator-provided source files, normalizes candidates, deduplicates by domain, optionally validates reachability, and writes handoff artifacts for the orchestrator.
 
-## Discover
+## Supported Source Formats
+
+The discovery CLI accepts one or more `--source` files:
+
+- JSON candidate files using the `results` shape shown below
+- CSV candidate files with columns such as `businessName,website,source,location,industry,confidence`
+- TXT URL lists with either one URL per line or `Business Name | https://example.no`
+- saved/static HTML files with deterministic external `<a href="https://...">Business Name</a>` links
+
+Static HTML parsing is intentionally conservative. It is for saved public search/directory result pages that the operator provides manually, not live browser automation.
+
+## Discover From Multiple Sources
 
 ```bash
 cd ~/webconsult/core/lead-discovery-agent
-npm run discover -- --query "dentists in Halden" --source tests/fixtures/dentists-halden.sample.json --out reports/lead-candidates.json --summary reports/discovery-summary.json --handoff reports/orchestrator-urls.txt
+npm run discover -- \
+  --query "dentists in Halden" \
+  --source tests/fixtures/dentists-halden.sample.json \
+  --source tests/fixtures/dentists-halden.directory.csv \
+  --source tests/fixtures/dentists-halden.extra-urls.txt \
+  --source tests/fixtures/dentists-halden.search-results.html \
+  --out reports/lead-candidates.json \
+  --summary reports/discovery-summary.json \
+  --handoff reports/orchestrator-urls.txt \
+  --validate false
 ```
 
 Outputs:
@@ -29,6 +49,8 @@ Outputs:
 - `reports/discovery-summary.json`
 - `reports/orchestrator-urls.txt`
 
+The summary includes raw candidate count, invalid candidates, duplicates removed, reachable/unreachable websites, handoff-ready candidates, and candidates grouped by source.
+
 ## Handoff To Orchestrator
 
 ```bash
@@ -36,7 +58,7 @@ cd ~/webconsult/core/orchestrator
 node cli/run-audit-queue.js --file ../lead-discovery-agent/reports/orchestrator-urls.txt --runs runs --run-id dentists-halden-sample --retries 1
 ```
 
-## Source Data Shape
+## JSON Source Shape
 
 ```json
 {
@@ -53,4 +75,25 @@ node cli/run-audit-queue.js --file ../lead-discovery-agent/reports/orchestrator-
 }
 ```
 
-Discovery stays separate from website auditing. It only produces candidate businesses and URL handoff files.
+## CSV Source Shape
+
+```csv
+businessName,website,source,location,industry,confidence
+Example Tannklinikk,https://example.no,directory,Halden,dentists,high
+```
+
+## TXT Source Shape
+
+```text
+# comments are ignored
+Example Tannklinikk | https://example.no
+https://another-example.no
+```
+
+## Static HTML Source Shape
+
+```html
+<a href="https://example.no">Example Tannklinikk</a>
+```
+
+Discovery stays separate from website auditing. It only produces candidate businesses, source provenance, and URL handoff files.

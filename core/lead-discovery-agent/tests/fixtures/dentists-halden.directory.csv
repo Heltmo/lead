@@ -1,0 +1,3 @@
+businessName,website,source,location,industry,confidence
+Fixture CSV Tannklinikk,https://fixture-csv-tannklinikk.example,csv-directory,Halden,dentists,medium
+Example Halden Tannklinikk Duplicate,https://example-tannklinikk.no/csv,csv-directory,Halden,dentists,medium

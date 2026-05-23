@@ -70,8 +70,8 @@ search phrase or spreadsheet
 
 ## Verified Capabilities
 
-- deterministic local business discovery from fixed source data
-- candidate URL normalization, deduplication, and reachability checks
+- deterministic local business discovery from JSON, CSV, TXT, and saved/static HTML source files
+- candidate URL normalization, source provenance, deduplication by domain, and reachability checks
 - orchestrator URL handoff from discovered candidates
 - deterministic single-site website audits
 - CSV/XLSX spreadsheet ingestion
@@ -107,11 +107,12 @@ Core files:
 - `cli/handoff-candidates.js`
 - `discoverLocalBusinesses.js`
 - `providers/searchProvider.js`
+- `providers/sourceImporters.js`
 - `normalizers/leadCandidate.js`
 - `normalizers/websiteReachability.js`
 - `reports/discoveryReport.js`
 
-The discovery agent accepts an industry/location query such as `dentists in Halden`, reads deterministic fixed source data, normalizes and deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and an orchestrator URL handoff file.
+The discovery agent accepts an industry/location query such as `dentists in Halden`, reads one or more deterministic source files, normalizes source provenance, deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and an orchestrator URL handoff file. Supported source formats are manual JSON candidates, CSV candidates, TXT URL lists, and saved/static HTML pages with public links.
 
 ## Website Audit Agent
 
@@ -182,7 +183,7 @@ Run from anywhere unless otherwise noted:
 Example deterministic discovery run from `~/webconsult/core/lead-discovery-agent`:
 
 ```bash
-npm run discover -- --query "dentists in Halden" --source tests/fixtures/dentists-halden.sample.json --out reports/lead-candidates.json --summary reports/discovery-summary.json --handoff reports/orchestrator-urls.txt --validate false
+npm run discover -- --query "dentists in Halden" --source tests/fixtures/dentists-halden.sample.json --source tests/fixtures/dentists-halden.directory.csv --source tests/fixtures/dentists-halden.extra-urls.txt --source tests/fixtures/dentists-halden.search-results.html --out reports/lead-candidates.json --summary reports/discovery-summary.json --handoff reports/orchestrator-urls.txt --validate false
 ```
 
 Example orchestrator run from `~/webconsult`:

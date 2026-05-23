@@ -4,7 +4,9 @@ This file distinguishes operational capabilities from work that is not reliable 
 
 ## Lead Discovery Agent
 
-- discovery v1 uses fixed source JSON data, not live search
+- discovery uses operator-provided deterministic source files, not live search
+- supported source files are JSON, CSV, TXT URL lists, and conservative saved/static HTML link extraction
+- static HTML parsing is intentionally simple and may miss complex search-result markup
 - no Google scraping or protected-source scraping
 - no paid search API integration yet
 - reachability checks are simple HTTP/HTTPS checks and may be affected by timeouts or bot protections
