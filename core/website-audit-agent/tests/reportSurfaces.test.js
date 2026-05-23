@@ -16,7 +16,7 @@ const fixture = {
     url: 'https://example.com',
     status: 'passed',
     title: 'Example',
-    technologies: ['WordPress'],
+    technologies: [{ name: 'WordPress', confidence: 'deterministic' }],
     issueCategories: { seo: 1, conversion: 1 },
     issueSeverities: { high: 1, medium: 1 },
     performance: { responseStatus: 200, domContentLoadedMs: 100, loadMs: 200, failedRequestCount: 0, consoleErrorCount: 0 },
@@ -39,5 +39,7 @@ assert(markdown.includes('# Smoke Report'), 'markdown should include report titl
 assert(html.includes('<!doctype html>'), 'html should be static document')
 assert(csv.startsWith(CSV_COLUMNS.join(',')), 'csv should preserve deterministic column order')
 assert(csv.includes('Missing meta description'), 'csv should include issues')
+assert(csv.includes('WordPress'), 'csv should serialize technology object names')
+assert(!csv.includes('[object Object]'), 'csv should not leak object serialization')
 
 function assert(condition, message) { if (!condition) throw new Error(message) }

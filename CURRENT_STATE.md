@@ -28,6 +28,7 @@ Current major commits:
 
 Important directories:
 
+- `OPERATING_GUIDE.md`: real-lead operating workflow and commands
 - `core/website-audit-agent`: deterministic browser intelligence agent
 - `core/orchestrator`: persistent queue and worker harness
 - `core/lead-review-workspace`: static lead review and selection workspace
@@ -185,6 +186,19 @@ Example CRM shortlisted export refresh:
 ```bash
 node core/lead-review-workspace/cli/export-crm-shortlist.js core/orchestrator/runs/<run-id>/summary.json
 ```
+
+## First Real Operating Run
+
+A controlled real-data run was completed against `/home/xman/Downloads/Advokat-Leads.xlsx` with 5 leads.
+
+- Run ID: `advokat-first-5-20260523`
+- Completed: 5
+- Failed: 0
+- Review workspace generated
+- One sample lead shortlisted
+- CRM-ready CSV generated successfully
+
+Use `OPERATING_GUIDE.md` as the source of truth for repeating this workflow.
 
 ## Architecture Principles
 

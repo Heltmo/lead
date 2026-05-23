@@ -305,7 +305,12 @@ function renderArtifactLinks(result, outDir) {
 }
 
 function readJson(filePath) { return JSON.parse(fs.readFileSync(filePath, 'utf8')) }
-function arrayOf(value) { return Array.isArray(value) ? value.filter((item) => item != null).map(String) : [] }
+function arrayOf(value) { return Array.isArray(value) ? value.filter((item) => item != null).map(formatListValue).filter(Boolean) : [] }
+function formatListValue(value) {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object' && value.name) return String(value.name)
+  return String(value || '')
+}
 function numericScore(value) { return Number.isFinite(Number(value)) ? Number(value) : 0 }
 function resolveMaybeRelative(value, baseDir) { if (!value) return ''; return path.isAbsolute(value) ? value : path.resolve(baseDir || process.cwd(), value) }
 function relativePath(fromDir, target) { return path.relative(fromDir, path.resolve(target)).replace(/\\/g, '/') || path.basename(target) }

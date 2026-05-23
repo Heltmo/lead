@@ -1,74 +1,50 @@
 # Next Milestone
 
-The platform now has deterministic audit intelligence, report surfaces, a static lead review workspace, CRM-ready shortlisted lead export, and richer normalized review state. The next phase should add continuity across runs before dashboard or AI outreach layers.
+Stop adding new platform layers by default. The next phase is operational validation on real lead batches.
 
-## Priority 1: Historical Comparisons
+## Priority 1: Use The Operating Workflow
 
-Add lightweight run-to-run comparison before building full monitoring.
-
-Targets:
-
-- previous score
-- current score
-- score delta
-- previous issue count
-- new/resolved/persisting issues
-- last seen HTTP status
-- last audit timestamp
-- stable site identity for comparison
-- comparison output as deterministic JSON and CSV
-
-Reason: change over time creates stronger lead timing signals than one-off snapshots.
-
-## Priority 2: CRM Export Hardening On Real Data
-
-Improve the shortlisted CRM handoff after testing it on real batches.
+Run the workflow in `OPERATING_GUIDE.md` on real leads and manually inspect the output.
 
 Targets:
 
-- source spreadsheet row mapping
-- deterministic lead ID column
-- configurable output filename
-- validate phone/email selection rules against real lead files
-- optional owner/priority/nextAction export presets
+- review the existing 5-lead run
+- shortlist/reject/review leads manually
+- regenerate `crm-shortlisted-leads.csv`
+- repeat with a 10-lead batch
+- confirm the CRM CSV is useful for manual outreach or sales review
 
-Reason: selected leads need clean handoff into spreadsheet/CRM/outreach workflows.
+Reason: the platform is only useful if it produces leads a human can act on.
 
-## Priority 3: Richer Deterministic SEO Signals
+## Priority 2: Fix Only Workflow Blockers
 
-Expand SEO extraction without introducing Lighthouse or AI summaries yet.
+Only fix issues that block real operation.
 
-Targets:
+Examples:
 
-- title length
-- meta description length
-- canonical URL
-- robots directives
-- sitemap discovery
-- Open Graph tags
-- Twitter card tags
-- heading structure quality
-- internal/external link counts
+- bad CSV values
+- missing contact fields
+- broken artifact links
+- unclear operating instructions
+- review state not exporting correctly
 
-Reason: these are fast, deterministic, explainable, and commercially useful.
+Do not add new intelligence layers unless they are required to make the current workflow usable.
 
-## Later Layers
+## Paused Work
 
-- multi-run analytics
-- parallel worker execution
+Do not prioritize these yet:
+
+- historical comparison
 - dashboard UI
-- outreach intelligence
-- LLM-assisted summaries
-- proposal generation
-- autonomous outreach drafts
-- distributed execution
+- database
+- AI outreach
+- Lighthouse
+- parallel workers
+- monitoring
+- multi-agent orchestration
 
-These should remain later-stage work. The current advantage is deterministic browser-observed intelligence with file-based operational surfaces.
+These can come later, after the manual real-lead workflow proves useful.
 
-## Operating Principles
+## Operating Principle
 
-- keep outputs structured and machine-operable
-- prefer deterministic signals over AI guesses
-- preserve verification scripts for every capability layer
-- commit capability milestones cleanly
-- keep project repos isolated from infrastructure history
+The current question is not whether the system can be more sophisticated. The current question is whether it can produce 10 real usable leads from `Advokat-Leads.xlsx`.
