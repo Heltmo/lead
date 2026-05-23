@@ -8,14 +8,27 @@ function main() {
   if (!input) throw new Error('Usage: node cli/handoff-candidates.js <lead-candidates.json> [--out reports/orchestrator-urls.txt] [--include-unreachable true]')
   const report = JSON.parse(fs.readFileSync(input, 'utf8'))
   const includeUnreachable = args['include-unreachable'] === 'true'
-  const urls = report.candidates
+  const lines = report.candidates
     .filter((candidate) => includeUnreachable || candidate.websiteReachable !== false)
-    .map((candidate) => candidate.website)
+    .map(formatHandoffCandidate)
     .filter(Boolean)
   const outPath = path.resolve(args.out || 'reports/orchestrator-urls.txt')
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
-  fs.writeFileSync(outPath, `${urls.join('\n')}\n`)
-  console.log(JSON.stringify({ handoffPath: outPath, totalUrls: urls.length }, null, 2))
+  fs.writeFileSync(outPath, `${lines.join('\n')}\n`)
+  console.log(JSON.stringify({ handoffPath: outPath, totalUrls: lines.length }, null, 2))
+}
+
+function formatHandoffCandidate(candidate) {
+  if (!candidate.website) return ''
+  return JSON.stringify({
+    url: candidate.website,
+    businessName: candidate.businessName || '',
+    source: candidate.source || '',
+    location: candidate.location || '',
+    industry: candidate.industry || '',
+    confidence: candidate.confidence || '',
+    sources: candidate.sources || [],
+  })
 }
 
 function parseArgs(args) {

@@ -4,6 +4,7 @@ const { buildSuggestedAngle, suggestAngle, suggestAngleDetail } = require('./sug
 const CRM_SHORTLISTED_COLUMNS = [
   'company',
   'website',
+  'pageTitle',
   'score',
   'technologies',
   'issueCategories',
@@ -33,6 +34,7 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
       return {
         company: item.name || item.title,
         website: item.url,
+        pageTitle: item.pageTitle || item.title,
         score: item.leadScore,
         technologies: item.technologies.join('|'),
         issueCategories: formatIssueCategories(item.issueCategories),

@@ -49,7 +49,7 @@ Outputs:
 - `reports/discovery-summary.json`
 - `reports/orchestrator-urls.txt`
 
-The summary includes raw candidate count, invalid candidates, duplicates removed, reachable/unreachable websites, handoff-ready candidates, and candidates grouped by source.
+The summary includes raw candidate count, invalid candidates, duplicates removed, reachable/unreachable websites, handoff-ready candidates, and candidates grouped by source. The handoff file is newline-delimited JSON so businessName, source, location, industry, confidence, and source provenance survive into the orchestrator.
 
 ## Handoff To Orchestrator
 
@@ -96,4 +96,4 @@ https://another-example.no
 <a href="https://example.no">Example Tannklinikk</a>
 ```
 
-Discovery stays separate from website auditing. It only produces candidate businesses, source provenance, and URL handoff files.
+Discovery stays separate from website auditing. It only produces candidate businesses, source provenance, and orchestrator handoff files. The orchestrator remains backward-compatible with URL-only files and `Business Name | URL` lines.

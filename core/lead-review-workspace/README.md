@@ -16,7 +16,7 @@ It writes downstream operator artifacts only:
 - `review-workspace/selected-leads.csv`
 - `review-workspace/crm-shortlisted-leads.csv`
 
-Raw audit artifacts are not mutated.
+Raw audit artifacts are not mutated. When discovery metadata is available, the workspace prefers the discovered business name and keeps the audited page title separately for evidence.
 
 ## Usage
 
@@ -50,4 +50,4 @@ Refresh only the CRM export:
 node core/lead-review-workspace/cli/export-crm-shortlist.js core/orchestrator/runs/<run-id>/summary.json
 ```
 
-CRM export is deterministic and rule-based. It exports only shortlisted leads and includes score, technologies, issue categories, contact fields, artifact paths, notes, review status, suggestedAngle labels, and suggestedAngleDetail outreach sentences derived from existing audit signals.
+CRM export is deterministic and rule-based. It exports only shortlisted leads and includes the discovered company name, website, pageTitle, score, technologies, issue categories, contact fields, artifact paths, notes, review status, suggestedAngle labels, and suggestedAngleDetail outreach sentences derived from existing audit signals.

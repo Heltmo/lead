@@ -52,7 +52,7 @@ Supported deterministic discovery sources:
 - plain text URL lists, including `Business Name | https://example.no`
 - saved/static HTML files with public external links
 
-Then audit discovered URLs:
+Then audit discovered candidates. Discovery-generated handoff files preserve business names and source metadata as JSONL, while the orchestrator still accepts older URL-only handoff files:
 
 ```bash
 cd ~/webconsult/core/orchestrator
@@ -115,7 +115,7 @@ xdg-open ~/webconsult/core/orchestrator/runs/<run-id>/review-workspace/index.htm
 
 If GUI opening is unavailable, paste the full path into a browser.
 
-Review each lead card in this order:
+Review each lead card in this order. The card title prefers the discovered business name; the audit page title remains visible separately as evidence:
 
 - business opportunity summary
 - suggestedAngle: a short deterministic category label for filtering
@@ -169,7 +169,7 @@ Output:
 ~/webconsult/core/orchestrator/runs/<run-id>/review-workspace/crm-shortlisted-leads.csv
 ```
 
-This CSV is the sales handoff file. It exports only `shortlisted` leads.
+This CSV is the sales handoff file. It exports only `shortlisted` leads and prefers the discovered business name for the company field while retaining the audited page title separately.
 
 ## First Real Operating Run
 

@@ -30,6 +30,7 @@ Examples:
 - bad URL normalization
 - duplicate domains not collapsing correctly
 - source provenance not clear enough for review
+- discovered business names not available in real source files
 - reachability checks too slow or too strict
 - handoff file not accepted by orchestrator
 

@@ -29,7 +29,7 @@ Current major commits:
 Important directories:
 
 - `OPERATING_GUIDE.md`: real-lead operating workflow and commands
-- `core/lead-discovery-agent`: deterministic local business discovery and URL handoff
+- `core/lead-discovery-agent`: deterministic local business discovery and metadata-preserving handoff
 - `core/website-audit-agent`: deterministic browser intelligence agent
 - `core/orchestrator`: persistent queue and worker harness
 - `core/lead-review-workspace`: static lead review and selection workspace
@@ -72,7 +72,7 @@ search phrase or spreadsheet
 
 - deterministic local business discovery from JSON, CSV, TXT, and saved/static HTML source files
 - candidate URL normalization, source provenance, deduplication by domain, and reachability checks
-- orchestrator URL handoff from discovered candidates
+- metadata-preserving orchestrator handoff from discovered candidates
 - deterministic single-site website audits
 - CSV/XLSX spreadsheet ingestion
 - browser execution with Playwright
@@ -84,12 +84,12 @@ search phrase or spreadsheet
 - lightweight browser-observed performance signals
 - severity-weighted deterministic lead scoring
 - structured JSON reports
-- downstream Markdown, HTML, and CSV report surfaces
+- downstream Markdown, HTML, and CSV report surfaces that prefer discovered business names and retain page titles
 - static lead review workspace generation
 - normalized review-status state for operator decisions
 - richer operator fields: priority, nextAction, owner, lastReviewedAt, tags
 - shortlisted lead CSV exports
-- CRM-ready shortlisted lead exports with deterministic suggestedAngle labels and suggestedAngleDetail outreach sentences
+- CRM-ready shortlisted lead exports with discovered business names, page titles, deterministic suggestedAngle labels, and suggestedAngleDetail outreach sentences
 - persistent orchestration runs
 - resumable queue processing
 - retry handling
@@ -112,7 +112,7 @@ Core files:
 - `normalizers/websiteReachability.js`
 - `reports/discoveryReport.js`
 
-The discovery agent accepts an industry/location query such as `dentists in Halden`, reads one or more deterministic source files, normalizes source provenance, deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and an orchestrator URL handoff file. Supported source formats are manual JSON candidates, CSV candidates, TXT URL lists, and saved/static HTML pages with public links.
+The discovery agent accepts an industry/location query such as `dentists in Halden`, reads one or more deterministic source files, normalizes source provenance, deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and a metadata-preserving orchestrator handoff file. Supported source formats are manual JSON candidates, CSV candidates, TXT URL lists, and saved/static HTML pages with public links.
 
 ## Website Audit Agent
 
@@ -166,7 +166,7 @@ Core files:
 - `state/reviewStatus.js`
 - `templates/indexHtml.js`
 
-The workspace reads orchestrator `summary.json` and `report-surfaces/leads.csv`, then writes `review-workspace/index.html`, `review-workspace/review-status.json`, `review-workspace/selected-leads.csv`, and `review-workspace/crm-shortlisted-leads.csv`. Review state is normalized in a dedicated module and remains separate from raw audit artifacts.
+The workspace reads orchestrator `summary.json` and `report-surfaces/leads.csv`, then writes `review-workspace/index.html`, `review-workspace/review-status.json`, `review-workspace/selected-leads.csv`, and `review-workspace/crm-shortlisted-leads.csv`. Review state is normalized in a dedicated module and remains separate from raw audit artifacts. Lead cards and exports prefer discovered business names, while audit page titles remain available as pageTitle/title evidence.
 
 ## Verification Commands
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const fs = require('fs')
 const { runAuditQueue } = require('../pipelines/auditQueue')
+const { parseQueueInputLine } = require('../queue/urlQueue')
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
@@ -13,9 +14,21 @@ async function main() {
 function collectUrls(args) {
   const values = []
   if (args.urls) values.push(...String(args.urls).split(',').map((url) => url.trim()).filter(Boolean))
-  if (args.file) values.push(...fs.readFileSync(args.file, 'utf8').split(/\r?\n/).map((url) => url.trim()).filter(Boolean))
-  values.push(...args._)
-  return [...new Set(values)]
+  if (args.file) values.push(...fs.readFileSync(args.file, 'utf8').split(/\r?\n/).map(parseQueueInputLine).filter(Boolean))
+  values.push(...args._.map(parseQueueInputLine).filter(Boolean))
+  return dedupeByUrl(values)
+}
+
+function dedupeByUrl(values) {
+  const seen = new Set()
+  const result = []
+  for (const value of values) {
+    const url = typeof value === 'string' ? value : String(value.url || value.website || value.link || '').trim()
+    if (!url || seen.has(url)) continue
+    seen.add(url)
+    result.push(value)
+  }
+  return result
 }
 
 function parseArgs(args) {

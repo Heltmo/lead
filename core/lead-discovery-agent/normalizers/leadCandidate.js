@@ -36,7 +36,7 @@ function deduplicateCandidates(candidates) {
     }
     existing.sources = uniqueSources([...(existing.sources || []), ...(candidate.sources || [])])
     existing.source = existing.sources.map((item) => item.source).filter(Boolean).join('|') || existing.source
-    existing.businessName = pickLonger(existing.businessName, candidate.businessName)
+    existing.businessName = existing.businessName || candidate.businessName
     existing.location = existing.location || candidate.location
     existing.industry = existing.industry || candidate.industry
     existing.confidence = bestConfidence(existing.confidence, candidate.confidence)
@@ -74,9 +74,6 @@ function bestConfidence(left, right) {
   return (order[normalizeConfidence(right)] > order[normalizeConfidence(left)]) ? normalizeConfidence(right) : normalizeConfidence(left)
 }
 
-function pickLonger(left, right) {
-  return String(right || '').length > String(left || '').length ? right : left
-}
 
 function uniqueSources(sources) {
   const seen = new Set()

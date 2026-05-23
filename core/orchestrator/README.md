@@ -4,7 +4,7 @@ Deterministic file-based harness for running Webconsult workers with persistent 
 
 ## Current Pipeline
 
-- `website-audit-queue`: sequential URL queue processed by the website audit worker.
+- `website-audit-queue`: sequential URL queue processed by the website audit worker. Inputs may be URL-only, `Business Name | URL`, or discovery-generated JSONL with source metadata.
 
 ## Usage
 

@@ -38,8 +38,20 @@ function writeDiscoveryOutputs(report, options = {}) {
   fs.mkdirSync(path.dirname(handoffPath), { recursive: true })
   fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`)
   fs.writeFileSync(summaryPath, `${JSON.stringify(toSummary(report), null, 2)}\n`)
-  fs.writeFileSync(handoffPath, `${report.candidates.filter((candidate) => candidate.websiteReachable !== false).map((candidate) => candidate.website).join('\n')}\n`)
+  fs.writeFileSync(handoffPath, `${report.candidates.filter((candidate) => candidate.websiteReachable !== false).map(formatHandoffCandidate).join('\n')}\n`)
   return { candidatesPath: outPath, summaryPath, handoffPath }
+}
+
+function formatHandoffCandidate(candidate) {
+  return JSON.stringify({
+    url: candidate.website,
+    businessName: candidate.businessName || '',
+    source: candidate.source || '',
+    location: candidate.location || '',
+    industry: candidate.industry || '',
+    confidence: candidate.confidence || '',
+    sources: candidate.sources || [],
+  })
 }
 
 function toSummary(report) {
@@ -68,4 +80,4 @@ function normalizeSourceFiles(value) {
     .filter(Boolean)
 }
 
-module.exports = { discoverLocalBusinesses, writeDiscoveryOutputs, toSummary, normalizeSourceFiles }
+module.exports = { discoverLocalBusinesses, writeDiscoveryOutputs, toSummary, normalizeSourceFiles, formatHandoffCandidate }

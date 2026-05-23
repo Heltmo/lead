@@ -12,6 +12,7 @@ This file distinguishes operational capabilities from work that is not reliable 
 - reachability checks are simple HTTP/HTTPS checks and may be affected by timeouts or bot protections
 - deduplication is domain-based and may merge distinct branches on the same domain
 - candidate quality depends on the quality of the source data
+- discovered business names are preserved when source data provides them, but URL-only inputs still depend on audited page titles
 
 ## Website Audit Agent
 

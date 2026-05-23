@@ -61,22 +61,26 @@ async function main() {
   server.close()
   const report = JSON.parse(fs.readFileSync(out, 'utf8'))
   const summaryReport = JSON.parse(fs.readFileSync(summary, 'utf8'))
-  const urls = fs.readFileSync(handoff, 'utf8').trim().split(/\r?\n/).filter(Boolean)
+  const handoffRows = fs.readFileSync(handoff, 'utf8').trim().split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
   assert(report.industry === 'dentists', 'industry should be parsed')
   assert(report.location === 'Halden', 'location should be parsed')
   assert(report.candidates.length === 2, 'duplicates should be removed and location should filter')
   assert(report.reachableCandidates === 1, 'one local candidate should be reachable')
   assert(report.unreachableCandidates === 1, 'one candidate should be unreachable')
-  assert(urls.length === 1, 'handoff should exclude unreachable candidates by default')
-  assert(urls[0].startsWith('http://127.0.0.1:' + port), 'handoff should contain reachable URL')
+  assert(handoffRows.length === 1, 'handoff should exclude unreachable candidates by default')
+  assert(handoffRows[0].url.startsWith('http://127.0.0.1:' + port), 'handoff should contain reachable URL')
+  assert(handoffRows[0].businessName === 'Halden Tannklinikk', 'handoff should preserve business name')
+  assert(handoffRows[0].industry === 'dentists', 'handoff should preserve industry')
+  assert(handoffRows[0].location === 'Halden', 'handoff should preserve location')
   assert(summaryReport.handoffReadyCandidates === 1, 'summary should include handoff count')
   assert(summaryReport.duplicatesRemoved === 1, 'summary should include duplicate count')
   assert(summaryReport.candidatesBySource['sample-directory'] === 2, 'summary should include source counts')
 
   const handoffResult = spawnSync(process.execPath, ['cli/handoff-candidates.js', out, '--out', path.join(root, 'handoff-all.txt'), '--include-unreachable', 'true'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' })
   if (handoffResult.status !== 0) { console.error(handoffResult.stdout); console.error(handoffResult.stderr); process.exit(handoffResult.status) }
-  const allUrls = fs.readFileSync(path.join(root, 'handoff-all.txt'), 'utf8').trim().split(/\r?\n/).filter(Boolean)
-  assert(allUrls.length === 2, 'explicit handoff can include unreachable candidates')
+  const allRows = fs.readFileSync(path.join(root, 'handoff-all.txt'), 'utf8').trim().split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
+  assert(allRows.length === 2, 'explicit handoff can include unreachable candidates')
+  assert(allRows[0].businessName, 'explicit handoff should preserve business names')
 }
 
 function listen(server) {

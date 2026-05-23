@@ -7,6 +7,7 @@ function renderIndexHtml(model) {
     status: item.status,
     leadScore: item.leadScore,
     title: item.title,
+    pageTitle: item.pageTitle || item.title,
     technologies: item.technologies,
     issueCategories: item.issueCategories,
     issues: item.issues,
@@ -124,7 +125,7 @@ function render() {
     if (tag !== 'all' && !item.tags.includes(tag)) continue;
     if (technology !== 'all' && !item.technologies.includes(technology)) continue;
     if (issue !== 'all' && !Object.keys(item.issueCategories).includes(issue)) continue;
-    const haystack = [item.url, item.title, item.name, item.suggestedAngle, item.suggestedAngleDetail, item.owner, item.nextAction, item.priority, item.notes, item.tags.join(' '), item.issues.join(' ')].join(' ').toLowerCase();
+    const haystack = [item.url, item.title, item.pageTitle, item.name, item.suggestedAngle, item.suggestedAngleDetail, item.owner, item.nextAction, item.priority, item.notes, item.tags.join(' '), item.issues.join(' ')].join(' ').toLowerCase();
     if (query && !haystack.includes(query)) continue;
     list.appendChild(renderCard(item));
   }
@@ -148,6 +149,7 @@ function renderCard(item) {
         '<div class="chips">' + Object.keys(item.issueCategories).map((value) => '<span class="chip">' + escapeHtml(value + ':' + item.issueCategories[value]) + '</span>').join('') + '</div></section>' +
       '<section class="panel"><p class="panel-title">Review metadata</p>' +
         '<p>Audit status: <strong>' + escapeHtml(item.status || 'unknown') + '</strong></p>' +
+        (item.pageTitle ? '<p>Page title: ' + escapeHtml(item.pageTitle) + '</p>' : '') +
         (item.owner ? '<p>Owner: <strong>' + escapeHtml(item.owner) + '</strong></p>' : '<p>Owner: unassigned</p>') +
         (item.lastReviewedAt ? '<p>Last reviewed: ' + escapeHtml(item.lastReviewedAt) + '</p>' : '') +
         (item.notes ? '<p class="note">Notes: ' + escapeHtml(item.notes) + '</p>' : '') +

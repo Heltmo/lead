@@ -8,6 +8,7 @@ const CSV_COLUMNS = [
   'status',
   'leadScore',
   'title',
+  'pageTitle',
   'technologies',
   'issueCategories',
   'highIssues',
@@ -107,13 +108,17 @@ function normalizeSingleAudit(report, context) {
 }
 
 function normalizeBatchResult(result, context) {
+  const sourceMetadata = normalizeSourceMetadata(result.sourceMetadata || result)
+  const pageTitle = result.pageTitle || result.title || ''
   return {
     rank: context.index + 1,
-    name: result.name || '',
+    name: result.name || result.businessName || sourceMetadata.businessName || '',
     url: result.url || '',
     status: result.status || '',
     leadScore: numericScore(result.leadScore),
-    title: result.title || '',
+    title: pageTitle,
+    pageTitle,
+    sourceMetadata,
     technologies: arrayOf(result.technologies),
     issueCategories: result.issueCategories || {},
     issueSeverities: result.issueSeverities || {},
@@ -124,7 +129,9 @@ function normalizeBatchResult(result, context) {
   }
 }
 
+
 function normalizeOrchestratorItem(item, artifact, context) {
+  const sourceMetadata = normalizeSourceMetadata(item.sourceMetadata || item, artifact?.sourceMetadata)
   const base = artifact ? normalizeAuditReport(artifact, context) : {
     rank: context.index + 1,
     name: item.id || '',
@@ -132,6 +139,7 @@ function normalizeOrchestratorItem(item, artifact, context) {
     status: item.status || '',
     leadScore: 0,
     title: '',
+    pageTitle: '',
     technologies: [],
     issueCategories: {},
     issueSeverities: {},
@@ -139,17 +147,29 @@ function normalizeOrchestratorItem(item, artifact, context) {
     screenshots: {},
     issues: arrayOf(item.errors),
   }
-  return { ...base, status: item.status || base.status, jsonArtifact: context.artifactPath || item.reportPath || '', attempts: item.attempts ?? 0 }
+  return {
+    ...base,
+    name: sourceMetadata.businessName || base.name,
+    sourceMetadata,
+    status: item.status || base.status,
+    jsonArtifact: context.artifactPath || item.reportPath || '',
+    attempts: item.attempts ?? 0,
+  }
 }
 
+
 function normalizeAuditReport(report, context) {
+  const sourceMetadata = normalizeSourceMetadata(report.sourceMetadata || {})
+  const pageTitle = report.signals?.title || ''
   return {
     rank: context.index + 1,
-    name: '',
+    name: sourceMetadata.businessName || '',
     url: report.url || '',
     status: report.status || '',
     leadScore: numericScore(report.leadQuality?.score),
-    title: report.signals?.title || '',
+    title: pageTitle,
+    pageTitle,
+    sourceMetadata,
     technologies: arrayOf(report.technology?.technologies),
     issueCategories: report.issueClassification?.counts || {},
     issueSeverities: report.issueClassification?.severityCounts || {},
@@ -158,6 +178,20 @@ function normalizeAuditReport(report, context) {
     jsonArtifact: context.artifactPath || '',
     issues: arrayOf(report.leadQuality?.issues).concat(arrayOf(report.errors).map((error) => typeof error === 'string' ? error : error.message).filter(Boolean)),
   }
+}
+
+
+function normalizeSourceMetadata(...values) {
+  const metadata = {}
+  for (const value of values) {
+    if (!value) continue
+    if (value.sourceMetadata) Object.assign(metadata, normalizeSourceMetadata(value.sourceMetadata))
+    for (const key of ['businessName', 'source', 'location', 'industry', 'confidence']) {
+      if (!metadata[key] && value[key]) metadata[key] = String(value[key]).trim()
+    }
+    if (!metadata.sources && Array.isArray(value.sources)) metadata.sources = value.sources
+  }
+  return metadata
 }
 
 function summarizePerformance(performance) {
@@ -195,20 +229,21 @@ function renderMarkdown(model, outDir) {
   lines.push('')
   lines.push('## Ranked Leads')
   lines.push('')
-  lines.push('| Rank | Score | Status | URL | Title | Technologies | Top Issues |')
-  lines.push('| --- | ---: | --- | --- | --- | --- | --- |')
+  lines.push('| Rank | Score | Status | Lead | URL | Page Title | Technologies | Top Issues |')
+  lines.push('| --- | ---: | --- | --- | --- | --- | --- | --- |')
   for (const result of model.results) {
-    lines.push(`| ${result.rank} | ${result.leadScore} | ${escapeMarkdownCell(result.status)} | ${markdownLink(result.url, result.url)} | ${escapeMarkdownCell(result.title)} | ${escapeMarkdownCell(result.technologies.join(', '))} | ${escapeMarkdownCell(result.issues.slice(0, 3).join('; '))} |`)
+    lines.push(`| ${result.rank} | ${result.leadScore} | ${escapeMarkdownCell(result.status)} | ${escapeMarkdownCell(result.name)} | ${markdownLink(result.url, result.url)} | ${escapeMarkdownCell(result.pageTitle || result.title)} | ${escapeMarkdownCell(result.technologies.join(', '))} | ${escapeMarkdownCell(result.issues.slice(0, 3).join('; '))} |`)
   }
   lines.push('')
   lines.push('## Lead Details')
   for (const result of model.results) {
     lines.push('')
-    lines.push(`### ${result.rank}. ${result.url || result.name || 'Unknown lead'}`)
+    lines.push(`### ${result.rank}. ${result.name || result.url || 'Unknown lead'}`)
     lines.push('')
     lines.push(`- Score: ${result.leadScore}`)
     lines.push(`- Status: ${result.status || 'unknown'}`)
-    if (result.title) lines.push(`- Title: ${result.title}`)
+    if (result.name) lines.push(`- Business name: ${result.name}`)
+    if (result.pageTitle || result.title) lines.push(`- Page title: ${result.pageTitle || result.title}`)
     if (result.technologies.length) lines.push(`- Technologies: ${result.technologies.join(', ')}`)
     lines.push(`- Issue categories: ${formatCounts(result.issueCategories) || 'none'}`)
     lines.push(`- Issue severities: ${formatCounts(result.issueSeverities) || 'none'}`)
@@ -225,8 +260,8 @@ function renderMarkdown(model, outDir) {
 }
 
 function renderHtml(model, outDir) {
-  const rows = model.results.map((result) => `<tr><td>${result.rank}</td><td>${result.leadScore}</td><td>${escapeHtml(result.status)}</td><td><a href="${escapeAttr(result.url)}">${escapeHtml(result.url)}</a></td><td>${escapeHtml(result.title)}</td><td>${escapeHtml(result.technologies.join(', '))}</td><td>${escapeHtml(result.issues.slice(0, 3).join('; '))}</td></tr>`).join('\n')
-  const details = model.results.map((result) => `<section class="lead"><h2>${result.rank}. ${escapeHtml(result.url || result.name || 'Unknown lead')}</h2><dl><dt>Score</dt><dd>${result.leadScore}</dd><dt>Status</dt><dd>${escapeHtml(result.status || 'unknown')}</dd><dt>Title</dt><dd>${escapeHtml(result.title || '')}</dd><dt>Technologies</dt><dd>${escapeHtml(result.technologies.join(', '))}</dd><dt>Issue categories</dt><dd>${escapeHtml(formatCounts(result.issueCategories) || 'none')}</dd><dt>Issue severities</dt><dd>${escapeHtml(formatCounts(result.issueSeverities) || 'none')}</dd><dt>Performance</dt><dd>${escapeHtml(formatPerformance(result.performance) || 'not available')}</dd></dl>${renderArtifactLinks(result, outDir)}<h3>Issues</h3><ul>${(result.issues.length ? result.issues : ['none']).map((issue) => `<li>${escapeHtml(issue)}</li>`).join('')}</ul></section>`).join('\n')
+  const rows = model.results.map((result) => `<tr><td>${result.rank}</td><td>${result.leadScore}</td><td>${escapeHtml(result.status)}</td><td>${escapeHtml(result.name || '')}</td><td><a href="${escapeAttr(result.url)}">${escapeHtml(result.url)}</a></td><td>${escapeHtml(result.pageTitle || result.title)}</td><td>${escapeHtml(result.technologies.join(', '))}</td><td>${escapeHtml(result.issues.slice(0, 3).join('; '))}</td></tr>`).join('\n')
+  const details = model.results.map((result) => `<section class="lead"><h2>${result.rank}. ${escapeHtml(result.name || result.url || 'Unknown lead')}</h2><dl><dt>Score</dt><dd>${result.leadScore}</dd><dt>Status</dt><dd>${escapeHtml(result.status || 'unknown')}</dd><dt>Business name</dt><dd>${escapeHtml(result.name || '')}</dd><dt>Page title</dt><dd>${escapeHtml(result.pageTitle || result.title || '')}</dd><dt>Technologies</dt><dd>${escapeHtml(result.technologies.join(', '))}</dd><dt>Issue categories</dt><dd>${escapeHtml(formatCounts(result.issueCategories) || 'none')}</dd><dt>Issue severities</dt><dd>${escapeHtml(formatCounts(result.issueSeverities) || 'none')}</dd><dt>Performance</dt><dd>${escapeHtml(formatPerformance(result.performance) || 'not available')}</dd></dl>${renderArtifactLinks(result, outDir)}<h3>Issues</h3><ul>${(result.issues.length ? result.issues : ['none']).map((issue) => `<li>${escapeHtml(issue)}</li>`).join('')}</ul></section>`).join('\n')
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -256,7 +291,7 @@ dt { color: #a1a1aa; }
 </header>
 <section>
 <h2>Ranked Leads</h2>
-<table><thead><tr><th>Rank</th><th>Score</th><th>Status</th><th>URL</th><th>Title</th><th>Technologies</th><th>Top Issues</th></tr></thead><tbody>
+<table><thead><tr><th>Rank</th><th>Score</th><th>Status</th><th>Lead</th><th>URL</th><th>Page Title</th><th>Technologies</th><th>Top Issues</th></tr></thead><tbody>
 ${rows}
 </tbody></table>
 </section>
@@ -276,6 +311,7 @@ function renderCsv(model, outDir) {
       status: result.status,
       leadScore: result.leadScore,
       title: result.title,
+      pageTitle: result.pageTitle || result.title,
       technologies: result.technologies.join('|'),
       issueCategories: formatCounts(result.issueCategories),
       highIssues: result.issueSeverities.high ?? 0,
