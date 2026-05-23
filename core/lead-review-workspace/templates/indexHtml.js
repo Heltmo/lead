@@ -13,7 +13,8 @@ function renderIndexHtml(model) {
     emails: item.emails || [],
     phones: item.phones || [],
     performance: item.performance || {},
-    suggestedAngle: item.suggestedAngle || 'General website improvement opportunity',
+    suggestedAngle: item.suggestedAngle || 'General improvement opportunity',
+    suggestedAngleDetail: item.suggestedAngleDetail || 'The site has measurable improvement signals that are worth reviewing before outreach.',
     reviewStatus: model.reviewStatus.items[item.id]?.status || 'unreviewed',
     priority: model.reviewStatus.items[item.id]?.priority || 'unset',
     nextAction: model.reviewStatus.items[item.id]?.nextAction || 'unset',
@@ -51,7 +52,8 @@ select, input { background: #111113; color: #f4f4f5; border: 1px solid #3f3f46; 
 .triage-grid { display: grid; grid-template-columns: minmax(260px, 1.15fr) minmax(260px, 1fr) minmax(220px, .8fr); gap: 14px; margin-top: 16px; }
 .panel { border: 1px solid #27272a; border-radius: 8px; padding: 14px; background: #0c0c0f; }
 .panel-title { margin: 0 0 10px; color: #a1a1aa; font-size: 12px; text-transform: uppercase; letter-spacing: 0; }
-.angle { margin: 0 0 10px; font-size: 16px; font-weight: 700; color: #f4f4f5; }
+.angle { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: #f4f4f5; }
+.angle-detail { margin: 0 0 10px; color: #d4d4d8; line-height: 1.5; }
 .meta, .links, .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .chip { border: 1px solid #3f3f46; border-radius: 999px; padding: 4px 8px; color: #d4d4d8; font-size: 12px; }
 .chip.urgent { border-color: #f59e0b; color: #fde68a; }
@@ -122,7 +124,7 @@ function render() {
     if (tag !== 'all' && !item.tags.includes(tag)) continue;
     if (technology !== 'all' && !item.technologies.includes(technology)) continue;
     if (issue !== 'all' && !Object.keys(item.issueCategories).includes(issue)) continue;
-    const haystack = [item.url, item.title, item.name, item.owner, item.nextAction, item.priority, item.notes, item.tags.join(' '), item.issues.join(' ')].join(' ').toLowerCase();
+    const haystack = [item.url, item.title, item.name, item.suggestedAngle, item.suggestedAngleDetail, item.owner, item.nextAction, item.priority, item.notes, item.tags.join(' '), item.issues.join(' ')].join(' ').toLowerCase();
     if (query && !haystack.includes(query)) continue;
     list.appendChild(renderCard(item));
   }
@@ -139,7 +141,7 @@ function renderCard(item) {
     '<div class="score-badge"><span>Lead score</span><strong>' + item.leadScore + '</strong><small>' + escapeHtml(scoreLabel(item)) + '</small></div>' +
     '</div>' +
     '<div class="triage-grid">' +
-      '<section class="panel"><p class="panel-title">Business opportunity</p><p class="angle">' + escapeHtml(item.suggestedAngle) + '</p>' +
+      '<section class="panel"><p class="panel-title">Business opportunity</p><p class="angle">' + escapeHtml(item.suggestedAngle) + '</p><p class="angle-detail">' + escapeHtml(item.suggestedAngleDetail) + '</p>' +
         '<div class="chips"><span class="chip urgent">Review: ' + escapeHtml(item.reviewStatus) + '</span><span class="chip">Priority: ' + escapeHtml(item.priority) + '</span><span class="chip">Next: ' + escapeHtml(item.nextAction) + '</span></div>' +
         '<p class="note">' + escapeHtml(contactability(item)) + '</p></section>' +
       '<section class="panel"><p class="panel-title">Top evidence</p><ul class="issue-list">' + topIssues.map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +

@@ -1,4 +1,5 @@
 const { renderCsv } = require('../readers/csv')
+const { buildSuggestedAngle } = require('./suggestedAngles')
 
 const SELECTED_LEADS_COLUMNS = [
   'id',
@@ -9,6 +10,8 @@ const SELECTED_LEADS_COLUMNS = [
   'lastReviewedAt',
   'tags',
   'notes',
+  'suggestedAngle',
+  'suggestedAngleDetail',
   'rank',
   'leadScore',
   'name',
@@ -28,6 +31,7 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
     .filter((item) => reviewStatus.items[item.id]?.status === 'shortlisted')
     .map((item) => {
       const review = reviewStatus.items[item.id] || {}
+      const angle = buildSuggestedAngle(item)
       return {
         id: item.id,
         reviewStatus: review.status || 'unreviewed',
@@ -37,6 +41,8 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
         lastReviewedAt: review.lastReviewedAt || '',
         tags: (review.tags || []).join('|'),
         notes: review.notes || '',
+        suggestedAngle: angle.suggestedAngle,
+        suggestedAngleDetail: angle.suggestedAngleDetail,
         rank: item.rank,
         leadScore: item.leadScore,
         name: item.name,

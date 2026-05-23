@@ -99,7 +99,8 @@ If GUI opening is unavailable, paste the full path into a browser.
 Review each lead card in this order:
 
 - business opportunity summary
-- suggested angle
+- suggestedAngle: a short deterministic category label for filtering
+- suggestedAngleDetail: a deterministic outreach context sentence derived from audit signals
 - score and urgency label
 - top 3 issues
 - contactability signals

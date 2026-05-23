@@ -50,4 +50,4 @@ Refresh only the CRM export:
 node core/lead-review-workspace/cli/export-crm-shortlist.js core/orchestrator/runs/<run-id>/summary.json
 ```
 
-CRM export is deterministic and rule-based. It exports only shortlisted leads and includes score, technologies, issue categories, contact fields, artifact paths, notes, review status, and suggested angle.
+CRM export is deterministic and rule-based. It exports only shortlisted leads and includes score, technologies, issue categories, contact fields, artifact paths, notes, review status, suggestedAngle labels, and suggestedAngleDetail outreach sentences derived from existing audit signals.

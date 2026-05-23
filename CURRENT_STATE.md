@@ -89,7 +89,7 @@ search phrase or spreadsheet
 - normalized review-status state for operator decisions
 - richer operator fields: priority, nextAction, owner, lastReviewedAt, tags
 - shortlisted lead CSV exports
-- CRM-ready shortlisted lead exports with deterministic suggested angles
+- CRM-ready shortlisted lead exports with deterministic suggestedAngle labels and suggestedAngleDetail outreach sentences
 - persistent orchestration runs
 - resumable queue processing
 - retry handling

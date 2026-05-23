@@ -1,4 +1,5 @@
 const { renderCsv } = require('../readers/csv')
+const { buildSuggestedAngle, suggestAngle, suggestAngleDetail } = require('./suggestedAngles')
 
 const CRM_SHORTLISTED_COLUMNS = [
   'company',
@@ -13,6 +14,7 @@ const CRM_SHORTLISTED_COLUMNS = [
   'desktopScreenshotPath',
   'mobileScreenshotPath',
   'suggestedAngle',
+  'suggestedAngleDetail',
   'reviewStatus',
   'priority',
   'nextAction',
@@ -27,6 +29,7 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
     .filter((item) => reviewStatus.items[item.id]?.status === 'shortlisted')
     .map((item) => {
       const review = reviewStatus.items[item.id] || {}
+      const angle = buildSuggestedAngle(item)
       return {
         company: item.name || item.title,
         website: item.url,
@@ -39,7 +42,8 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
         reportPath: item.links.htmlReport,
         desktopScreenshotPath: item.links.desktopScreenshot,
         mobileScreenshotPath: item.links.mobileScreenshot,
-        suggestedAngle: suggestAngle(item),
+        suggestedAngle: angle.suggestedAngle,
+        suggestedAngleDetail: angle.suggestedAngleDetail,
         reviewStatus: review.status || 'unreviewed',
         priority: review.priority || 'unset',
         nextAction: review.nextAction || 'unset',
@@ -52,20 +56,8 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
   return renderCsv(rows, CRM_SHORTLISTED_COLUMNS)
 }
 
-function suggestAngle(item) {
-  const issues = item.issues.join(' ').toLowerCase()
-  const categories = item.issueCategories || {}
-  const responseStatus = Number(item.performance?.responseStatus || 0)
-  if (responseStatus === 404 || issues.includes('404') || issues.includes('failed request') || issues.includes('unavailable')) return 'Website availability issue'
-  if ((categories.conversion || 0) > 0 && (categories.contactability || 0) > 0) return 'Conversion/contactability gap'
-  if ((categories.seo || 0) > 0 || issues.includes('meta description') || issues.includes('h1')) return 'SEO foundation gap'
-  if ((categories.accessibility || 0) > 0 || issues.includes('accessibility')) return 'Accessibility/usability improvement'
-  if ((categories.performance || 0) > 0 || (categories.technical || 0) > 0 || issues.includes('console') || issues.includes('performance')) return 'Technical performance issue'
-  return 'General website improvement opportunity'
-}
-
 function formatIssueCategories(categories) {
   return Object.keys(categories || {}).sort().map((key) => key + ':' + categories[key]).join('|')
 }
 
-module.exports = { CRM_SHORTLISTED_COLUMNS, buildCrmShortlistedCsv, suggestAngle }
+module.exports = { CRM_SHORTLISTED_COLUMNS, buildCrmShortlistedCsv, suggestAngle, suggestAngleDetail, buildSuggestedAngle }

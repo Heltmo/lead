@@ -3,7 +3,8 @@ const path = require('path')
 const { readRunArtifacts } = require('./readers/runArtifacts')
 const { buildFilterConfig } = require('./filters/filterConfig')
 const { buildSelectedLeadsCsv } = require('./exports/selectedLeadsCsv')
-const { buildCrmShortlistedCsv, suggestAngle } = require('./exports/crmShortlistedCsv')
+const { buildCrmShortlistedCsv } = require('./exports/crmShortlistedCsv')
+const { buildSuggestedAngle } = require('./exports/suggestedAngles')
 const { loadOrCreateReviewStatus } = require('./state/reviewStatus')
 const { renderIndexHtml } = require('./templates/indexHtml')
 
@@ -12,7 +13,7 @@ function generateReviewWorkspace(options) {
   const artifacts = readRunArtifacts({ summaryPath: options.summaryPath, leadsCsvPath: options.leadsCsvPath })
   const outDir = path.resolve(options.outDir || path.join(artifacts.runDir, 'review-workspace'))
   fs.mkdirSync(outDir, { recursive: true })
-  const items = artifacts.items.map((item) => ({ ...item, suggestedAngle: suggestAngle(item), relativeLinks: relativizeLinks(item.links, outDir) }))
+  const items = artifacts.items.map((item) => ({ ...item, ...buildSuggestedAngle(item), relativeLinks: relativizeLinks(item.links, outDir) }))
   const statusPath = path.join(outDir, 'review-status.json')
   const reviewStatus = loadOrCreateReviewStatus(statusPath, items)
   const model = { runId: artifacts.summary.runId, items, reviewStatus, filters: buildFilterConfig(items, reviewStatus) }

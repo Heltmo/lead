@@ -1,21 +1,22 @@
 # Next Milestone
 
-The system now has a deterministic discovery front door plus the existing audit, review, and CRM export pipeline. The next phase is validating discovery-to-audit operation on realistic source data, not adding more architecture by default.
+The system now has a deterministic discovery front door, audit/review/export pipeline, and deterministic suggestedAngle plus suggestedAngleDetail fields. The next phase is validating the workflow on a larger 10-lead operating run, not adding more architecture by default.
 
-## Priority 1: Use Discovery With Realistic Source Data
+## Priority 1: Run 10 Leads Through The Operating Workflow
 
-Run the new lead discovery agent with a real or manually curated source file for one query such as `dentists in Halden`.
+Run the existing discovery-to-export workflow on 10 realistic leads and judge whether the CRM output is useful for manual outreach.
 
 Targets:
 
-- create or collect a small fixed source file with 5 to 10 businesses
+- create or collect a fixed source file with about 10 businesses
 - run `core/lead-discovery-agent` to produce `lead-candidates.json`
 - hand off discovered URLs to the orchestrator
 - audit the discovered candidates
 - open the review workspace
 - shortlist/export leads
+- inspect whether the CRM export has enough context for manual outreach
 
-Reason: the discovery agent is only useful if it feeds the existing operating workflow with usable candidate websites.
+Reason: the MVP is only useful if the reviewed CRM export supports real manual sales work without excessive cleanup.
 
 ## Priority 2: Fix Only Discovery Workflow Blockers
 
