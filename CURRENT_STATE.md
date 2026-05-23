@@ -73,8 +73,8 @@ search phrase or spreadsheet
 - deterministic local business discovery from JSON, CSV, TXT, and saved/static HTML source files
 - Norwegian/English industry taxonomy with canonicalIndustry and expandedQueries
 - live search provider abstraction with Brave Search support, env-var API key configuration, and dry-run query inspection
-- candidate URL normalization, source provenance, deduplication by domain, and reachability checks
-- metadata-preserving orchestrator handoff from discovered candidates
+- candidate URL normalization, source provenance, deduplication by domain, reachability checks, and sourceType/auditEligible target filtering
+- metadata-preserving orchestrator handoff from audit-eligible discovered candidates by default
 - deterministic single-site website audits
 - CSV/XLSX spreadsheet ingestion
 - browser execution with Playwright
@@ -114,9 +114,10 @@ Core files:
 - `taxonomy/industryTaxonomy.js`
 - `normalizers/leadCandidate.js`
 - `normalizers/websiteReachability.js`
+- `normalizers/sourceType.js`
 - `reports/discoveryReport.js`
 
-The discovery agent accepts industry/location queries such as `dentists in Halden`, `tannlege Halden`, `advokater i Oslo`, and `regnskapsfører Sarpsborg`. It maps English/Norwegian terms through a deterministic taxonomy, emits `canonicalIndustry` and `expandedQueries`, reads one or more deterministic source files, can call a configured live provider such as Brave Search, normalizes source provenance, deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and a metadata-preserving orchestrator handoff file. Supported source formats are manual JSON candidates, CSV candidates, TXT URL lists, saved/static HTML pages with public links, and provider results. Live provider tests use mock fixtures; `--dry-run true` exposes planned provider queries without network calls.
+The discovery agent accepts industry/location queries such as `dentists in Halden`, `tannlege Halden`, `advokater i Oslo`, and `regnskapsfører Sarpsborg`. It maps English/Norwegian terms through a deterministic taxonomy, emits `canonicalIndustry` and `expandedQueries`, reads one or more deterministic source files, can call a configured live provider such as Brave Search, normalizes source provenance, deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and a metadata-preserving orchestrator handoff file. Supported source formats are manual JSON candidates, CSV candidates, TXT URL lists, saved/static HTML pages with public links, and provider results. Live provider tests use mock fixtures; `--dry-run true` exposes planned provider queries without network calls. Discovery classifies targets as `directBusiness`, `directory`, `social`, `governmentRegistry`, or `unknown`; directory/social/registry targets remain in discovery reports but are excluded from orchestrator handoff by default unless `--include-non-audit-targets true` is used.
 
 ## Website Audit Agent
 
@@ -196,7 +197,7 @@ Example live provider dry run from `~/webconsult/core/lead-discovery-agent`:
 npm run discover -- --query "tannleger i Halden" --provider brave --dry-run true --max-results 10 --summary reports/tannleger-halden-live-dry-run-summary.json
 ```
 
-Example Brave provider run requires `BRAVE_SEARCH_API_KEY`:
+Example Brave provider run requires `BRAVE_SEARCH_API_KEY`; handoff excludes non-audit targets by default:
 
 ```bash
 BRAVE_SEARCH_API_KEY=<key> npm run discover -- --query "tannleger i Halden" --provider brave --max-results 10 --out reports/tannleger-halden-live-candidates.json --summary reports/tannleger-halden-live-summary.json --handoff reports/tannleger-halden-live-handoff.jsonl

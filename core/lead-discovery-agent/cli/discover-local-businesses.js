@@ -20,7 +20,7 @@ async function main() {
     validate: args.validate !== 'false',
     timeoutMs: args.timeout ? Number(args.timeout) : 5000,
   })
-  const outputs = writeDiscoveryOutputs(report, { outPath: args.out, summaryPath: args.summary, handoffPath: args.handoff })
+  const outputs = writeDiscoveryOutputs(report, { outPath: args.out, summaryPath: args.summary, handoffPath: args.handoff, includeNonAuditTargets: args['include-non-audit-targets'] === 'true' })
   console.log(JSON.stringify({
     ...outputs,
     provider: report.provider,

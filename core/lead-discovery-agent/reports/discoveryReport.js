@@ -19,8 +19,33 @@ function createDiscoveryReport({ query, industry, canonicalIndustry, industryTer
     reachableCandidates: candidates.filter((candidate) => candidate.websiteReachable === true).length,
     unreachableCandidates: candidates.filter((candidate) => candidate.websiteReachable === false).length,
     candidatesBySource: countBySource(candidates),
+    candidatesBySourceType: countBySourceType(candidates),
+    auditEligibleCandidates: candidates.filter((candidate) => candidate.auditEligible !== false).length,
+    excludedCandidates: candidates.filter((candidate) => candidate.auditEligible === false).length,
+    excludedTargets: excludedTargets(candidates),
     candidates,
   }
+}
+
+function countBySourceType(candidates) {
+  const counts = {}
+  for (const candidate of candidates) {
+    const key = candidate.sourceType || 'unknown'
+    counts[key] = (counts[key] || 0) + 1
+  }
+  return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)))
+}
+
+function excludedTargets(candidates) {
+  return candidates
+    .filter((candidate) => candidate.auditEligible === false)
+    .map((candidate) => ({
+      businessName: candidate.businessName || '',
+      website: candidate.website,
+      domain: candidate.normalizedDomain || '',
+      sourceType: candidate.sourceType || 'unknown',
+      reason: candidate.auditExclusionReason || '',
+    }))
 }
 
 function countBySource(candidates) {
@@ -35,4 +60,4 @@ function countBySource(candidates) {
   return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)))
 }
 
-module.exports = { createDiscoveryReport, countBySource }
+module.exports = { createDiscoveryReport, countBySource, countBySourceType, excludedTargets }

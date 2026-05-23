@@ -68,7 +68,7 @@ Outputs:
 - `reports/discovery-summary.json`
 - `reports/orchestrator-urls.txt`
 
-The summary includes raw candidate count, invalid candidates, duplicates removed, reachable/unreachable websites, handoff-ready candidates, and candidates grouped by source. The handoff file is newline-delimited JSON so businessName, source, location, industry, confidence, and source provenance survive into the orchestrator.
+The summary includes raw candidate count, invalid candidates, duplicates removed, reachable/unreachable websites, sourceType counts, audit-eligible counts, excluded targets, handoff-ready candidates, and candidates grouped by source. The handoff file is newline-delimited JSON so businessName, source, location, industry, confidence, sourceType, auditEligible, and source provenance survive into the orchestrator.
 
 ## Live Search Provider Mode
 
@@ -112,6 +112,33 @@ npm run discover -- \
 
 The summary includes a `provider` block with provider name, dry-run status, max result target, and planned queries. Provider tests use mocked fixtures, so verification does not require live network access or API credentials.
 
+## Discovery Target Filtering
+
+Discovery classifies candidate domains before handoff:
+
+- `directBusiness`
+- `directory`
+- `social`
+- `governmentRegistry`
+- `unknown`
+
+Known directory/social/registry domains such as `legelisten.no`, `1881.no`, `gulesider.no`, `proff.no`, `facebook.com`, `instagram.com`, `linkedin.com`, and `tannlegerinorge.no` are retained in discovery reports but marked `auditEligible: false`. They can be useful discovery sources, but direct business websites are preferred audit targets.
+
+Automatic handoff excludes non-audit targets by default. Include them only when explicitly needed:
+
+```bash
+npm run discover -- \
+  --query "tannleger i Halden" \
+  --provider brave \
+  --include-non-audit-targets true \
+  --handoff reports/tannleger-halden-all-targets.jsonl
+```
+
+The explicit handoff command supports the same override:
+
+```bash
+npm run handoff -- reports/lead-candidates.json --include-non-audit-targets true --out reports/all-targets.jsonl
+```
 ## Handoff To Orchestrator
 
 ```bash

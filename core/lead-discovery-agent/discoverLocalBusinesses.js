@@ -73,7 +73,7 @@ function writeDiscoveryOutputs(report, options = {}) {
   fs.mkdirSync(path.dirname(handoffPath), { recursive: true })
   fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`)
   fs.writeFileSync(summaryPath, `${JSON.stringify(toSummary(report), null, 2)}\n`)
-  fs.writeFileSync(handoffPath, `${report.candidates.filter((candidate) => candidate.websiteReachable !== false).map(formatHandoffCandidate).join('\n')}\n`)
+  fs.writeFileSync(handoffPath, `${report.candidates.filter((candidate) => shouldIncludeInHandoff(candidate, options)).map(formatHandoffCandidate).join('\n')}\n`)
   return { candidatesPath: outPath, summaryPath, handoffPath }
 }
 
@@ -86,7 +86,16 @@ function formatHandoffCandidate(candidate) {
     industry: candidate.industry || '',
     confidence: candidate.confidence || '',
     sources: candidate.sources || [],
+    sourceType: candidate.sourceType || 'unknown',
+    auditEligible: candidate.auditEligible !== false,
+    auditExclusionReason: candidate.auditExclusionReason || '',
   })
+}
+
+function shouldIncludeInHandoff(candidate, options = {}) {
+  if (candidate.websiteReachable === false) return false
+  if (options.includeNonAuditTargets) return true
+  return candidate.auditEligible !== false
 }
 
 function toSummary(report) {
@@ -108,7 +117,11 @@ function toSummary(report) {
     reachableCandidates: report.reachableCandidates,
     unreachableCandidates: report.unreachableCandidates,
     candidatesBySource: report.candidatesBySource,
-    handoffReadyCandidates: report.candidates.filter((candidate) => candidate.websiteReachable !== false).length,
+    candidatesBySourceType: report.candidatesBySourceType,
+    auditEligibleCandidates: report.auditEligibleCandidates,
+    excludedCandidates: report.excludedCandidates,
+    excludedTargets: report.excludedTargets,
+    handoffReadyCandidates: report.candidates.filter((candidate) => shouldIncludeInHandoff(candidate)).length,
   }
 }
 
@@ -119,4 +132,4 @@ function normalizeSourceFiles(value) {
     .filter(Boolean)
 }
 
-module.exports = { discoverLocalBusinesses, writeDiscoveryOutputs, toSummary, normalizeSourceFiles, formatHandoffCandidate }
+module.exports = { discoverLocalBusinesses, writeDiscoveryOutputs, toSummary, normalizeSourceFiles, formatHandoffCandidate, shouldIncludeInHandoff }

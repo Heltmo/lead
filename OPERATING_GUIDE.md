@@ -91,9 +91,26 @@ npm run discover -- \
   --handoff reports/tannleger-halden-live-handoff.jsonl
 ```
 
-Provider results can be combined with manual `--source` files in the same command. The discovery agent merges, deduplicates, validates reachability, and writes the same orchestrator handoff format as deterministic source mode.
+Provider results can be combined with manual `--source` files in the same command. The discovery agent merges, deduplicates, validates reachability, classifies targets by `sourceType`, and writes the same orchestrator handoff format as deterministic source mode. Directory/social/registry pages are kept in discovery reports but excluded from audit handoff by default because direct business websites are preferred audit targets. Use `--include-non-audit-targets true` only when you intentionally want directories or social profiles audited.
 
-## 4. Create A Small Real Lead Batch
+## 4. Inspect Discovery Target Quality
+
+After provider discovery, inspect the summary before running audits:
+
+```bash
+cat ~/webconsult/core/lead-discovery-agent/reports/tannleger-halden-live-summary.json
+```
+
+Check:
+
+- `candidatesBySourceType`
+- `auditEligibleCandidates`
+- `excludedCandidates`
+- `excludedTargets`
+
+Directory/social pages such as `legelisten.no`, `1881.no`, `gulesider.no`, `facebook.com`, and `tannlegerinorge.no` should remain visible as discovery evidence but should not enter the audit queue by default.
+
+## 5. Create A Small Real Lead Batch
 
 Start with 5 to 10 leads. Do not process the whole spreadsheet until the review/export workflow has been checked manually.
 
@@ -109,7 +126,7 @@ cd ~/webconsult
 node -e "const fs=require('fs'); const report=JSON.parse(fs.readFileSync('core/website-audit-agent/reports/advokat-operating-dry-run.json','utf8')); fs.mkdirSync('core/orchestrator/runs',{recursive:true}); fs.writeFileSync('core/orchestrator/runs/advokat-first-5-urls.txt', report.results.map((lead)=>lead.url).filter(Boolean).slice(0,5).join('\n') + '\n');"
 ```
 
-## 5. Run The Orchestrator
+## 6. Run The Orchestrator
 
 Use a unique run ID. Example:
 
@@ -139,7 +156,7 @@ review-workspace/crm-shortlisted-leads.csv
 
 Generated run artifacts are ignored by Git.
 
-## 6. Open The Review Workspace
+## 7. Open The Review Workspace
 
 ```bash
 xdg-open ~/webconsult/core/orchestrator/runs/<run-id>/review-workspace/index.html
@@ -158,7 +175,7 @@ Review each lead card in this order. The card title prefers the discovered busin
 - review metadata: status, priority, next action, owner, tags
 - technical evidence only when needed: issue categories, technologies, HTML report, JSON, screenshots
 
-## 7. Shortlist Leads
+## 8. Shortlist Leads
 
 Edit:
 
@@ -186,7 +203,7 @@ Allowed statuses:
 unreviewed, reviewed, shortlisted, rejected
 ```
 
-## 8. Export CRM-Ready Shortlisted Leads
+## 9. Export CRM-Ready Shortlisted Leads
 
 After editing `review-status.json`, run:
 

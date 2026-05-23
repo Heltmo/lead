@@ -5,11 +5,13 @@ const path = require('path')
 function main() {
   const args = parseArgs(process.argv.slice(2))
   const input = args.input || args._[0]
-  if (!input) throw new Error('Usage: node cli/handoff-candidates.js <lead-candidates.json> [--out reports/orchestrator-urls.txt] [--include-unreachable true]')
+  if (!input) throw new Error('Usage: node cli/handoff-candidates.js <lead-candidates.json> [--out reports/orchestrator-urls.txt] [--include-unreachable true] [--include-non-audit-targets true]')
   const report = JSON.parse(fs.readFileSync(input, 'utf8'))
   const includeUnreachable = args['include-unreachable'] === 'true'
+  const includeNonAuditTargets = args['include-non-audit-targets'] === 'true'
   const lines = report.candidates
     .filter((candidate) => includeUnreachable || candidate.websiteReachable !== false)
+    .filter((candidate) => includeNonAuditTargets || candidate.auditEligible !== false)
     .map(formatHandoffCandidate)
     .filter(Boolean)
   const outPath = path.resolve(args.out || 'reports/orchestrator-urls.txt')
@@ -28,6 +30,9 @@ function formatHandoffCandidate(candidate) {
     industry: candidate.industry || '',
     confidence: candidate.confidence || '',
     sources: candidate.sources || [],
+    sourceType: candidate.sourceType || 'unknown',
+    auditEligible: candidate.auditEligible !== false,
+    auditExclusionReason: candidate.auditExclusionReason || '',
   })
 }
 

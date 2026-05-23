@@ -1,4 +1,5 @@
 const { parseIndustryQuery } = require('../taxonomy/industryTaxonomy')
+const { classifyDiscoveryTarget } = require('./sourceType')
 
 function parseDiscoveryQuery(query = '') {
   return parseIndustryQuery(query)
@@ -10,6 +11,7 @@ function normalizeLeadCandidate(raw, defaults = {}) {
   const source = String(raw.source || defaults.source || 'sample').trim()
   const sourceFile = String(raw.sourceFile || defaults.sourceFile || '').trim()
   const sourceFormat = String(raw.sourceFormat || defaults.sourceFormat || '').trim()
+  const target = classifyDiscoveryTarget(website)
   return {
     businessName: String(raw.businessName || raw.name || raw.title || '').trim(),
     website,
@@ -19,6 +21,9 @@ function normalizeLeadCandidate(raw, defaults = {}) {
     industry: String(raw.industry || defaults.canonicalIndustry || defaults.industry || '').trim(),
     confidence: normalizeConfidence(raw.confidence),
     normalizedDomain: normalizeDomain(website),
+    sourceType: raw.sourceType || target.sourceType,
+    auditEligible: raw.auditEligible == null ? target.auditEligible : Boolean(raw.auditEligible),
+    auditExclusionReason: raw.auditExclusionReason || target.auditExclusionReason,
     websiteReachable: null,
     reachability: null,
   }
@@ -39,6 +44,9 @@ function deduplicateCandidates(candidates) {
     existing.location = existing.location || candidate.location
     existing.industry = existing.industry || candidate.industry
     existing.confidence = bestConfidence(existing.confidence, candidate.confidence)
+    existing.sourceType = strongestSourceType(existing.sourceType, candidate.sourceType)
+    existing.auditEligible = Boolean(existing.auditEligible || candidate.auditEligible)
+    existing.auditExclusionReason = existing.auditEligible ? '' : (existing.auditExclusionReason || candidate.auditExclusionReason || '')
   }
   return [...byDomain.values()]
 }
@@ -66,6 +74,11 @@ function normalizeDomain(value) {
 
 function normalizeConfidence(value) {
   return ['high', 'medium', 'low'].includes(value) ? value : 'medium'
+}
+
+function strongestSourceType(left, right) {
+  const order = { directBusiness: 5, unknown: 4, directory: 3, governmentRegistry: 2, social: 1 }
+  return (order[right] || 0) > (order[left] || 0) ? right : left
 }
 
 function bestConfidence(left, right) {

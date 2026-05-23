@@ -4,12 +4,18 @@ const path = require('path')
 const { spawnSync } = require('child_process')
 const { discoverLocalBusinesses, writeDiscoveryOutputs } = require('../discoverLocalBusinesses')
 const { parseDiscoveryQuery } = require('../normalizers/leadCandidate')
+const { classifyDiscoveryTarget } = require('../normalizers/sourceType')
 
 async function main() {
   assertQuery('dentists in Halden', 'dentist', 'Halden', 'tannlege Halden')
   assertQuery('tannlege Halden', 'dentist', 'Halden', 'dentists Halden')
   assertQuery('advokater i Oslo', 'lawyer', 'Oslo', 'advokatfirma Oslo')
   assertQuery('regnskapsfører Sarpsborg', 'accountant', 'Sarpsborg', 'accounting firm Sarpsborg')
+  assertTarget('https://haldentannlegene.no', 'directBusiness', true)
+  assertTarget('https://www.legelisten.no/tannleger/Viken/Halden', 'directory', false)
+  assertTarget('https://www.1881.no/tannlege/tannlege-oestfold/tannlege-halden', 'directory', false)
+  assertTarget('https://www.facebook.com/dyrendaltannhelsesenter', 'social', false)
+  assertTarget('https://www.gulesider.no/tannlege/bedrifter', 'directory', false)
   const server = http.createServer((request, response) => {
     response.writeHead(200, { 'content-type': 'text/html' })
     response.end('<title>Halden Tannklinikk</title>')
@@ -44,7 +50,7 @@ async function main() {
     'Txt Dental | https://txt-dental.example',
     'Bad Dental | not a url',
   ].join('\n') + '\n')
-  fs.writeFileSync(htmlFixture, '<html><body><a href="https://html-dental.example">HTML Dental</a><a href="/relative">Ignored relative</a></body></html>')
+  fs.writeFileSync(htmlFixture, '<html><body><a href="https://html-dental.example">HTML Dental</a><a href="https://www.legelisten.no/tannleger/Viken/Halden">Legelisten Halden</a><a href="/relative">Ignored relative</a></body></html>')
   fs.writeFileSync(taxonomyFixture, JSON.stringify({
     results: [
       { businessName: 'Oslo Advokatfirma', website: 'https://advokat.example', source: 'taxonomy', location: 'Oslo', industry: 'advokatfirma', confidence: 'high' },
@@ -61,13 +67,16 @@ async function main() {
   assert(multiSourceReport.industry === 'dentist', 'industry should be canonicalized')
   assert(multiSourceReport.canonicalIndustry === 'dentist', 'canonicalIndustry should be present')
   assert(multiSourceReport.expandedQueries.includes('tannlege Halden'), 'expanded queries should include Norwegian dentist search')
-  assert(multiSourceReport.totalRawCandidates === 8, 'multi-source report should count raw filtered candidates')
+  assert(multiSourceReport.totalRawCandidates === 9, 'multi-source report should count raw filtered candidates')
   assert(multiSourceReport.invalidCandidates === 1, 'invalid txt URL should be counted')
   assert(multiSourceReport.duplicatesRemoved === 2, 'duplicates across JSON and CSV sources should be removed')
-  assert(multiSourceReport.candidates.length === 5, 'multi-source candidates should merge and dedupe')
+  assert(multiSourceReport.candidates.length === 6, 'multi-source candidates should merge and dedupe')
+  assert(multiSourceReport.candidatesBySourceType.directory === 1, 'summary should count directory candidates')
+  assert(multiSourceReport.excludedCandidates === 1, 'summary should count non-audit targets')
+  assert(multiSourceReport.auditEligibleCandidates === 5, 'summary should count audit-eligible targets')
   assert(multiSourceReport.candidatesBySource['csv-directory'] === 2, 'summary should count CSV provenance')
   assert(multiSourceReport.candidatesBySource['dentists-halden.extra-urls.txt'] === 1, 'summary should count TXT provenance')
-  assert(multiSourceReport.candidatesBySource['dentists-halden.search-results.html'] === 1, 'summary should count HTML provenance')
+  assert(multiSourceReport.candidatesBySource['dentists-halden.search-results.html'] === 2, 'summary should count HTML provenance')
   const merged = multiSourceReport.candidates.find((candidate) => candidate.normalizedDomain === '127.0.0.1')
   assert(merged.sources.length === 2, 'duplicate local domain should preserve JSON and CSV provenance')
 
@@ -131,15 +140,28 @@ async function main() {
   assert(handoffRows[0].businessName === 'Halden Tannklinikk', 'handoff should preserve business name')
   assert(handoffRows[0].industry === 'dentists', 'handoff should preserve industry')
   assert(handoffRows[0].location === 'Halden', 'handoff should preserve location')
-  assert(summaryReport.handoffReadyCandidates === 1, 'summary should include handoff count')
+  assert(summaryReport.handoffReadyCandidates === 1, 'summary should include audit-eligible handoff count')
+  assert(summaryReport.excludedCandidates === 0, 'source-only report should not exclude audit targets in this fixture')
   assert(summaryReport.duplicatesRemoved === 1, 'summary should include duplicate count')
   assert(summaryReport.candidatesBySource['sample-directory'] === 2, 'summary should include source counts')
 
   const handoffResult = spawnSync(process.execPath, ['cli/handoff-candidates.js', out, '--out', path.join(root, 'handoff-all.txt'), '--include-unreachable', 'true'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' })
   if (handoffResult.status !== 0) { console.error(handoffResult.stdout); console.error(handoffResult.stderr); process.exit(handoffResult.status) }
   const allRows = fs.readFileSync(path.join(root, 'handoff-all.txt'), 'utf8').trim().split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
-  assert(allRows.length === 2, 'explicit handoff can include unreachable candidates')
+  assert(allRows.length === 2, 'explicit handoff can include unreachable audit-eligible candidates')
   assert(allRows[0].businessName, 'explicit handoff should preserve business names')
+
+  const allTargetsResult = spawnSync(process.execPath, ['cli/handoff-candidates.js', out, '--out', path.join(root, 'handoff-all-targets.txt'), '--include-unreachable', 'true', '--include-non-audit-targets', 'true'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' })
+  if (allTargetsResult.status !== 0) { console.error(allTargetsResult.stdout); console.error(allTargetsResult.stderr); process.exit(allTargetsResult.status) }
+  const allTargetRows = fs.readFileSync(path.join(root, 'handoff-all-targets.txt'), 'utf8').trim().split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
+  assert(allTargetRows.length === 2, 'explicit handoff include flag should preserve audit-eligible rows when no non-audit targets exist')
+  assert(allTargetRows.every((row) => row.auditEligible !== false), 'explicit handoff should preserve audit target metadata')
+}
+
+function assertTarget(url, sourceType, auditEligible) {
+  const target = classifyDiscoveryTarget(url)
+  assert(target.sourceType === sourceType, url + ' should classify as ' + sourceType)
+  assert(target.auditEligible === auditEligible, url + ' should have auditEligible=' + auditEligible)
 }
 
 function assertQuery(query, canonicalIndustry, location, expandedQuery) {
