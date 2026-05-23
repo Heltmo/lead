@@ -17,6 +17,7 @@ assert(fs.existsSync(payload.reportSurfaces.csvPath), 'csv report surface should
 assert(fs.existsSync(payload.reviewWorkspace.indexPath), 'review workspace index should exist')
 assert(fs.existsSync(payload.reviewWorkspace.reviewStatusPath), 'review status should exist')
 assert(fs.existsSync(payload.reviewWorkspace.selectedLeadsPath), 'selected leads export should exist')
+assert(fs.existsSync(payload.reviewWorkspace.crmShortlistedPath), 'CRM shortlisted export should exist')
 const summary = JSON.parse(fs.readFileSync(payload.summaryPath, 'utf8'))
 assert(summary.results[0].status === 'completed', 'summary item should be completed')
 assert(fs.existsSync(summary.results[0].reportPath), 'worker report should exist')

@@ -28,6 +28,13 @@ function normalizeLead(lead, summaryItem, context) {
     technologies: splitList(lead.technologies),
     issueCategories: parseCounts(lead.issueCategories),
     issues: splitList(lead.issues),
+    emails: splitList((report?.signals?.emails || []).join('|')),
+    phones: splitList((report?.signals?.phones || []).join('|')),
+    performance: {
+      responseStatus: Number(lead.responseStatus || report?.performance?.responseStatus || 0),
+      failedRequestCount: Number(lead.failedRequestCount || report?.performance?.failedRequests?.length || 0),
+      consoleErrorCount: Number(lead.consoleErrorCount || report?.performance?.consoleErrors?.length || 0),
+    },
     links: {
       htmlReport: path.join(context.runDir, 'report-surfaces', 'report.html'),
       jsonArtifact,

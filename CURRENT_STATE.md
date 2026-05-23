@@ -82,6 +82,7 @@ spreadsheet
 - static lead review workspace generation
 - separate review-status state for operator decisions
 - shortlisted lead CSV exports
+- CRM-ready shortlisted lead exports with deterministic suggested angles
 - persistent orchestration runs
 - resumable queue processing
 - retry handling
@@ -136,10 +137,12 @@ Core files:
 - `generateReviewWorkspace.js`
 - `readers/runArtifacts.js`
 - `exports/selectedLeadsCsv.js`
+- `exports/crmShortlistedCsv.js`
+- `cli/export-crm-shortlist.js`
 - `state/reviewStatus.js`
 - `templates/indexHtml.js`
 
-The workspace reads orchestrator `summary.json` and `report-surfaces/leads.csv`, then writes `review-workspace/index.html`, `review-workspace/review-status.json`, and `review-workspace/selected-leads.csv`. Review state is separate from raw audit artifacts.
+The workspace reads orchestrator `summary.json` and `report-surfaces/leads.csv`, then writes `review-workspace/index.html`, `review-workspace/review-status.json`, `review-workspace/selected-leads.csv`, and `review-workspace/crm-shortlisted-leads.csv`. Review state and CRM exports are separate from raw audit artifacts.
 
 ## Verification Commands
 
@@ -174,6 +177,12 @@ Example static review workspace generation from an orchestrator run:
 
 ```bash
 node core/lead-review-workspace/cli/generate-review-workspace.js core/orchestrator/runs/<run-id>/summary.json
+```
+
+Example CRM shortlisted export refresh:
+
+```bash
+node core/lead-review-workspace/cli/export-crm-shortlist.js core/orchestrator/runs/<run-id>/summary.json
 ```
 
 ## Architecture Principles

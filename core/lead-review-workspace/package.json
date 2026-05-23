@@ -5,7 +5,8 @@
   "main": "generateReviewWorkspace.js",
   "scripts": {
     "generate": "node cli/generate-review-workspace.js",
-    "test": "node tests/smoke.test.js"
+    "test": "node tests/smoke.test.js",
+    "export:crm": "node cli/export-crm-shortlist.js"
   },
   "license": "ISC",
   "type": "commonjs"

@@ -25,7 +25,7 @@ This file distinguishes operational capabilities from work that is not reliable 
 - no historical comparison layer yet
 - no recurring monitoring yet
 - no CRM integration yet
-- no CRM-native export package yet beyond deterministic CSV report surfaces and shortlisted lead exports
+- CRM-ready shortlisted CSV export exists, but field mapping still needs calibration against real CRM/outreach workflows
 - no third-party enrichment APIs
 - no business-category classification beyond extracted spreadsheet/source data
 - no outreach automation
