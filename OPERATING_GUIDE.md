@@ -27,7 +27,7 @@ Run from anywhere:
 
 ## 2. Optional: Discover Local Business Candidates
 
-Use this when starting from a query and deterministic source files instead of an existing spreadsheet. Discovery can combine operator-provided JSON, CSV, TXT, and saved/static HTML files, then normalize, deduplicate, validate, and hand off URLs to the orchestrator.
+Use this when starting from a query and deterministic source files instead of an existing spreadsheet. Discovery can combine operator-provided JSON, CSV, TXT, and saved/static HTML files, then normalize, deduplicate, validate, and hand off URLs to the orchestrator. Industry parsing uses a general Norwegian/English taxonomy, so queries such as `dentists in Halden`, `tannlege Halden`, `advokater i Oslo`, and `regnskapsfører Sarpsborg` resolve to canonical industries and expanded query lists.
 
 Example multi-source discovery run:
 
@@ -59,7 +59,7 @@ cd ~/webconsult/core/orchestrator
 node cli/run-audit-queue.js --file ../lead-discovery-agent/reports/orchestrator-urls.txt --runs runs --run-id dentists-halden-sample --retries 1
 ```
 
-Discovery remains deterministic and source-file based. Do not use protected/private scraping sources, live Google scraping, or paid APIs until a provider is explicitly added and verified.
+Discovery remains deterministic and source-file based. Do not use protected/private scraping sources, live Google scraping, or paid APIs until a provider is explicitly added and verified. To add a new industry, extend `core/lead-discovery-agent/taxonomy/industries.json` with English terms, Norwegian terms, and search patterns.
 
 ## 3. Create A Small Real Lead Batch
 
@@ -201,4 +201,4 @@ https://www.advokat-bm.no
 
 Do not add historical comparison, dashboards, databases, AI outreach, Lighthouse, parallelism, or monitoring until the 5 to 10 lead manual workflow has been used successfully on real leads.
 
-Next practical step: manually review the first 5-lead run, then repeat with 10 leads.
+Next practical step: run a 10-lead deterministic source workflow for one taxonomy-supported industry/location, then judge whether the CRM export supports manual outreach.

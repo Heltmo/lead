@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const { extractSearchResults } = require('../extractors/searchResults')
+const { industryMatches } = require('../taxonomy/industryTaxonomy')
 
 function loadDiscoverySources(sourceFiles, defaults = {}) {
   const files = Array.isArray(sourceFiles) ? sourceFiles : [sourceFiles].filter(Boolean)
@@ -103,7 +104,7 @@ function matchesFilter(row, filters) {
   const location = String(row.location || '').toLowerCase()
   const requestedIndustry = String(filters.industry || '').toLowerCase()
   const requestedLocation = String(filters.location || '').toLowerCase()
-  if (requestedIndustry && industry && !industry.includes(requestedIndustry.replace(/s$/, ''))) return false
+  if (requestedIndustry && industry && !industryMatches(industry, filters)) return false
   if (requestedLocation && location && !location.includes(requestedLocation)) return false
   return true
 }

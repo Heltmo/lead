@@ -16,6 +16,25 @@ search phrase + deterministic source files
 
 It does not scrape Google, use paid APIs, or parse protected/private sources. Discovery reads operator-provided source files, normalizes candidates, deduplicates by domain, optionally validates reachability, and writes handoff artifacts for the orchestrator.
 
+## Industry Taxonomy And Query Expansion
+
+Discovery uses `taxonomy/industries.json` to map English and Norwegian industry terms to canonical industries. Examples:
+
+- `dentists in Halden` -> `dentist`
+- `tannlege Halden` -> `dentist`
+- `advokater i Oslo` -> `lawyer`
+- `regnskapsfører Sarpsborg` -> `accountant`
+
+The discovery summary includes `canonicalIndustry`, `industryTerm`, and `expandedQueries`. Expansion is deterministic and uses patterns like:
+
+```text
+{term} {location}
+{term} i {location}
+{location} {term}
+```
+
+The taxonomy is used for source filtering when candidates include an `industry` field. Source importers remain generic.
+
 ## Supported Source Formats
 
 The discovery CLI accepts one or more `--source` files:

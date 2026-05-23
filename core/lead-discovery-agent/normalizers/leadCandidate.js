@@ -1,8 +1,7 @@
+const { parseIndustryQuery } = require('../taxonomy/industryTaxonomy')
+
 function parseDiscoveryQuery(query = '') {
-  const cleaned = String(query).trim()
-  const match = cleaned.match(/(.+?)\s+in\s+(.+)/i)
-  if (match) return { industry: match[1].trim(), location: match[2].trim(), query: cleaned }
-  return { industry: cleaned, location: '', query: cleaned }
+  return parseIndustryQuery(query)
 }
 
 function normalizeLeadCandidate(raw, defaults = {}) {
@@ -17,7 +16,7 @@ function normalizeLeadCandidate(raw, defaults = {}) {
     source,
     sources: uniqueSources([{ source, sourceFile, sourceFormat }]),
     location: String(raw.location || defaults.location || '').trim(),
-    industry: String(raw.industry || defaults.industry || '').trim(),
+    industry: String(raw.industry || defaults.canonicalIndustry || defaults.industry || '').trim(),
     confidence: normalizeConfidence(raw.confidence),
     normalizedDomain: normalizeDomain(website),
     websiteReachable: null,

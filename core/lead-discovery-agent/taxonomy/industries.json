@@ -1,0 +1,185 @@
+{
+  "dentist": {
+    "canonical": "dentist",
+    "norwegian": [
+      "tannlege",
+      "tannleger",
+      "tannklinikk",
+      "tannhelse"
+    ],
+    "english": [
+      "dentist",
+      "dentists",
+      "dental clinic"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  },
+  "lawyer": {
+    "canonical": "lawyer",
+    "norwegian": [
+      "advokat",
+      "advokater",
+      "advokatfirma"
+    ],
+    "english": [
+      "lawyer",
+      "lawyers",
+      "law firm",
+      "attorney"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  },
+  "chiropractor": {
+    "canonical": "chiropractor",
+    "norwegian": [
+      "kiropraktor",
+      "kiropraktorer",
+      "kiropraktorklinikk"
+    ],
+    "english": [
+      "chiropractor",
+      "chiropractors",
+      "chiropractic clinic"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  },
+  "accountant": {
+    "canonical": "accountant",
+    "norwegian": [
+      "regnskapsfører",
+      "regnskapsførere",
+      "regnskapsbyrå"
+    ],
+    "english": [
+      "accountant",
+      "accountants",
+      "accounting firm"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  },
+  "plumber": {
+    "canonical": "plumber",
+    "norwegian": [
+      "rørlegger",
+      "rørleggere",
+      "rørleggerfirma"
+    ],
+    "english": [
+      "plumber",
+      "plumbers",
+      "plumbing company"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  },
+  "electrician": {
+    "canonical": "electrician",
+    "norwegian": [
+      "elektriker",
+      "elektrikere",
+      "elektroinstallatør",
+      "elektrofirma"
+    ],
+    "english": [
+      "electrician",
+      "electricians",
+      "electrical contractor"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  },
+  "hairSalon": {
+    "canonical": "hair salon",
+    "norwegian": [
+      "frisør",
+      "frisører",
+      "frisørsalong"
+    ],
+    "english": [
+      "hair salon",
+      "hairdresser",
+      "hairdressers"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  },
+  "physiotherapist": {
+    "canonical": "physiotherapist",
+    "norwegian": [
+      "fysioterapeut",
+      "fysioterapeuter",
+      "fysioterapiklinikk"
+    ],
+    "english": [
+      "physiotherapist",
+      "physiotherapists",
+      "physical therapy clinic"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  },
+  "realEstateAgent": {
+    "canonical": "real estate agent",
+    "norwegian": [
+      "eiendomsmegler",
+      "eiendomsmeglere",
+      "meglerkontor"
+    ],
+    "english": [
+      "real estate agent",
+      "real estate agents",
+      "realtor"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  },
+  "restaurant": {
+    "canonical": "restaurant",
+    "norwegian": [
+      "restaurant",
+      "restauranter",
+      "spisested"
+    ],
+    "english": [
+      "restaurant",
+      "restaurants",
+      "dining"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  }
+}

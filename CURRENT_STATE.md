@@ -71,6 +71,7 @@ search phrase or spreadsheet
 ## Verified Capabilities
 
 - deterministic local business discovery from JSON, CSV, TXT, and saved/static HTML source files
+- Norwegian/English industry taxonomy with canonicalIndustry and expandedQueries
 - candidate URL normalization, source provenance, deduplication by domain, and reachability checks
 - metadata-preserving orchestrator handoff from discovered candidates
 - deterministic single-site website audits
@@ -108,11 +109,13 @@ Core files:
 - `discoverLocalBusinesses.js`
 - `providers/searchProvider.js`
 - `providers/sourceImporters.js`
+- `taxonomy/industries.json`
+- `taxonomy/industryTaxonomy.js`
 - `normalizers/leadCandidate.js`
 - `normalizers/websiteReachability.js`
 - `reports/discoveryReport.js`
 
-The discovery agent accepts an industry/location query such as `dentists in Halden`, reads one or more deterministic source files, normalizes source provenance, deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and a metadata-preserving orchestrator handoff file. Supported source formats are manual JSON candidates, CSV candidates, TXT URL lists, and saved/static HTML pages with public links.
+The discovery agent accepts industry/location queries such as `dentists in Halden`, `tannlege Halden`, `advokater i Oslo`, and `regnskapsfører Sarpsborg`. It maps English/Norwegian terms through a deterministic taxonomy, emits `canonicalIndustry` and `expandedQueries`, reads one or more deterministic source files, normalizes source provenance, deduplicates candidates by domain, validates reachability, and writes `lead-candidates.json`, `discovery-summary.json`, and a metadata-preserving orchestrator handoff file. Supported source formats are manual JSON candidates, CSV candidates, TXT URL lists, and saved/static HTML pages with public links.
 
 ## Website Audit Agent
 

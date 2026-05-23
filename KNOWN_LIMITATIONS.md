@@ -6,6 +6,8 @@ This file distinguishes operational capabilities from work that is not reliable 
 
 - discovery uses operator-provided deterministic source files, not live search
 - supported source files are JSON, CSV, TXT URL lists, and conservative saved/static HTML link extraction
+- industry taxonomy is an initial finite map and will need more terms as real source data exposes gaps
+- query expansion generates deterministic search phrases but does not execute live search
 - static HTML parsing is intentionally simple and may miss complex search-result markup
 - no Google scraping or protected-source scraping
 - no paid search API integration yet

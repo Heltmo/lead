@@ -7,16 +7,20 @@ const { validateWebsiteReachability } = require('./normalizers/websiteReachabili
 
 async function discoverLocalBusinesses(options) {
   if (!options || (!options.sourceFile && !options.sourceFiles)) throw new Error('sourceFile or sourceFiles is required for deterministic discovery')
-  const parsed = parseDiscoveryQuery(options.query || '')
-  const industry = options.industry || parsed.industry
+  const parsed = parseDiscoveryQuery(options.query || [options.industry, options.location].filter(Boolean).join(' in '))
+  const industry = options.industry ? parseDiscoveryQuery(options.industry).industry : parsed.industry
+  const canonicalIndustry = options.canonicalIndustry || parsed.canonicalIndustry || industry
+  const industryTerm = options.industry || parsed.industryTerm || industry
   const location = options.location || parsed.location
-  const query = options.query || [industry, location].filter(Boolean).join(' in ')
+  const query = options.query || [industryTerm, location].filter(Boolean).join(' in ')
+  const expandedQueries = parsed.expandedQueries || []
+  const industryTerms = parsed.industryTerms || [industryTerm, canonicalIndustry].filter(Boolean)
   const startedAt = new Date().toISOString()
   const sourceFiles = normalizeSourceFiles(options.sourceFiles || options.sourceFile)
   const resolvedSourceFiles = sourceFiles.map((sourceFile) => path.resolve(sourceFile))
-  const rawResults = loadDiscoverySources(resolvedSourceFiles, { industry, location })
+  const rawResults = loadDiscoverySources(resolvedSourceFiles, { industry, canonicalIndustry, industryTerms, location })
   const normalized = rawResults
-    .map((row) => normalizeLeadCandidate(row, { industry, location, source: options.sourceName || row.source || 'fixed-sample', sourceFile: row.sourceFile, sourceFormat: row.sourceFormat }))
+    .map((row) => normalizeLeadCandidate(row, { industry, canonicalIndustry, location, source: options.sourceName || row.source || 'fixed-sample', sourceFile: row.sourceFile, sourceFormat: row.sourceFormat }))
     .filter(Boolean)
   const candidates = deduplicateCandidates(normalized)
   if (options.validate !== false) {
@@ -25,7 +29,7 @@ async function discoverLocalBusinesses(options) {
       candidate.websiteReachable = candidate.reachability.reachable
     }
   }
-  const report = createDiscoveryReport({ query, industry, location, sourceFiles: resolvedSourceFiles, startedAt, rawResults, normalizedCandidates: normalized, candidates })
+  const report = createDiscoveryReport({ query, industry, canonicalIndustry, industryTerm, expandedQueries, location, sourceFiles: resolvedSourceFiles, startedAt, rawResults, normalizedCandidates: normalized, candidates })
   return report
 }
 
@@ -58,6 +62,9 @@ function toSummary(report) {
   return {
     query: report.query,
     industry: report.industry,
+    canonicalIndustry: report.canonicalIndustry,
+    industryTerm: report.industryTerm,
+    expandedQueries: report.expandedQueries,
     location: report.location,
     sourceFile: report.sourceFile,
     sourceFiles: report.sourceFiles,

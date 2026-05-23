@@ -1,6 +1,6 @@
 # Next Milestone
 
-The system now has a deterministic discovery front door that can merge multiple source files, plus the existing audit/review/export pipeline. The next phase is operational validation with broader deterministic source coverage, not new architecture by default.
+The system now has a deterministic discovery front door with multi-source ingestion, metadata-preserving handoff, and a general Norwegian/English industry taxonomy. The next phase is operational validation across one or two real industries, not new architecture by default.
 
 ## Priority 1: Run A 10-Lead Discovery-To-Export Workflow
 
@@ -8,10 +8,11 @@ Run the existing discovery-to-export workflow on about 10 realistic leads and ju
 
 Targets:
 
-- collect multiple deterministic source files for one query, such as `dentists in Halden`
+- pick one taxonomy-supported query, such as `dentists in Halden`, `advokater i Oslo`, `rørlegger Moss`, or `frisør Halden`
+- collect multiple deterministic source files for that query
 - include at least two source types, for example CSV plus TXT or JSON plus saved HTML
-- run `core/lead-discovery-agent` to merge, normalize, deduplicate, validate, and produce `lead-candidates.json`
-- hand off discovered URLs to the orchestrator
+- run `core/lead-discovery-agent` and inspect `canonicalIndustry` plus `expandedQueries` in `discovery-summary.json`
+- hand off discovered candidates to the orchestrator
 - audit the discovered candidates
 - open the review workspace
 - shortlist/export leads
@@ -25,6 +26,7 @@ Only fix issues that block deterministic discovery and handoff.
 
 Examples:
 
+- taxonomy terms missing for a real source/query
 - poor field mapping from real CSV/source files
 - saved HTML source parsing too narrow for manually saved public directory pages
 - bad URL normalization
@@ -51,8 +53,8 @@ Do not prioritize these yet:
 - monitoring
 - multi-agent orchestration
 
-These can come later, after deterministic discovery plus the manual lead review workflow proves useful.
+These can come later, after deterministic taxonomy-backed discovery plus the manual lead review workflow proves useful.
 
 ## Operating Principle
 
-The current question is whether Webconsult can go from a query like `dentists in Halden` through manually expanded deterministic source files to a usable reviewed lead export.
+The current question is whether Webconsult can go from a query like `advokater i Oslo` or `dentists in Halden` through manually expanded deterministic source files to a usable reviewed lead export.

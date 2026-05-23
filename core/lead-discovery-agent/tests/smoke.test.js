@@ -3,8 +3,13 @@ const http = require('http')
 const path = require('path')
 const { spawnSync } = require('child_process')
 const { discoverLocalBusinesses, writeDiscoveryOutputs } = require('../discoverLocalBusinesses')
+const { parseDiscoveryQuery } = require('../normalizers/leadCandidate')
 
 async function main() {
+  assertQuery('dentists in Halden', 'dentist', 'Halden', 'tannlege Halden')
+  assertQuery('tannlege Halden', 'dentist', 'Halden', 'dentists Halden')
+  assertQuery('advokater i Oslo', 'lawyer', 'Oslo', 'advokatfirma Oslo')
+  assertQuery('regnskapsfører Sarpsborg', 'accountant', 'Sarpsborg', 'accounting firm Sarpsborg')
   const server = http.createServer((request, response) => {
     response.writeHead(200, { 'content-type': 'text/html' })
     response.end('<title>Halden Tannklinikk</title>')
@@ -16,6 +21,7 @@ async function main() {
   const csvFixture = path.join(root, 'dentists-halden.directory.csv')
   const txtFixture = path.join(root, 'dentists-halden.extra-urls.txt')
   const htmlFixture = path.join(root, 'dentists-halden.search-results.html')
+  const taxonomyFixture = path.join(root, 'taxonomy.sample.json')
   const out = path.join(root, 'lead-candidates.json')
   const summary = path.join(root, 'discovery-summary.json')
   const handoff = path.join(root, 'orchestrator-urls.txt')
@@ -39,6 +45,12 @@ async function main() {
     'Bad Dental | not a url',
   ].join('\n') + '\n')
   fs.writeFileSync(htmlFixture, '<html><body><a href="https://html-dental.example">HTML Dental</a><a href="/relative">Ignored relative</a></body></html>')
+  fs.writeFileSync(taxonomyFixture, JSON.stringify({
+    results: [
+      { businessName: 'Oslo Advokatfirma', website: 'https://advokat.example', source: 'taxonomy', location: 'Oslo', industry: 'advokatfirma', confidence: 'high' },
+      { businessName: 'Oslo Tannlege', website: 'https://tannlege.example', source: 'taxonomy', location: 'Oslo', industry: 'tannlege', confidence: 'high' },
+    ],
+  }, null, 2))
 
   const multiSourceReport = await discoverLocalBusinesses({
     query: 'dentists in Halden',
@@ -46,6 +58,9 @@ async function main() {
     validate: false,
   })
   assert(multiSourceReport.query === 'dentists in Halden', 'query should be preserved')
+  assert(multiSourceReport.industry === 'dentist', 'industry should be canonicalized')
+  assert(multiSourceReport.canonicalIndustry === 'dentist', 'canonicalIndustry should be present')
+  assert(multiSourceReport.expandedQueries.includes('tannlege Halden'), 'expanded queries should include Norwegian dentist search')
   assert(multiSourceReport.totalRawCandidates === 8, 'multi-source report should count raw filtered candidates')
   assert(multiSourceReport.invalidCandidates === 1, 'invalid txt URL should be counted')
   assert(multiSourceReport.duplicatesRemoved === 2, 'duplicates across JSON and CSV sources should be removed')
@@ -56,13 +71,21 @@ async function main() {
   const merged = multiSourceReport.candidates.find((candidate) => candidate.normalizedDomain === '127.0.0.1')
   assert(merged.sources.length === 2, 'duplicate local domain should preserve JSON and CSV provenance')
 
+  const lawyerReport = await discoverLocalBusinesses({ query: 'advokater i Oslo', sourceFile: taxonomyFixture, validate: false })
+  assert(lawyerReport.canonicalIndustry === 'lawyer', 'Norwegian lawyer query should map to canonical industry')
+  assert(lawyerReport.candidates.length === 1, 'taxonomy filtering should match advokatfirma and exclude tannlege')
+  assert(lawyerReport.candidates[0].businessName === 'Oslo Advokatfirma', 'taxonomy filtering should keep matching lawyer candidate')
+
   const reportPayload = await discoverLocalBusinesses({ query: 'dentists in Halden', sourceFile: jsonFixture, timeoutMs: 3000 })
   writeDiscoveryOutputs(reportPayload, { outPath: out, summaryPath: summary, handoffPath: handoff })
   server.close()
   const report = JSON.parse(fs.readFileSync(out, 'utf8'))
   const summaryReport = JSON.parse(fs.readFileSync(summary, 'utf8'))
   const handoffRows = fs.readFileSync(handoff, 'utf8').trim().split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
-  assert(report.industry === 'dentists', 'industry should be parsed')
+  assert(report.industry === 'dentist', 'industry should be canonicalized')
+  assert(report.canonicalIndustry === 'dentist', 'canonicalIndustry should be written to candidate report')
+  assert(summaryReport.canonicalIndustry === 'dentist', 'canonicalIndustry should be written to summary')
+  assert(summaryReport.expandedQueries.includes('tannlege Halden'), 'summary should include expanded queries')
   assert(report.location === 'Halden', 'location should be parsed')
   assert(report.candidates.length === 2, 'duplicates should be removed and location should filter')
   assert(report.reachableCandidates === 1, 'one local candidate should be reachable')
@@ -81,6 +104,13 @@ async function main() {
   const allRows = fs.readFileSync(path.join(root, 'handoff-all.txt'), 'utf8').trim().split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
   assert(allRows.length === 2, 'explicit handoff can include unreachable candidates')
   assert(allRows[0].businessName, 'explicit handoff should preserve business names')
+}
+
+function assertQuery(query, canonicalIndustry, location, expandedQuery) {
+  const parsed = parseDiscoveryQuery(query)
+  assert(parsed.canonicalIndustry === canonicalIndustry, query + ' should map to ' + canonicalIndustry)
+  assert(parsed.location === location, query + ' should parse location')
+  assert(parsed.expandedQueries.includes(expandedQuery), query + ' should include expanded query ' + expandedQuery)
 }
 
 function listen(server) {
