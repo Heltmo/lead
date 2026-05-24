@@ -1,4 +1,5 @@
 const { buildSuggestedAngle, suggestAngle, suggestAngleDetail } = require('../exports/suggestedAngles')
+const { buildOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
 
 const base = {
   issues: [],
@@ -21,6 +22,13 @@ assertAngle(item(), 'General improvement opportunity', 'measurable improvement s
 const seo = item({ issues: ['Missing meta description'] })
 assertEqual(suggestAngle(seo), 'SEO foundation gap', 'suggestAngle helper should return label')
 assertIncludes(suggestAngleDetail(seo), 'meta description', 'suggestAngleDetail helper should return detail')
+
+const opportunity = buildOpportunityBullets(item({ issues: ['No clear CTA detected', 'Missing meta description'], issueCategories: { conversion: 1, seo: 1 }, technologies: ['WordPress'], leadScore: 48 }))
+assertEqual(opportunity.painPointBullets.length, 3, 'opportunity should include three pain-point bullets')
+assertIncludes(opportunity.painPointBullets.join(' '), 'clear primary CTA', 'opportunity should include CTA pain point')
+assertIncludes(opportunity.suggestedOffer, 'Booking/contact', 'opportunity should include deterministic suggested offer')
+assertIncludes(opportunity.outreachOpener, 'I noticed', 'opportunity should include deterministic outreach opener')
+assertIncludes(opportunity.whyThisLeadMatters, 'deterministic opportunity', 'opportunity should include why-this-lead-matters sentence')
 
 function item(overrides = {}) {
   return {

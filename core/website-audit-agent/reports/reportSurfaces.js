@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const { normalizeOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
 
 const CSV_COLUMNS = [
   'rank',
@@ -23,6 +24,10 @@ const CSV_COLUMNS = [
   'mobileScreenshot',
   'jsonArtifact',
   'issues',
+  'painPointBullets',
+  'suggestedOffer',
+  'outreachOpener',
+  'whyThisLeadMatters',
 ]
 
 function generateReportSurfaces(input, options = {}) {
@@ -110,7 +115,7 @@ function normalizeSingleAudit(report, context) {
 function normalizeBatchResult(result, context) {
   const sourceMetadata = normalizeSourceMetadata(result.sourceMetadata || result)
   const pageTitle = result.pageTitle || result.title || ''
-  return {
+  return withOpportunityBullets({
     rank: context.index + 1,
     name: result.name || result.businessName || sourceMetadata.businessName || '',
     url: result.url || '',
@@ -126,7 +131,8 @@ function normalizeBatchResult(result, context) {
     screenshots: result.screenshots || {},
     jsonArtifact: result.reportPath || '',
     issues: arrayOf(result.issues),
-  }
+    opportunityBullets: result.opportunityBullets,
+  })
 }
 
 
@@ -147,21 +153,21 @@ function normalizeOrchestratorItem(item, artifact, context) {
     screenshots: {},
     issues: arrayOf(item.errors),
   }
-  return {
+  return withOpportunityBullets({
     ...base,
     name: sourceMetadata.businessName || base.name,
     sourceMetadata,
     status: item.status || base.status,
     jsonArtifact: context.artifactPath || item.reportPath || '',
     attempts: item.attempts ?? 0,
-  }
+  })
 }
 
 
 function normalizeAuditReport(report, context) {
   const sourceMetadata = normalizeSourceMetadata(report.sourceMetadata || {})
   const pageTitle = report.signals?.title || ''
-  return {
+  return withOpportunityBullets({
     rank: context.index + 1,
     name: sourceMetadata.businessName || '',
     url: report.url || '',
@@ -177,7 +183,12 @@ function normalizeAuditReport(report, context) {
     screenshots: report.screenshots || {},
     jsonArtifact: context.artifactPath || '',
     issues: arrayOf(report.leadQuality?.issues).concat(arrayOf(report.errors).map((error) => typeof error === 'string' ? error : error.message).filter(Boolean)),
-  }
+    opportunityBullets: report.opportunityBullets,
+  })
+}
+
+function withOpportunityBullets(result) {
+  return { ...result, opportunityBullets: normalizeOpportunityBullets(result) }
 }
 
 
@@ -248,6 +259,7 @@ function renderMarkdown(model, outDir) {
     lines.push(`- Issue categories: ${formatCounts(result.issueCategories) || 'none'}`)
     lines.push(`- Issue severities: ${formatCounts(result.issueSeverities) || 'none'}`)
     lines.push(`- Performance: ${formatPerformance(result.performance) || 'not available'}`)
+    lines.push(...formatOpportunityMarkdown(result.opportunityBullets))
     if (result.jsonArtifact) lines.push(`- JSON artifact: ${relativeLink(outDir, result.jsonArtifact)}`)
     if (result.screenshots.desktop) lines.push(`- Desktop screenshot: ${relativeLink(outDir, result.screenshots.desktop)}`)
     if (result.screenshots.mobile) lines.push(`- Mobile screenshot: ${relativeLink(outDir, result.screenshots.mobile)}`)
@@ -259,9 +271,19 @@ function renderMarkdown(model, outDir) {
   return `${lines.join('\n')}\n`
 }
 
+function formatOpportunityMarkdown(opportunity) {
+  if (!opportunity) return []
+  const lines = ['- Pain-point bullets:']
+  for (const bullet of opportunity.painPointBullets || []) lines.push(`  - ${bullet}`)
+  if (opportunity.suggestedOffer) lines.push(`- Suggested offer: ${opportunity.suggestedOffer}`)
+  if (opportunity.outreachOpener) lines.push(`- Outreach opener: ${opportunity.outreachOpener}`)
+  if (opportunity.whyThisLeadMatters) lines.push(`- Why this lead matters: ${opportunity.whyThisLeadMatters}`)
+  return lines
+}
+
 function renderHtml(model, outDir) {
   const rows = model.results.map((result) => `<tr><td>${result.rank}</td><td>${result.leadScore}</td><td>${escapeHtml(result.status)}</td><td>${escapeHtml(result.name || '')}</td><td><a href="${escapeAttr(result.url)}">${escapeHtml(result.url)}</a></td><td>${escapeHtml(result.pageTitle || result.title)}</td><td>${escapeHtml(result.technologies.join(', '))}</td><td>${escapeHtml(result.issues.slice(0, 3).join('; '))}</td></tr>`).join('\n')
-  const details = model.results.map((result) => `<section class="lead"><h2>${result.rank}. ${escapeHtml(result.name || result.url || 'Unknown lead')}</h2><dl><dt>Score</dt><dd>${result.leadScore}</dd><dt>Status</dt><dd>${escapeHtml(result.status || 'unknown')}</dd><dt>Business name</dt><dd>${escapeHtml(result.name || '')}</dd><dt>Page title</dt><dd>${escapeHtml(result.pageTitle || result.title || '')}</dd><dt>Technologies</dt><dd>${escapeHtml(result.technologies.join(', '))}</dd><dt>Issue categories</dt><dd>${escapeHtml(formatCounts(result.issueCategories) || 'none')}</dd><dt>Issue severities</dt><dd>${escapeHtml(formatCounts(result.issueSeverities) || 'none')}</dd><dt>Performance</dt><dd>${escapeHtml(formatPerformance(result.performance) || 'not available')}</dd></dl>${renderArtifactLinks(result, outDir)}<h3>Issues</h3><ul>${(result.issues.length ? result.issues : ['none']).map((issue) => `<li>${escapeHtml(issue)}</li>`).join('')}</ul></section>`).join('\n')
+  const details = model.results.map((result) => `<section class="lead"><h2>${result.rank}. ${escapeHtml(result.name || result.url || 'Unknown lead')}</h2><dl><dt>Score</dt><dd>${result.leadScore}</dd><dt>Status</dt><dd>${escapeHtml(result.status || 'unknown')}</dd><dt>Business name</dt><dd>${escapeHtml(result.name || '')}</dd><dt>Page title</dt><dd>${escapeHtml(result.pageTitle || result.title || '')}</dd><dt>Technologies</dt><dd>${escapeHtml(result.technologies.join(', '))}</dd><dt>Issue categories</dt><dd>${escapeHtml(formatCounts(result.issueCategories) || 'none')}</dd><dt>Issue severities</dt><dd>${escapeHtml(formatCounts(result.issueSeverities) || 'none')}</dd><dt>Performance</dt><dd>${escapeHtml(formatPerformance(result.performance) || 'not available')}</dd></dl>${renderOpportunityHtml(result.opportunityBullets)}${renderArtifactLinks(result, outDir)}<h3>Issues</h3><ul>${(result.issues.length ? result.issues : ['none']).map((issue) => `<li>${escapeHtml(issue)}</li>`).join('')}</ul></section>`).join('\n')
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -326,10 +348,20 @@ function renderCsv(model, outDir) {
       mobileScreenshot: result.screenshots.mobile ? relativePath(outDir, result.screenshots.mobile) : '',
       jsonArtifact: result.jsonArtifact ? relativePath(outDir, result.jsonArtifact) : '',
       issues: result.issues.join('|'),
+      painPointBullets: result.opportunityBullets.painPointBullets.join('|'),
+      suggestedOffer: result.opportunityBullets.suggestedOffer,
+      outreachOpener: result.opportunityBullets.outreachOpener,
+      whyThisLeadMatters: result.opportunityBullets.whyThisLeadMatters,
     }
     lines.push(CSV_COLUMNS.map((column) => csvEscape(row[column])).join(','))
   }
   return `${lines.join('\n')}\n`
+}
+
+function renderOpportunityHtml(opportunity) {
+  if (!opportunity) return ''
+  const painPoints = (opportunity.painPointBullets || []).map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join('')
+  return `<h3>Opportunity</h3><ul>${painPoints}</ul><dl><dt>Suggested offer</dt><dd>${escapeHtml(opportunity.suggestedOffer || '')}</dd><dt>Outreach opener</dt><dd>${escapeHtml(opportunity.outreachOpener || '')}</dd><dt>Why this lead matters</dt><dd>${escapeHtml(opportunity.whyThisLeadMatters || '')}</dd></dl>`
 }
 
 function renderArtifactLinks(result, outDir) {

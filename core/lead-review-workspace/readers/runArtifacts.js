@@ -30,6 +30,12 @@ function normalizeLead(lead, summaryItem, context) {
     technologies: splitList(lead.technologies),
     issueCategories: parseCounts(lead.issueCategories),
     issues: splitList(lead.issues),
+    opportunityBullets: {
+      painPointBullets: splitList(lead.painPointBullets),
+      suggestedOffer: lead.suggestedOffer || '',
+      outreachOpener: lead.outreachOpener || '',
+      whyThisLeadMatters: lead.whyThisLeadMatters || '',
+    },
     emails: splitList((report?.signals?.emails || []).join('|')),
     phones: splitList((report?.signals?.phones || []).join('|')),
     performance: {

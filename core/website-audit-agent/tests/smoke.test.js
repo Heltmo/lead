@@ -16,4 +16,8 @@ assert(typeof report.leadQuality.score === 'number', 'lead score should be numer
 assert(report.technology && Array.isArray(report.technology.technologies), 'technology should be present')
 assert(report.issueClassification && Array.isArray(report.issueClassification.issues), 'issue classification should be present')
 assert(report.performance && typeof report.performance.resourceCount === 'number', 'performance should be present')
+assert(report.opportunityBullets && report.opportunityBullets.painPointBullets.length === 3, 'opportunity bullets should include three pain points')
+assert(report.opportunityBullets.suggestedOffer, 'opportunity bullets should include suggested offer')
+assert(report.opportunityBullets.outreachOpener, 'opportunity bullets should include outreach opener')
+assert(report.opportunityBullets.whyThisLeadMatters, 'opportunity bullets should include why-this-lead-matters')
 function assert(condition, message) { if (!condition) throw new Error(message) }

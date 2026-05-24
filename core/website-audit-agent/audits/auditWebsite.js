@@ -6,6 +6,7 @@ const { createPerformanceObserver } = require('./performance')
 const { classifyIssues } = require('./issueClassification')
 const { scoreLead } = require('./leadScore')
 const { detectTechnology } = require('./technology')
+const { buildOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
 const { extractPageSignals } = require('../extractors/pageSignals')
 
 async function auditWebsite(inputUrl, options = {}) {
@@ -14,7 +15,7 @@ async function auditWebsite(inputUrl, options = {}) {
   fs.mkdirSync(screenshotDir, { recursive: true })
   const browser = options.browser || await chromium.launch({ headless: true })
   const shouldCloseBrowser = !options.browser
-  const report = { url: normalizedUrl, startedAt: new Date().toISOString(), finishedAt: '', status: 'failed', signals: null, accessibility: null, screenshots: {}, technology: null, performance: null, issueClassification: null, leadQuality: null, errors: [] }
+  const report = { url: normalizedUrl, startedAt: new Date().toISOString(), finishedAt: '', status: 'failed', signals: null, accessibility: null, screenshots: {}, technology: null, performance: null, issueClassification: null, leadQuality: null, opportunityBullets: null, errors: [] }
   try {
     const desktopContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } })
     const desktop = await desktopContext.newPage()
@@ -41,10 +42,12 @@ async function auditWebsite(inputUrl, options = {}) {
     await mobileContext.close()
 
     report.leadQuality = scoreLead(report)
+    report.opportunityBullets = buildOpportunityBullets(report)
     report.status = 'passed'
   } catch (error) {
     report.errors.push({ message: error.message, stack: error.stack })
   } finally {
+    if (!report.opportunityBullets) report.opportunityBullets = buildOpportunityBullets(report)
     if (shouldCloseBrowser) await browser.close()
     report.finishedAt = new Date().toISOString()
   }

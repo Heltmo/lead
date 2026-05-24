@@ -1,5 +1,6 @@
 const { renderCsv } = require('../readers/csv')
 const { buildSuggestedAngle, suggestAngle, suggestAngleDetail } = require('./suggestedAngles')
+const { normalizeOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
 
 const CRM_SHORTLISTED_COLUMNS = [
   'company',
@@ -16,6 +17,10 @@ const CRM_SHORTLISTED_COLUMNS = [
   'mobileScreenshotPath',
   'suggestedAngle',
   'suggestedAngleDetail',
+  'painPointBullets',
+  'suggestedOffer',
+  'outreachOpener',
+  'whyThisLeadMatters',
   'reviewStatus',
   'priority',
   'nextAction',
@@ -31,6 +36,7 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
     .map((item) => {
       const review = reviewStatus.items[item.id] || {}
       const angle = buildSuggestedAngle(item)
+      const opportunity = normalizeOpportunityBullets(item)
       return {
         company: item.name || item.title,
         website: item.url,
@@ -46,6 +52,10 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
         mobileScreenshotPath: item.links.mobileScreenshot,
         suggestedAngle: angle.suggestedAngle,
         suggestedAngleDetail: angle.suggestedAngleDetail,
+        painPointBullets: opportunity.painPointBullets.join('|'),
+        suggestedOffer: opportunity.suggestedOffer,
+        outreachOpener: opportunity.outreachOpener,
+        whyThisLeadMatters: opportunity.whyThisLeadMatters,
         reviewStatus: review.status || 'unreviewed',
         priority: review.priority || 'unset',
         nextAction: review.nextAction || 'unset',

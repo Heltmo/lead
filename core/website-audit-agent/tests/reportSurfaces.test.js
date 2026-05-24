@@ -23,6 +23,12 @@ const fixture = {
     leadScore: 42,
     screenshots: { desktop: '/tmp/desktop.png', mobile: '/tmp/mobile.png' },
     issues: ['Missing meta description'],
+    opportunityBullets: {
+      painPointBullets: ['SEO structure is incomplete', 'CTA path needs review', 'WordPress cleanup is scoped'],
+      suggestedOffer: 'Local SEO and page-structure refresh',
+      outreachOpener: 'I noticed Example Lead has SEO gaps.',
+      whyThisLeadMatters: 'This lead matters because the audit has deterministic evidence.',
+    },
   }],
 }
 
@@ -40,6 +46,10 @@ assert(html.includes('<!doctype html>'), 'html should be static document')
 assert(csv.startsWith(CSV_COLUMNS.join(',')), 'csv should preserve deterministic column order')
 assert(csv.includes('Missing meta description'), 'csv should include issues')
 assert(csv.includes('WordPress'), 'csv should serialize technology object names')
+assert(csv.includes('painPointBullets'), 'csv should include opportunity header')
+assert(csv.includes('Local SEO and page-structure refresh'), 'csv should include suggested offer')
+assert(markdown.includes('Pain-point bullets'), 'markdown should include opportunity bullets')
+assert(html.includes('Opportunity'), 'html should include opportunity section')
 assert(!csv.includes('[object Object]'), 'csv should not leak object serialization')
 
 function assert(condition, message) { if (!condition) throw new Error(message) }
