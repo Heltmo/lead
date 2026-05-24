@@ -56,7 +56,7 @@ assert(status.items['url-0001'].nextAction === 'unset', 'default next action sho
 assert(Array.isArray(status.items['url-0001'].tags), 'default tags should be an array')
 assert(selected.startsWith('id,reviewStatus,priority,nextAction,owner,lastReviewedAt,tags,notes'), 'selected CSV should have stable header')
 assert(!selected.includes('https://example.com'), 'unreviewed leads should not export as selected')
-assert(crm.startsWith('company,website,pageTitle,score'), 'CRM CSV should have stable header')
+assert(crm.startsWith('company,website,pageTitle,industry,location,score'), 'CRM CSV should have stable header')
 assert(!crm.includes('https://example.com'), 'unreviewed leads should not export to CRM')
 status.items['url-0001'] = { status: 'shortlisted', priority: 'high', nextAction: 'contact', owner: 'GG', lastReviewedAt: '2026-05-23T00:00:00.000Z', tags: ['redesign', 'seo'], notes: 'Strong redesign opportunity' }
 fs.writeFileSync(result.reviewStatusPath, `${JSON.stringify(status, null, 2)}\n`)
@@ -74,6 +74,8 @@ assert(selectedAfter.includes('SEO foundation gap'), 'selected export should inc
 assert(selectedAfter.includes('Search visibility may be weak because the page is missing meta description.'), 'selected export should include suggested angle detail')
 assert(crmAfter.includes('Discovered Example Clinic'), 'CRM export should use discovered business name')
 assert(crmAfter.includes('Example'), 'CRM export should keep page title available')
+assert(crmAfter.includes('dentists'), 'CRM export should include industry')
+assert(crmAfter.includes('Halden'), 'CRM export should include location')
 assert(crmAfter.includes('https://example.com'), 'shortlisted lead should export to CRM')
 assert(crmAfter.includes('hello@example.com'), 'CRM export should include email')
 assert(crmAfter.includes('+4712345678'), 'CRM export should include phone')
