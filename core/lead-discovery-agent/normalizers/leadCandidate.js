@@ -8,22 +8,36 @@ function parseDiscoveryQuery(query = '') {
 function normalizeLeadCandidate(raw, defaults = {}) {
   const website = normalizeWebsiteUrl(raw.website || raw.url || raw.link)
   if (!website) return null
-  const source = String(raw.source || defaults.source || 'sample').trim()
-  const sourceFile = String(raw.sourceFile || defaults.sourceFile || '').trim()
-  const sourceFormat = String(raw.sourceFormat || defaults.sourceFormat || '').trim()
+  const source = firstClean(raw.source, defaults.source, 'sample')
+  const sourceFile = firstClean(raw.sourceFile, defaults.sourceFile)
+  const sourceFormat = firstClean(raw.sourceFormat, defaults.sourceFormat)
+  const sources = uniqueSources([
+    ...(Array.isArray(raw.sources) ? raw.sources : []),
+    {
+      source,
+      sourceFile,
+      sourceFormat,
+      provider: raw.provider || defaults.provider,
+      searchQuery: raw.searchQuery || defaults.searchQuery,
+      rank: raw.rank || defaults.rank,
+    },
+  ])
   const target = classifyDiscoveryTarget(website)
+  const sourceType = firstClean(raw.sourceType) || target.sourceType
+  const auditEligible = normalizeBoolean(raw.auditEligible, target.auditEligible)
   return {
-    businessName: String(raw.businessName || raw.name || raw.title || '').trim(),
+    businessName: normalizeBusinessName(raw.businessName || raw.name || raw.title || '', website),
     website,
     source,
-    sources: uniqueSources([{ source, sourceFile, sourceFormat }]),
-    location: String(raw.location || defaults.location || '').trim(),
-    industry: String(raw.industry || defaults.canonicalIndustry || defaults.industry || '').trim(),
+    sources,
+    provenance: createProvenance({ source, sourceFile, sourceFormat, provider: raw.provider || defaults.provider, searchQuery: raw.searchQuery || defaults.searchQuery, rank: raw.rank || defaults.rank }, sources),
+    location: normalizeLocation(raw.location, defaults.location),
+    industry: firstClean(raw.industry, defaults.canonicalIndustry, defaults.industry),
     confidence: normalizeConfidence(raw.confidence),
     normalizedDomain: normalizeDomain(website),
-    sourceType: raw.sourceType || target.sourceType,
-    auditEligible: raw.auditEligible == null ? target.auditEligible : Boolean(raw.auditEligible),
-    auditExclusionReason: raw.auditExclusionReason || target.auditExclusionReason,
+    sourceType,
+    auditEligible,
+    auditExclusionReason: auditEligible ? '' : cleanString(raw.auditExclusionReason || target.auditExclusionReason),
     websiteReachable: null,
     reachability: null,
   }
@@ -35,12 +49,14 @@ function deduplicateCandidates(candidates) {
     if (!candidate || !candidate.normalizedDomain) continue
     const existing = byDomain.get(candidate.normalizedDomain)
     if (!existing) {
-      byDomain.set(candidate.normalizedDomain, { ...candidate, sources: uniqueSources(candidate.sources || []) })
+      const sources = uniqueSources(candidate.sources || [])
+      byDomain.set(candidate.normalizedDomain, { ...candidate, sources, provenance: createProvenance(candidate.provenance || { source: candidate.source }, sources) })
       continue
     }
     existing.sources = uniqueSources([...(existing.sources || []), ...(candidate.sources || [])])
     existing.source = existing.sources.map((item) => item.source).filter(Boolean).join('|') || existing.source
-    existing.businessName = existing.businessName || candidate.businessName
+    existing.provenance = mergeProvenance(existing, candidate)
+    existing.businessName = bestBusinessName(existing.businessName, candidate.businessName, existing.website)
     existing.location = existing.location || candidate.location
     existing.industry = existing.industry || candidate.industry
     existing.confidence = bestConfidence(existing.confidence, candidate.confidence)
@@ -73,7 +89,8 @@ function normalizeDomain(value) {
 }
 
 function normalizeConfidence(value) {
-  return ['high', 'medium', 'low'].includes(value) ? value : 'medium'
+  const confidence = cleanString(value).toLowerCase()
+  return ['high', 'medium', 'low'].includes(confidence) ? confidence : 'medium'
 }
 
 function strongestSourceType(left, right) {
@@ -86,20 +103,158 @@ function bestConfidence(left, right) {
   return (order[normalizeConfidence(right)] > order[normalizeConfidence(left)]) ? normalizeConfidence(right) : normalizeConfidence(left)
 }
 
-
 function uniqueSources(sources) {
   const seen = new Set()
   const result = []
   for (const item of sources) {
-    const source = String(item.source || '').trim()
-    const sourceFile = String(item.sourceFile || '').trim()
-    const sourceFormat = String(item.sourceFormat || '').trim()
-    const key = [source, sourceFile, sourceFormat].join('|')
+    const source = cleanString(item.source || '')
+    const sourceFile = cleanString(item.sourceFile || '')
+    const sourceFormat = cleanString(item.sourceFormat || '')
+    const provider = cleanString(item.provider || '')
+    const searchQuery = cleanString(item.searchQuery || '')
+    const rank = normalizeRank(item.rank)
+    const key = [source, sourceFile, sourceFormat, provider, searchQuery].join('|')
     if (!source || seen.has(key)) continue
     seen.add(key)
-    result.push({ source, sourceFile, sourceFormat })
+    const sourceItem = { source, sourceFile, sourceFormat }
+    if (provider) sourceItem.provider = provider
+    if (searchQuery) sourceItem.searchQuery = searchQuery
+    if (rank) sourceItem.rank = rank
+    result.push(sourceItem)
   }
   return result
 }
 
-module.exports = { parseDiscoveryQuery, normalizeLeadCandidate, deduplicateCandidates, normalizeWebsiteUrl, normalizeDomain, uniqueSources }
+function createProvenance(primary, sources) {
+  const provenance = {
+    source: cleanString(primary.source || ''),
+    sourceFile: cleanString(primary.sourceFile || ''),
+    sourceFormat: cleanString(primary.sourceFormat || ''),
+    sources: uniqueSources(sources || []),
+  }
+  const provider = cleanString(primary.provider || '')
+  const searchQuery = cleanString(primary.searchQuery || '')
+  const rank = normalizeRank(primary.rank)
+  if (provider) provenance.provider = provider
+  if (searchQuery) provenance.searchQuery = searchQuery
+  if (rank) provenance.rank = rank
+  return provenance
+}
+
+function mergeProvenance(existing, candidate) {
+  const primary = {
+    source: existing.source,
+    sourceFile: existing.provenance?.sourceFile || candidate.provenance?.sourceFile || '',
+    sourceFormat: existing.provenance?.sourceFormat || candidate.provenance?.sourceFormat || '',
+    provider: existing.provenance?.provider || candidate.provenance?.provider || '',
+    searchQuery: existing.provenance?.searchQuery || candidate.provenance?.searchQuery || '',
+    rank: existing.provenance?.rank || candidate.provenance?.rank || '',
+  }
+  return createProvenance(primary, existing.sources || [])
+}
+
+function normalizeLocation(value, fallback = '') {
+  const direct = cleanString(value)
+  if (direct) return direct
+  if (Array.isArray(value)) {
+    const parts = value.map((item) => normalizeLocation(item)).filter(Boolean)
+    if (parts.length) return uniqueValues(parts).join(', ')
+  }
+  if (value && typeof value === 'object') {
+    const address = normalizeLocation(value.address || value.formattedAddress || value.formatted_address || value.displayName || value.display_name || value.label || value.name)
+    if (address) return address
+    const parts = [
+      value.city,
+      value.locality,
+      value.town,
+      value.municipality,
+      value.region,
+      value.state,
+      value.country,
+    ].map((item) => cleanString(item)).filter(Boolean)
+    if (parts.length) return uniqueValues(parts).join(', ')
+  }
+  return cleanString(fallback)
+}
+
+function normalizeBusinessName(value, website = '') {
+  return cleanBusinessName(value, website)
+}
+
+function bestBusinessName(left, right, website = '') {
+  const current = normalizeBusinessName(left, website)
+  const incoming = normalizeBusinessName(right, website)
+  if (!current) return incoming
+  if (!incoming) return current
+  if (isWeakBusinessName(current, website) && !isWeakBusinessName(incoming, website)) return incoming
+  return current
+}
+
+function cleanBusinessName(value, website = '') {
+  const cleaned = cleanString(value).replace(/\s+/g, ' ')
+  if (!cleaned) return ''
+  const candidates = titleCandidates(cleaned)
+  return candidates.find((candidate) => !isWeakBusinessName(candidate, website)) || cleaned
+}
+
+function titleCandidates(value) {
+  const cleaned = cleanString(value)
+  if (!cleaned) return []
+  const parts = cleaned.split(/\s+(?:-|\u2013|\|)\s+/).map((part) => part.trim()).filter(Boolean)
+  if (parts.length <= 1) return [cleaned]
+  return [...parts, cleaned]
+}
+
+function isWeakBusinessName(value, website = '') {
+  const normalized = cleanString(value).toLowerCase()
+  if (!normalized) return true
+  if (/^https?:\/\//.test(normalized) || /^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/.test(normalized)) return true
+  const weakNames = new Set(['forside', 'home', 'homepage', 'hjem', 'hjemmeside', 'startside', 'velkommen', 'welcome', 'index', 'front page', 'kontakt', 'contact', 'bestilling'])
+  if (weakNames.has(normalized)) return true
+  const domain = normalizeDomain(website)
+  return Boolean(domain && normalized === domain)
+}
+
+function firstClean(...values) {
+  for (const value of values) {
+    const cleaned = cleanString(value)
+    if (cleaned) return cleaned
+  }
+  return ''
+}
+
+function cleanString(value) {
+  if (value == null) return ''
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value).trim()
+  return ''
+}
+
+function normalizeBoolean(value, fallback) {
+  if (value == null || value === '') return Boolean(fallback)
+  if (typeof value === 'boolean') return value
+  const normalized = cleanString(value).toLowerCase()
+  if (['true', '1', 'yes'].includes(normalized)) return true
+  if (['false', '0', 'no'].includes(normalized)) return false
+  return Boolean(value)
+}
+
+function normalizeRank(value) {
+  const rank = Number(value)
+  return Number.isFinite(rank) && rank > 0 ? Math.floor(rank) : ''
+}
+
+function uniqueValues(values) {
+  return [...new Set(values)]
+}
+
+module.exports = {
+  parseDiscoveryQuery,
+  normalizeLeadCandidate,
+  deduplicateCandidates,
+  normalizeWebsiteUrl,
+  normalizeDomain,
+  uniqueSources,
+  normalizeLocation,
+  normalizeBusinessName,
+  bestBusinessName,
+}

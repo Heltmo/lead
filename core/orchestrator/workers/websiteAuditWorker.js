@@ -21,8 +21,18 @@ function sourceMetadataFromItem(item) {
     industry: item.industry || item.sourceMetadata?.industry || '',
     confidence: item.confidence || item.sourceMetadata?.confidence || '',
     sources: item.sources || item.sourceMetadata?.sources || [],
+    sourceType: item.sourceType || item.sourceMetadata?.sourceType || '',
+    auditEligible: item.auditEligible ?? item.sourceMetadata?.auditEligible,
+    auditExclusionReason: item.auditExclusionReason || item.sourceMetadata?.auditExclusionReason || '',
+    provenance: item.provenance || item.sourceMetadata?.provenance || {},
   }
-  return Object.fromEntries(Object.entries(metadata).filter(([, value]) => Array.isArray(value) ? value.length > 0 : Boolean(value)))
+  return Object.fromEntries(Object.entries(metadata).filter(([, value]) => hasMetadataValue(value)))
+}
+
+function hasMetadataValue(value) {
+  if (Array.isArray(value)) return value.length > 0
+  if (value && typeof value === 'object') return Object.keys(value).length > 0
+  return value === false || Boolean(value)
 }
 
 module.exports = { runWebsiteAuditTask, sourceMetadataFromItem }

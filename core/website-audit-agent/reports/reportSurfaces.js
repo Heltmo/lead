@@ -186,10 +186,12 @@ function normalizeSourceMetadata(...values) {
   for (const value of values) {
     if (!value) continue
     if (value.sourceMetadata) Object.assign(metadata, normalizeSourceMetadata(value.sourceMetadata))
-    for (const key of ['businessName', 'source', 'location', 'industry', 'confidence']) {
+    for (const key of ['businessName', 'source', 'location', 'industry', 'confidence', 'sourceType', 'auditExclusionReason']) {
       if (!metadata[key] && value[key]) metadata[key] = String(value[key]).trim()
     }
+    if (metadata.auditEligible == null && value.auditEligible != null) metadata.auditEligible = value.auditEligible
     if (!metadata.sources && Array.isArray(value.sources)) metadata.sources = value.sources
+    if (!metadata.provenance && value.provenance && typeof value.provenance === 'object') metadata.provenance = value.provenance
   }
   return metadata
 }
