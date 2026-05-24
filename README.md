@@ -23,3 +23,13 @@ The `projects/` directory is intentionally ignored. Each project should keep its
 ```
 
 The frontend verifier runs lint, production build, and project-provided visual/accessibility tests when available.
+
+## Campaign Runner
+
+The single-command product workflow is:
+
+~~~bash
+node ~/webconsult/core/campaign-runner/cli/run-campaign.js --query "tannleger i Halden" --provider brave --max-leads 10 --demo-count 1
+~~~
+
+Campaign outputs are written under `~/webconsult/generated/campaigns/<campaign-id>/`.

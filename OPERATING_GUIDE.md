@@ -14,18 +14,61 @@ search query or Advokat-Leads.xlsx
 -> crm-shortlisted-leads.csv
 ```
 
-## 1. Verify The System
+## 1. Run A Single Campaign
+
+Use the campaign runner when you want the product workflow instead of running each tool manually.
+
+~~~bash
+cd ~/webconsult
+node core/campaign-runner/cli/run-campaign.js \
+  --query "tannleger i Halden" \
+  --provider brave \
+  --max-leads 10 \
+  --demo-count 1 \
+  --run-id tannleger-halden-campaign-001
+~~~
+
+Deterministic source-file example:
+
+~~~bash
+cd ~/webconsult
+node core/campaign-runner/cli/run-campaign.js \
+  --query "dentists in Halden" \
+  --source core/lead-discovery-agent/tests/fixtures/dentists-halden.sample.json \
+  --max-leads 3 \
+  --demo-count 1 \
+  --run-id dentists-halden-source-campaign-001 \
+  --validate false
+~~~
+
+Campaign outputs are written under:
+
+~~~text
+generated/campaigns/<campaign-id>/
+  discovery/
+  run/
+  review/
+  crm/
+  demos/
+  campaign.json
+  campaign-summary.md
+~~~
+
+The canonical orchestrator run remains under `core/orchestrator/runs/<campaign-id>/`.
+
+## 2. Verify The System
 
 Run from anywhere:
 
 ```bash
 ~/webconsult/verifications/verify-lead-discovery-agent.sh
+~/webconsult/verifications/verify-campaign-runner.sh
 ~/webconsult/verifications/verify-lead-review-workspace.sh
 ~/webconsult/verifications/verify-orchestrator.sh
 ~/webconsult/verifications/verify-website-audit-agent.sh
 ```
 
-## 2. Optional: Discover Local Business Candidates
+## 3. Optional: Discover Local Business Candidates
 
 Use this when starting from a query and deterministic source files instead of an existing spreadsheet. Discovery can combine operator-provided JSON, CSV, TXT, and saved/static HTML files, then normalize, deduplicate, validate, and hand off URLs to the orchestrator. Industry parsing uses a general Norwegian/English taxonomy, so queries such as `dentists in Halden`, `tannlege Halden`, `advokater i Oslo`, and `regnskapsfører Sarpsborg` resolve to canonical industries and expanded query lists.
 
@@ -61,7 +104,7 @@ node cli/run-audit-queue.js --file ../lead-discovery-agent/reports/orchestrator-
 
 Discovery remains deterministic when source-file based. Do not use protected/private scraping sources or live Google scraping. To add a new industry, extend `core/lead-discovery-agent/taxonomy/industries.json` with English terms, Norwegian terms, and search patterns.
 
-## 3. Optional: Run Live Search Provider Discovery
+## 4. Optional: Run Live Search Provider Discovery
 
 Use this when you want the system to discover candidates from a configured search API instead of manually collected source files. The first supported live provider is `brave`, configured through `BRAVE_SEARCH_API_KEY`.
 
@@ -93,7 +136,7 @@ npm run discover -- \
 
 Provider results can be combined with manual `--source` files in the same command. The discovery agent merges, deduplicates, validates reachability, classifies targets by `sourceType`, and writes the same orchestrator handoff format as deterministic source mode. Directory/social/registry pages are kept in discovery reports but excluded from audit handoff by default because direct business websites are preferred audit targets. Use `--include-non-audit-targets true` only when you intentionally want directories or social profiles audited.
 
-## 4. Inspect Discovery Target Quality
+## 5. Inspect Discovery Target Quality
 
 After provider discovery, inspect the summary before running audits:
 
@@ -110,7 +153,7 @@ Check:
 
 Directory/social pages such as `legelisten.no`, `1881.no`, `gulesider.no`, `facebook.com`, and `tannlegerinorge.no` should remain visible as discovery evidence but should not enter the audit queue by default.
 
-## 5. Create A Small Real Lead Batch
+## 6. Create A Small Real Lead Batch
 
 Start with 5 to 10 leads. Do not process the whole spreadsheet until the review/export workflow has been checked manually.
 
@@ -126,7 +169,7 @@ cd ~/webconsult
 node -e "const fs=require('fs'); const report=JSON.parse(fs.readFileSync('core/website-audit-agent/reports/advokat-operating-dry-run.json','utf8')); fs.mkdirSync('core/orchestrator/runs',{recursive:true}); fs.writeFileSync('core/orchestrator/runs/advokat-first-5-urls.txt', report.results.map((lead)=>lead.url).filter(Boolean).slice(0,5).join('\n') + '\n');"
 ```
 
-## 6. Run The Orchestrator
+## 7. Run The Orchestrator
 
 Use a unique run ID. Example:
 
@@ -156,7 +199,7 @@ review-workspace/crm-shortlisted-leads.csv
 
 Generated run artifacts are ignored by Git.
 
-## 7. Open The Review Workspace
+## 8. Open The Review Workspace
 
 ```bash
 xdg-open ~/webconsult/core/orchestrator/runs/<run-id>/review-workspace/index.html
@@ -175,7 +218,7 @@ Review each lead card in this order. The card title prefers the discovered busin
 - review metadata: status, priority, next action, owner, tags
 - technical evidence only when needed: issue categories, technologies, HTML report, JSON, screenshots
 
-## 8. Shortlist Leads
+## 9. Shortlist Leads
 
 Edit:
 
@@ -203,7 +246,7 @@ Allowed statuses:
 unreviewed, reviewed, shortlisted, rejected
 ```
 
-## 9. Export CRM-Ready Shortlisted Leads
+## 10. Export CRM-Ready Shortlisted Leads
 
 After editing `review-status.json`, run:
 
@@ -250,4 +293,4 @@ https://www.advokat-bm.no
 
 Do not add historical comparison, dashboards, databases, AI outreach, Lighthouse, parallelism, or monitoring until the 5 to 10 lead manual workflow has been used successfully on real leads.
 
-Next practical step: run a 10-lead deterministic source workflow for one taxonomy-supported industry/location, then judge whether the CRM export supports manual outreach.
+Next practical step: run one 5 to 10 lead campaign with the campaign runner, inspect campaign-summary.md, review the generated demo, then judge whether the CRM export supports manual outreach.

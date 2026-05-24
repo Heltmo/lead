@@ -48,6 +48,15 @@ This file distinguishes operational capabilities from work that is not reliable 
 - no outreach automation
 - no LLM reasoning layer or narrative recommendation engine yet
 
+## Campaign Runner
+
+- campaign runner is orchestration glue over existing modules, not a new execution engine
+- canonical audit artifacts still live under `core/orchestrator/runs/<campaign-id>/`
+- campaign folders copy stable operator-facing outputs but do not replace raw run artifacts
+- demo generation uses shortlisted CRM rows when available and top opportunity rows as a deterministic fallback
+- campaign reruns should use unique run IDs until stale/resume semantics are hardened
+- no dashboard, database, scheduling, parallel execution, or outreach automation yet
+
 ## Orchestrator
 
 - orchestrator is sequential by design

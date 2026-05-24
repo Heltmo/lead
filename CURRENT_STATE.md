@@ -33,6 +33,7 @@ Important directories:
 - `core/website-audit-agent`: deterministic browser intelligence agent
 - `core/orchestrator`: persistent queue and worker harness
 - `core/lead-review-workspace`: static lead review and selection workspace
+- `core/campaign-runner`: single-command campaign orchestration workflow
 - `prompts/`: reusable execution prompts
 - `templates/`: reusable project and goal templates
 - `verifications/`: reusable quality gates
@@ -66,6 +67,7 @@ search phrase or spreadsheet
 -> report generation
 -> lead review workspace
 -> persistent run state
+-> campaign summary and generated demo paths
 ```
 
 ## Verified Capabilities
@@ -97,6 +99,9 @@ search phrase or spreadsheet
 - retry handling
 - failure logging
 - run summaries
+- single-command deterministic campaign runner
+- campaign folders with campaign.json and campaign-summary.md
+- generated demo paths for shortlisted or top opportunity leads
 - Git-tracked capability evolution
 
 ## Lead Discovery Agent
@@ -173,11 +178,24 @@ Core files:
 
 The workspace reads orchestrator `summary.json` and `report-surfaces/leads.csv`, then writes `review-workspace/index.html`, `review-workspace/review-status.json`, `review-workspace/selected-leads.csv`, and `review-workspace/crm-shortlisted-leads.csv`. Review state is normalized in a dedicated module and remains separate from raw audit artifacts. Lead cards and exports prefer discovered business names, while audit page titles remain available as pageTitle/title evidence.
 
+## Campaign Runner
+
+Location: `~/webconsult/core/campaign-runner`
+
+Core files:
+
+- `cli/run-campaign.js`
+- `runCampaign.js`
+- `tests/smoke.test.js`
+
+The campaign runner is the first single-command product workflow. It accepts a query plus optional provider/source inputs, runs discovery, filters handoff candidates, executes the existing orchestrator audit queue, copies stable report/review/CRM paths into `generated/campaigns/<campaign-id>/`, generates demos for shortlisted leads or top opportunity leads, and writes `campaign.json` plus `campaign-summary.md`. The canonical raw audit artifacts remain under `core/orchestrator/runs/<campaign-id>/`.
+
 ## Verification Commands
 
 Run from anywhere unless otherwise noted:
 
 ```bash
+~/webconsult/verifications/verify-campaign-runner.sh
 ~/webconsult/verifications/verify-lead-discovery-agent.sh
 ~/webconsult/verifications/verify-frontend.sh ~/webconsult/projects/landing-page-test
 ~/webconsult/verifications/verify-website-audit-agent.sh
