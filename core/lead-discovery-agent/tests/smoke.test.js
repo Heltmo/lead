@@ -89,7 +89,7 @@ async function main() {
   fs.writeFileSync(mockProviderFixture, JSON.stringify({
     web: {
       results: [
-        { title: 'Provider Halden Tannklinikk - Bestilling', url: 'https://provider-halden.example', description: 'Dental clinic in Halden' },
+        { title: 'Forside - Provider Halden Tannklinikk', url: 'https://provider-halden.example', description: 'Dental clinic in Halden', profile: { name: 'Provider Halden Tannklinikk' }, location: { city: 'Halden', country: 'Norway' } },
         { title: 'Provider Duplicate', url: 'https://provider-halden.example/about', description: 'Duplicate domain' },
         { title: 'Provider Oslo Tannlege', url: 'https://provider-oslo.example', description: 'Different location in search text' },
       ],
@@ -118,7 +118,15 @@ async function main() {
   assert(providerReport.provider.provider === 'mock', 'mock provider should be recorded in report')
   assert(providerReport.totalRawCandidates === 3, 'mock provider should load raw provider results')
   assert(providerReport.candidates.length === 2, 'mock provider should dedupe duplicate domains')
-  assert(providerReport.candidates[0].sources[0].sourceFormat === 'provider', 'provider provenance should be preserved')
+  const providerCandidate = providerReport.candidates.find((candidate) => candidate.normalizedDomain === 'provider-halden.example')
+  assert(providerCandidate.businessName === 'Provider Halden Tannklinikk', 'provider businessName should prefer discovered provider name over weak page title')
+  assert(providerCandidate.location === 'Halden, Norway', 'provider object location should normalize to readable text')
+  assert(providerCandidate.sourceType === 'directBusiness', 'provider candidate should still be source-classified')
+  assert(providerCandidate.auditEligible === true, 'provider candidate should still be audit eligible')
+  assert(providerCandidate.confidence === 'medium', 'provider candidate should keep normalized confidence')
+  assert(providerCandidate.provenance.provider === 'mock', 'provider provenance should include provider')
+  assert(providerCandidate.provenance.searchQuery === 'tannlege Halden', 'provider provenance should include search query')
+  assert(providerCandidate.sources[0].sourceFormat === 'provider', 'provider provenance should be preserved')
   assert(providerReport.candidatesBySource['mock:tannlege Halden'] === 2, 'provider source should be counted in summary')
 
   const reportPayload = await discoverLocalBusinesses({ query: 'dentists in Halden', sourceFile: jsonFixture, timeoutMs: 3000 })

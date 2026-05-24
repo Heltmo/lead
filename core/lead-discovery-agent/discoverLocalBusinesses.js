@@ -86,6 +86,7 @@ function formatHandoffCandidate(candidate) {
     industry: candidate.industry || '',
     confidence: candidate.confidence || '',
     sources: candidate.sources || [],
+    provenance: candidate.provenance || { sources: candidate.sources || [] },
     sourceType: candidate.sourceType || 'unknown',
     auditEligible: candidate.auditEligible !== false,
     auditExclusionReason: candidate.auditExclusionReason || '',

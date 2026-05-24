@@ -1,4 +1,5 @@
 const fs = require('fs')
+const { normalizeBusinessName, normalizeLocation } = require('../normalizers/leadCandidate')
 
 const BRAVE_ENDPOINT = 'https://api.search.brave.com/res/v1/web/search'
 
@@ -88,20 +89,42 @@ async function fetchBraveRows(options, plan) {
   return { plan, rows }
 }
 
-function normalizeProviderResult(result, defaults) {
+function normalizeProviderResult(result, defaults = {}) {
+  const website = result.website || result.url || result.link || ''
+  const businessName = selectProviderBusinessName(result, website)
+  const provider = cleanText(defaults.provider) || 'provider'
+  const query = cleanText(defaults.query)
+  const source = query ? provider + ':' + query : provider
+  const location = normalizeLocation(result.location, defaults.location)
   return {
-    businessName: stripSearchTitle(result.businessName || result.name || result.title || ''),
-    website: result.website || result.url || result.link || '',
-    source: defaults.provider + ':' + defaults.query,
+    businessName,
+    website,
+    source,
     sourceFormat: 'provider',
-    location: result.location || defaults.location || '',
-    industry: result.industry || defaults.industry || '',
-    confidence: result.confidence || defaults.confidence || 'medium',
-    searchQuery: defaults.query,
-    provider: defaults.provider,
+    provider,
+    searchQuery: query,
     rank: defaults.rank,
-    description: result.description || result.snippet || '',
+    location,
+    industry: cleanText(result.industry) || defaults.industry || '',
+    confidence: result.confidence || defaults.confidence || 'medium',
+    description: cleanText(result.description || result.snippet || ''),
+    providerTitle: cleanText(result.title || result.name || ''),
+    providerDisplayUrl: cleanText(result.displayUrl || result.display_url || result.meta_url?.netloc || result.meta_url?.hostname || ''),
   }
+}
+
+function selectProviderBusinessName(result, website) {
+  const explicit = [
+    result.businessName,
+    result.business_name,
+    result.organization?.name,
+    result.place?.name,
+    result.profile?.long_name,
+    result.profile?.name,
+  ].map((value) => normalizeBusinessName(value, website)).find(Boolean)
+  const title = stripSearchTitle(result.title || result.name || '', website)
+  const fallback = domainBusinessName(website)
+  return [explicit, title, fallback].find(Boolean) || ''
 }
 
 function extractProviderResults(payload) {
@@ -113,12 +136,24 @@ function extractProviderResults(payload) {
   return []
 }
 
-function stripSearchTitle(value) {
-  return String(value || '')
-    .replace(/\s+\|\s+.*$/g, '')
-    .replace(/\s+-\s+.*$/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+function stripSearchTitle(value, website = '') {
+  return normalizeBusinessName(cleanText(value), website)
+}
+
+function domainBusinessName(website) {
+  try {
+    const hostname = new URL(/^https?:\/\//i.test(website) ? website : 'https://' + website).hostname.replace(/^www\./, '')
+    const label = hostname.split('.')[0].replace(/[-_]+/g, ' ')
+    return label.replace(/\b\w/g, (char) => char.toUpperCase())
+  } catch {
+    return ''
+  }
+}
+
+function cleanText(value) {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+    ? String(value).replace(/\s+/g, ' ').trim()
+    : ''
 }
 
 function createEmptyProviderResult() {
@@ -152,4 +187,5 @@ module.exports = {
   createSearchQueries,
   extractProviderResults,
   normalizeProviderResult,
+  stripSearchTitle,
 }

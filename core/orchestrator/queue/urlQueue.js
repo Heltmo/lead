@@ -11,6 +11,10 @@ function createQueue(urls, options = {}) {
       industry: item.industry,
       confidence: item.confidence,
       sources: item.sources,
+      sourceType: item.sourceType,
+      auditEligible: item.auditEligible,
+      auditExclusionReason: item.auditExclusionReason,
+      provenance: item.provenance,
       sourceMetadata: item.sourceMetadata,
       status: 'pending',
       attempts: 0,
@@ -46,6 +50,10 @@ function normalizeQueueInput(input) {
   const industry = clean(raw.industry)
   const confidence = clean(raw.confidence)
   const sources = Array.isArray(raw.sources) ? raw.sources : []
+  const sourceType = clean(raw.sourceType)
+  const auditEligible = normalizeOptionalBoolean(raw.auditEligible)
+  const auditExclusionReason = clean(raw.auditExclusionReason)
+  const provenance = raw.provenance && typeof raw.provenance === 'object' && !Array.isArray(raw.provenance) ? raw.provenance : {}
   const sourceMetadata = {
     businessName,
     source,
@@ -53,12 +61,25 @@ function normalizeQueueInput(input) {
     industry,
     confidence,
     sources,
+    sourceType,
+    auditEligible,
+    auditExclusionReason,
+    provenance,
   }
-  return { url, businessName, source, location, industry, confidence, sources, sourceMetadata }
+  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, sourceMetadata }
 }
 
 function clean(value) {
   return String(value || '').trim()
+}
+
+function normalizeOptionalBoolean(value) {
+  if (value == null || value === '') return undefined
+  if (typeof value === 'boolean') return value
+  const normalized = clean(value).toLowerCase()
+  if (['true', '1', 'yes'].includes(normalized)) return true
+  if (['false', '0', 'no'].includes(normalized)) return false
+  return undefined
 }
 
 module.exports = { createQueue, nextRunnableItem, parseQueueInputLine, normalizeQueueInput }
