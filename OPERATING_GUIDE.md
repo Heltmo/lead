@@ -246,7 +246,27 @@ Allowed statuses:
 unreviewed, reviewed, shortlisted, rejected
 ```
 
-## 10. Export CRM-Ready Shortlisted Leads
+## 10. Generate Demo For A Selected Lead
+
+Use this after reviewing a run when you want a demo for one specific lead. The lead can be selected by item id, domain, URL, or business name.
+
+~~~bash
+cd ~/webconsult
+node core/demo-generator/cli/generate-demo-for-lead.js \
+  --run core/orchestrator/runs/tannleger-halden-campaign-001/summary.json \
+  --lead tannlegelarseng.no
+~~~
+
+Output:
+
+~~~text
+generated/demos/<run-id>/<lead-slug>/index.html
+generated/demos/<run-id>/<lead-slug>/manifest.json
+~~~
+
+The command does not send outreach, update CRM systems, deploy, or mutate raw audit artifacts.
+
+## 11. Export CRM-Ready Shortlisted Leads
 
 After editing `review-status.json`, run:
 
@@ -293,4 +313,4 @@ https://www.advokat-bm.no
 
 Do not add historical comparison, dashboards, databases, AI outreach, Lighthouse, parallelism, or monitoring until the 5 to 10 lead manual workflow has been used successfully on real leads.
 
-Next practical step: run one 5 to 10 lead campaign with the campaign runner, inspect campaign-summary.md, review the generated demo, then judge whether the CRM export supports manual outreach.
+Next practical step: generate demos on demand for 1 to 3 reviewed leads, inspect the demo pages and manifests, then decide which lead evidence is still missing.

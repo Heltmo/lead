@@ -1,44 +1,39 @@
 # Next Milestone
 
-The system now has the core single-command product workflow: campaign runner, discovery, target filtering, orchestrated audits, opportunity bullets, review workspace, CRM export, and deterministic demo generation.
+The system now supports the intended V1 product boundary: lead intelligence, review, CRM export, campaign summaries, and deterministic demo generation for leads the operator chooses. It does not send outreach or automate follow-up.
 
-## Priority 1: Validate Full Campaign Quality
+## Priority 1: Validate Demo-On-Demand Quality
 
-Run small deterministic and provider-backed campaigns end to end. The goal is not more architecture; the goal is checking whether one command creates a usable sales package.
+Use the real campaign run to generate demos for selected leads and judge whether the generated pages help manual review.
 
 Success target:
 
-- campaign folder exists under `generated/campaigns/<campaign-id>/`
-- `campaign.json` and `campaign-summary.md` are complete
-- discovery excludes directory/social junk from audit handoff
-- 5 to 10 business websites audit cleanly enough for review
-- top opportunities contain useful sales bullets
-- at least one generated demo is good enough for manual review
-- CRM export is usable for a human outreach workflow
+- operator can choose a lead by domain, URL, business name, or item id
+- selected lead resolves deterministically
+- generated demo includes business context, issue evidence, opportunity bullets, contactability signals, and audit paths
+- manifest records source run, review state, audit report, screenshots, and generated files
+- no outreach automation is introduced
 
-## Priority 2: Fix Only Campaign Workflow Blockers
+## Priority 2: Fix Only Review/Demo Workflow Blockers
 
 Examples:
 
-- stale run-id behavior that points a campaign at the wrong canonical run
-- weak provider business names
-- missing or misleading campaign summary fields
-- demo fallback choosing the wrong lead
-- missing stable paths from campaign folders
-- CRM exports missing fields needed for manual outreach
+- ambiguous lead selectors need clearer errors
+- demo content missing important audit evidence
+- generated demo path not easy to find from campaign output
+- selected lead names still too generic
+- screenshot/audit links missing from manifests
 
 ## Paused Work
 
-- dashboard UI
+- outreach sending
+- automated follow-up
+- CRM integration
 - database
-- AI outreach
-- historical comparison
-- Lighthouse
+- dashboard server
 - parallel workers
-- monitoring
-- multi-agent orchestration
-- protected/private scraping
+- AI sales automation
 
 ## Operating Principle
 
-The current question is whether Webconsult can produce a complete manual sales package from one command before adding servers, databases, dashboards, or autonomous outreach.
+Webconsult should first be a reliable lead intelligence and demo generation machine. Sales messages and follow-up remain manual until the review/demo workflow is consistently useful.

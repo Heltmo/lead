@@ -48,6 +48,14 @@ This file distinguishes operational capabilities from work that is not reliable 
 - no outreach automation
 - no LLM reasoning layer or narrative recommendation engine yet
 
+## Demo Generator
+
+- on-demand demo generation is file-based and local only
+- selected lead resolution is deterministic and fails on ambiguous selectors
+- generated demos are static HTML and are not deployed or hosted
+- manifests record source artifacts, but campaign summaries are not automatically rewritten for every later on-demand demo yet
+- no outreach sending or follow-up automation is included
+
 ## Campaign Runner
 
 - campaign runner is orchestration glue over existing modules, not a new execution engine

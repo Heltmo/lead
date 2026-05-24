@@ -102,6 +102,7 @@ search phrase or spreadsheet
 - single-command deterministic campaign runner
 - campaign folders with campaign.json and campaign-summary.md
 - generated demo paths for shortlisted or top opportunity leads
+- on-demand selected-lead demo generation from existing runs
 - Git-tracked capability evolution
 
 ## Lead Discovery Agent
@@ -187,6 +188,8 @@ Core files:
 - `cli/run-campaign.js`
 - `runCampaign.js`
 - `tests/smoke.test.js`
+
+The demo generator can also create a deterministic static demo on demand for a selected lead from an existing run using `core/demo-generator/cli/generate-demo-for-lead.js`.
 
 The campaign runner is the first single-command product workflow. It accepts a query plus optional provider/source inputs, runs discovery, filters handoff candidates, executes the existing orchestrator audit queue, copies stable report/review/CRM paths into `generated/campaigns/<campaign-id>/`, generates demos for shortlisted leads or top opportunity leads, and writes `campaign.json` plus `campaign-summary.md`. The canonical raw audit artifacts remain under `core/orchestrator/runs/<campaign-id>/`.
 
