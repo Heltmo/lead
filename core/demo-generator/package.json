@@ -1,0 +1,12 @@
+{
+  "name": "demo-generator",
+  "version": "1.0.0",
+  "description": "Deterministic static demo generator for shortlisted Webconsult leads",
+  "main": "generateLeadDemo.js",
+  "scripts": {
+    "generate": "node cli/generate-demo.js",
+    "test": "node tests/smoke.test.js"
+  },
+  "license": "ISC",
+  "type": "commonjs"
+}

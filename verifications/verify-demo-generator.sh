@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-workspace_dir="$repo_root/core/lead-review-workspace"
+demo_generator_dir="$repo_root/core/demo-generator"
 
-cd "$workspace_dir"
+cd "$demo_generator_dir"
 npm test

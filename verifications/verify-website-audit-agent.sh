@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-agent_dir="$HOME/webconsult/core/website-audit-agent"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+agent_dir="$repo_root/core/website-audit-agent"
 
 cd "$agent_dir"
 npm test
