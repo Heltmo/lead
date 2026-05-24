@@ -22,7 +22,7 @@ async function main() {
 
   for (const lead of leads) {
     if (dryRun) {
-      results.push({ name: lead.name, url: lead.url, sourceRow: lead.sourceRow, sheetName: lead.sheetName, status: 'pending', title: '', emails: [], phones: [], accessibilityIssues: [], technologies: [], issueCategories: {}, issueSeverities: {}, performance: null, leadScore: null, screenshots: {}, issues: ['Dry run only'] })
+      results.push({ name: lead.name, url: lead.url, sourceRow: lead.sourceRow, sheetName: lead.sheetName, status: 'pending', title: '', emails: [], phones: [], accessibilityIssues: [], technologies: [], issueCategories: {}, issueSeverities: {}, performance: null, leadScore: null, screenshots: {}, issues: ['Dry run only'], opportunityBullets: null })
       continue
     }
     const slug = slugify(`${lead.name || 'lead'}-${lead.sourceRow}`)
@@ -56,6 +56,7 @@ function toBatchResult(lead, report) {
     leadScore: report.leadQuality?.score ?? 0,
     screenshots: report.screenshots ?? {},
     issues: report.leadQuality?.issues ?? report.errors.map((error) => error.message),
+    opportunityBullets: report.opportunityBullets,
     errors: report.errors,
   }
 }

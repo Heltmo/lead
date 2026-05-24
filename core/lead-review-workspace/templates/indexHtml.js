@@ -16,6 +16,7 @@ function renderIndexHtml(model) {
     performance: item.performance || {},
     suggestedAngle: item.suggestedAngle || 'General improvement opportunity',
     suggestedAngleDetail: item.suggestedAngleDetail || 'The site has measurable improvement signals that are worth reviewing before outreach.',
+    opportunityBullets: item.opportunityBullets || {},
     reviewStatus: model.reviewStatus.items[item.id]?.status || 'unreviewed',
     priority: model.reviewStatus.items[item.id]?.priority || 'unset',
     nextAction: model.reviewStatus.items[item.id]?.nextAction || 'unset',
@@ -125,7 +126,8 @@ function render() {
     if (tag !== 'all' && !item.tags.includes(tag)) continue;
     if (technology !== 'all' && !item.technologies.includes(technology)) continue;
     if (issue !== 'all' && !Object.keys(item.issueCategories).includes(issue)) continue;
-    const haystack = [item.url, item.title, item.pageTitle, item.name, item.suggestedAngle, item.suggestedAngleDetail, item.owner, item.nextAction, item.priority, item.notes, item.tags.join(' '), item.issues.join(' ')].join(' ').toLowerCase();
+    const opportunityText = opportunityValues(item).join(' ');
+    const haystack = [item.url, item.title, item.pageTitle, item.name, item.suggestedAngle, item.suggestedAngleDetail, opportunityText, item.owner, item.nextAction, item.priority, item.notes, item.tags.join(' '), item.issues.join(' ')].join(' ').toLowerCase();
     if (query && !haystack.includes(query)) continue;
     list.appendChild(renderCard(item));
   }
@@ -137,12 +139,17 @@ function renderCard(item) {
   const el = document.createElement('article');
   el.className = 'lead ' + opportunityClass(item);
   const topIssues = item.issues.length ? item.issues.slice(0, 3) : ['No issues recorded'];
+  const painPoints = (item.opportunityBullets.painPointBullets || []).slice(0, 3);
   el.innerHTML = '<div class="lead-header">' +
     '<div><h2>' + escapeHtml(item.rank + '. ' + (item.name || item.title || item.url)) + '</h2><p class="lead-url"><a href="' + escapeAttr(item.url) + '">' + escapeHtml(item.url) + '</a></p></div>' +
     '<div class="score-badge"><span>Lead score</span><strong>' + item.leadScore + '</strong><small>' + escapeHtml(scoreLabel(item)) + '</small></div>' +
     '</div>' +
     '<div class="triage-grid">' +
       '<section class="panel"><p class="panel-title">Business opportunity</p><p class="angle">' + escapeHtml(item.suggestedAngle) + '</p><p class="angle-detail">' + escapeHtml(item.suggestedAngleDetail) + '</p>' +
+        '<ul class="issue-list">' + painPoints.map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +
+        '<p><strong>Offer:</strong> ' + escapeHtml(item.opportunityBullets.suggestedOffer || '') + '</p>' +
+        '<p><strong>Opener:</strong> ' + escapeHtml(item.opportunityBullets.outreachOpener || '') + '</p>' +
+        '<p class="note">' + escapeHtml(item.opportunityBullets.whyThisLeadMatters || '') + '</p>' +
         '<div class="chips"><span class="chip urgent">Review: ' + escapeHtml(item.reviewStatus) + '</span><span class="chip">Priority: ' + escapeHtml(item.priority) + '</span><span class="chip">Next: ' + escapeHtml(item.nextAction) + '</span></div>' +
         '<p class="note">' + escapeHtml(contactability(item)) + '</p></section>' +
       '<section class="panel"><p class="panel-title">Top evidence</p><ul class="issue-list">' + topIssues.map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +
@@ -158,6 +165,10 @@ function renderCard(item) {
     '<div class="chips"><span class="chip">Tech: ' + escapeHtml(item.technologies.length ? item.technologies.join(', ') : 'unknown') + '</span><span class="chip">Email: ' + escapeHtml(item.emails.length ? 'found' : 'missing') + '</span><span class="chip">Phone: ' + escapeHtml(item.phones.length ? 'found' : 'missing') + '</span></div>' +
     '<div class="links">' + link('HTML report', item.links.htmlReport) + link('JSON', item.links.jsonArtifact) + link('Desktop screenshot', item.links.desktopScreenshot) + link('Mobile screenshot', item.links.mobileScreenshot) + '</div>';
   return el;
+}
+function opportunityValues(item) {
+  const opportunity = item.opportunityBullets || {};
+  return (opportunity.painPointBullets || []).concat([opportunity.suggestedOffer || '', opportunity.outreachOpener || '', opportunity.whyThisLeadMatters || '']);
 }
 function opportunityClass(item) {
   const issueTotal = Object.values(item.issueCategories || {}).reduce((sum, value) => sum + Number(value || 0), 0);

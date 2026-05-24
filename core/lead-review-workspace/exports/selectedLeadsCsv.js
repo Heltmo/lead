@@ -1,5 +1,6 @@
 const { renderCsv } = require('../readers/csv')
 const { buildSuggestedAngle } = require('./suggestedAngles')
+const { normalizeOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
 
 const SELECTED_LEADS_COLUMNS = [
   'id',
@@ -12,6 +13,10 @@ const SELECTED_LEADS_COLUMNS = [
   'notes',
   'suggestedAngle',
   'suggestedAngleDetail',
+  'painPointBullets',
+  'suggestedOffer',
+  'outreachOpener',
+  'whyThisLeadMatters',
   'rank',
   'leadScore',
   'name',
@@ -33,6 +38,7 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
     .map((item) => {
       const review = reviewStatus.items[item.id] || {}
       const angle = buildSuggestedAngle(item)
+      const opportunity = normalizeOpportunityBullets(item)
       return {
         id: item.id,
         reviewStatus: review.status || 'unreviewed',
@@ -44,6 +50,10 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
         notes: review.notes || '',
         suggestedAngle: angle.suggestedAngle,
         suggestedAngleDetail: angle.suggestedAngleDetail,
+        painPointBullets: opportunity.painPointBullets.join('|'),
+        suggestedOffer: opportunity.suggestedOffer,
+        outreachOpener: opportunity.outreachOpener,
+        whyThisLeadMatters: opportunity.whyThisLeadMatters,
         rank: item.rank,
         leadScore: item.leadScore,
         name: item.name,
