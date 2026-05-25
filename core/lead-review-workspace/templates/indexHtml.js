@@ -20,6 +20,7 @@ function renderIndexHtml(model) {
     leadInsight: item.leadInsight || {},
     businessSignalProfile: item.businessSignalProfile || {},
     compressedOpportunity: item.compressedOpportunity || {},
+    commercialPressure: item.commercialPressure || {},
     sourceMetadata: item.sourceMetadata || {},
     reviewStatus: model.reviewStatus.items[item.id]?.status || 'unreviewed',
     priority: model.reviewStatus.items[item.id]?.priority || 'unset',
@@ -149,9 +150,10 @@ function renderCard(item) {
   const insight = item.leadInsight || {};
   const signalProfile = item.businessSignalProfile || {};
   const compressed = item.compressedOpportunity || {};
+  const pressure = item.commercialPressure || {};
   el.innerHTML = '<div class="lead-header">' +
     '<div><h2>' + escapeHtml(item.rank + '. ' + (item.name || item.title || item.url)) + '</h2><p class="lead-url"><a href="' + escapeAttr(item.url) + '">' + escapeHtml(item.url) + '</a></p></div>' +
-    '<div class="score-badge"><span>Lead score</span><strong>' + item.leadScore + '</strong><small>' + escapeHtml(scoreLabel(item)) + '</small></div>' +
+    '<div class="score-badge"><span>Call priority</span><strong>' + escapeHtml((pressure.callPriority || 'medium').toUpperCase()) + '</strong><small>Pain ' + escapeHtml(pressureLevel(pressure.painScore)) + '</small></div>' +
     '</div>' +
     '<div class="triage-grid">' +
       '<section class="panel"><p class="panel-title">Primary opportunity</p><p class="angle">' + escapeHtml(compressed.primaryOpportunity || insight.mainProblem || item.suggestedAngle) + '</p>' +
@@ -159,6 +161,8 @@ function renderCard(item) {
         '<p><strong>Outreach angle:</strong> ' + escapeHtml(compressed.outreachAngle || insight.evidenceBasedAngle || '') + '</p>' +
         '<p><strong>Call opener:</strong> ' + escapeHtml(compressed.callOpener || insight.callOpeningLine || '') + '</p>' +
         '<p><strong>Recommended offer:</strong> ' + escapeHtml(compressed.recommendedOffer || insight.recommendedOffer || '') + '</p>' +
+        '<div class="chips"><span class="chip urgent">Pain: ' + escapeHtml(pressureLevel(pressure.painScore)) + ' (' + escapeHtml(pressure.painScore || '0') + ')</span><span class="chip">Buying: ' + escapeHtml(pressureLevel(pressure.buyingLikelihood)) + ' (' + escapeHtml(pressure.buyingLikelihood || '0') + ')</span><span class="chip">Sales ease: ' + escapeHtml(pressure.salesEase || 'medium') + '</span></div>' +
+        '<ul class="issue-list">' + (pressure.commercialPressureReasons || []).slice(0, 3).map((value) => '<li>' + escapeHtml(value.replace(/_/g, ' ')) + '</li>').join('') + '</ul>' +
         '<div class="chips"><span class="chip urgent">Class: ' + escapeHtml(compressed.leadClass || 'manual_review') + '</span><span class="chip">Motion: ' + escapeHtml(compressed.outreachMotion || 'manual_review') + '</span><span class="chip">Impact: ' + escapeHtml(compressed.businessImpact || 'unknown') + '</span><span class="chip">Urgency: ' + escapeHtml(compressed.urgency || '0') + '</span><span class="chip">Type: ' + escapeHtml(compressed.type || 'manual_review') + '</span></div>' +
         '<details><summary>Supporting intelligence</summary>' +
         '<p><strong>Lead insight:</strong> ' + escapeHtml(insight.evidenceBasedAngle || '') + '</p>' +
@@ -214,7 +218,14 @@ function insightValues(item) {
 }
 function compressedValues(item) {
   const opportunity = item.compressedOpportunity || {};
-  return [opportunity.primaryOpportunity || '', opportunity.outreachAngle || '', opportunity.callOpener || '', opportunity.recommendedOffer || '', opportunity.leadClass || '', opportunity.outreachMotion || '', opportunity.businessImpact || '', opportunity.type || '', (opportunity.whyThisMatters || []).join(' ')];
+  const pressure = item.commercialPressure || {};
+  return [opportunity.primaryOpportunity || '', opportunity.outreachAngle || '', opportunity.callOpener || '', opportunity.recommendedOffer || '', opportunity.leadClass || '', opportunity.outreachMotion || '', opportunity.businessImpact || '', opportunity.type || '', pressure.callPriority || '', pressure.salesEase || '', (pressure.commercialPressureReasons || []).join(' '), (opportunity.whyThisMatters || []).join(' ')];
+}
+function pressureLevel(value) {
+  const n = Number(value || 0);
+  if (n >= 0.72) return 'HIGH';
+  if (n >= 0.5) return 'MEDIUM';
+  return 'LOW';
 }
 function opportunityClass(item) {
   const issueTotal = Object.values(item.issueCategories || {}).reduce((sum, value) => sum + Number(value || 0), 0);

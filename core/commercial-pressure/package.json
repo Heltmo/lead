@@ -1,0 +1,11 @@
+{
+  "name": "commercial-pressure",
+  "version": "1.0.0",
+  "description": "Deterministic sales prioritization layer for Webconsult leads",
+  "main": "commercialPressure.js",
+  "scripts": {
+    "test": "node tests/smoke.test.js"
+  },
+  "license": "ISC",
+  "type": "commonjs"
+}

@@ -3,6 +3,7 @@ const { buildSuggestedAngle } = require('./suggestedAngles')
 const { normalizeOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
 const { normalizeLeadInsight } = require('../../lead-insight-agent/leadInsightAgent')
 const { normalizeCompressedOpportunity } = require('../../opportunity-compressor/opportunityCompressor')
+const { normalizeCommercialPressure } = require('../../commercial-pressure/commercialPressure')
 
 const SELECTED_LEADS_COLUMNS = [
   'id',
@@ -40,6 +41,11 @@ const SELECTED_LEADS_COLUMNS = [
   'leadClass',
   'commercialRecommendedOffer',
   'outreachMotion',
+  'painScore',
+  'buyingLikelihood',
+  'callPriority',
+  'salesEase',
+  'commercialPressureReasons',
   'rank',
   'leadScore',
   'name',
@@ -70,6 +76,7 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
       const opportunity = normalizeOpportunityBullets(item)
       const insight = normalizeLeadInsight(item.leadInsight || item)
       const compressed = normalizeCompressedOpportunity(item.compressedOpportunity || item)
+      const pressure = normalizeCommercialPressure(item.commercialPressure || item)
       return {
         id: item.id,
         reviewStatus: review.status || 'unreviewed',
@@ -106,6 +113,11 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
         leadClass: compressed.leadClass,
         commercialRecommendedOffer: compressed.recommendedOffer,
         outreachMotion: compressed.outreachMotion,
+        painScore: pressure.painScore,
+        buyingLikelihood: pressure.buyingLikelihood,
+        callPriority: pressure.callPriority,
+        salesEase: pressure.salesEase,
+        commercialPressureReasons: pressure.commercialPressureReasons.join('|'),
         rank: item.rank,
         leadScore: item.leadScore,
         name: item.name,

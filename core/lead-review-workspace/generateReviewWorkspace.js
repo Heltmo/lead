@@ -9,6 +9,7 @@ const { normalizeOpportunityBullets } = require('../opportunity-bullets/opportun
 const { buildLeadInsight } = require('../lead-insight-agent/leadInsightAgent')
 const { buildBusinessSignalProfile } = require('../business-signal-engine/businessSignalEngine')
 const { buildCompressedOpportunity } = require('../opportunity-compressor/opportunityCompressor')
+const { buildCommercialPressure } = require('../commercial-pressure/commercialPressure')
 const { loadOrCreateReviewStatus } = require('./state/reviewStatus')
 const { renderIndexHtml } = require('./templates/indexHtml')
 
@@ -23,7 +24,8 @@ function generateReviewWorkspace(options) {
     const businessSignalProfile = buildBusinessSignalProfile(base)
     const leadInsight = buildLeadInsight({ ...base, businessSignalProfile }, { cacheDir: insightCacheDir })
     const compressedOpportunity = buildCompressedOpportunity({ ...base, businessSignalProfile, leadInsight })
-    return { ...base, businessSignalProfile, leadInsight, compressedOpportunity }
+    const commercialPressure = buildCommercialPressure({ ...base, businessSignalProfile, leadInsight, compressedOpportunity })
+    return { ...base, businessSignalProfile, leadInsight, compressedOpportunity, commercialPressure }
   })
   const statusPath = path.join(outDir, 'review-status.json')
   const reviewStatus = loadOrCreateReviewStatus(statusPath, items)

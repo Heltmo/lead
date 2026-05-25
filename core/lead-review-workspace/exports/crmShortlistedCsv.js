@@ -3,6 +3,7 @@ const { buildSuggestedAngle, suggestAngle, suggestAngleDetail } = require('./sug
 const { normalizeOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
 const { normalizeLeadInsight } = require('../../lead-insight-agent/leadInsightAgent')
 const { normalizeCompressedOpportunity } = require('../../opportunity-compressor/opportunityCompressor')
+const { normalizeCommercialPressure } = require('../../commercial-pressure/commercialPressure')
 
 const CRM_SHORTLISTED_COLUMNS = [
   'company',
@@ -52,6 +53,11 @@ const CRM_SHORTLISTED_COLUMNS = [
   'leadClass',
   'commercialRecommendedOffer',
   'outreachMotion',
+  'painScore',
+  'buyingLikelihood',
+  'callPriority',
+  'salesEase',
+  'commercialPressureReasons',
   'reviewStatus',
   'priority',
   'nextAction',
@@ -70,6 +76,7 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
       const opportunity = normalizeOpportunityBullets(item)
       const insight = normalizeLeadInsight(item.leadInsight || item)
       const compressed = normalizeCompressedOpportunity(item.compressedOpportunity || item)
+      const pressure = normalizeCommercialPressure(item.commercialPressure || item)
       return {
         company: item.name || item.title,
         website: item.url,
@@ -118,6 +125,11 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
         leadClass: compressed.leadClass,
         commercialRecommendedOffer: compressed.recommendedOffer,
         outreachMotion: compressed.outreachMotion,
+        painScore: pressure.painScore,
+        buyingLikelihood: pressure.buyingLikelihood,
+        callPriority: pressure.callPriority,
+        salesEase: pressure.salesEase,
+        commercialPressureReasons: pressure.commercialPressureReasons.join('|'),
         reviewStatus: review.status || 'unreviewed',
         priority: review.priority || 'unset',
         nextAction: review.nextAction || 'unset',
