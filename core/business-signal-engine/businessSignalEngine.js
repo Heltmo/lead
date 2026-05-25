@@ -2,6 +2,7 @@ function buildBusinessSignalProfile(item = {}) {
   const evidence = collectEvidence(item)
   const signals = [
     onlineBookingSignal(evidence),
+    highValueServiceSignal(evidence),
     specialistServiceSignal(evidence),
     teamAuthoritySignal(evidence),
     pricingTransparencySignal(evidence),
@@ -63,6 +64,27 @@ function collectEvidence(item = {}) {
   }
 }
 
+function highValueServiceSignal(e) {
+  const matches = highValueServiceMatches(e)
+  if (!matches.length) return null
+  return signal({
+    id: 'high_value_service',
+    category: 'positioning',
+    strength: matches.length > 1 ? 0.88 : 0.72,
+    confidence: 0.84,
+    observation: {
+      exists: true,
+      industry: e.industry,
+      verticalSignals: matches.map((item) => item.id),
+      evidence: matches.map((item) => item.evidence).filter(Boolean).slice(0, 3).join(' | '),
+    },
+    interpretation: {
+      businessImpact: 'positioning',
+      opportunity: 'high_value_service_conversion',
+    },
+  })
+}
+
 function onlineBookingSignal(e) {
   const bookingLinks = e.pageLinks.filter((link) => isBookingLink(link))
   if (!bookingLinks.length) return null
@@ -87,22 +109,22 @@ function onlineBookingSignal(e) {
 }
 
 function specialistServiceSignal(e) {
-  const hasOrthodontics = includesAny(e.searchText, ['tannregulering', 'kjeveortopedi', 'reguleringstannlege', 'orthodontic'])
-  const hasSpecialists = includesAny(e.searchText, ['spesialist', 'spesialister', 'specialist'])
-  if (!hasOrthodontics && !hasSpecialists) return null
+  const matches = highValueServiceMatches(e).filter((item) => ['orthodontics', 'specialist_positioning'].includes(item.id))
+  if (!matches.length) return null
   return signal({
     id: 'specialist_service',
     category: 'positioning',
-    strength: hasOrthodontics && hasSpecialists ? 0.88 : 0.72,
+    strength: matches.length > 1 ? 0.88 : 0.72,
     confidence: 0.86,
     observation: {
       exists: true,
-      services: [hasOrthodontics ? 'orthodontics' : '', hasSpecialists ? 'specialist_positioning' : ''].filter(Boolean),
-      evidence: matchedHeadings(e, ['tannregulering', 'kjeveortopedi', 'reguleringstannlege', 'spesialist']),
+      services: matches.map((item) => item.id),
+      evidence: matches.map((item) => item.evidence).filter(Boolean).slice(0, 3).join(' | '),
+      legacyAliasFor: 'high_value_service',
     },
     interpretation: {
       businessImpact: 'positioning',
-      opportunity: 'specialist_service_positioning',
+      opportunity: 'high_value_service_conversion',
     },
   })
 }
@@ -224,14 +246,24 @@ function detectContradictions(signals, e) {
       strength: e.reviewCount >= 100 ? 0.86 : 0.68,
     }))
   }
+  if (ids.has('high_value_service') && ids.has('missing_primary_cta')) {
+    result.push(contradiction({
+      id: 'high_value_service_but_weak_action_path',
+      positiveSignal: 'high_value_service',
+      negativeSignal: 'missing_primary_cta',
+      opportunity: 'high_value_service_conversion',
+      evidence: 'High-value service positioning exists, but the booking/enquiry action is not prominent.',
+      strength: 0.8,
+    }))
+  }
   if (ids.has('specialist_service') && ids.has('missing_primary_cta')) {
     result.push(contradiction({
       id: 'specialist_service_but_weak_action_path',
       positiveSignal: 'specialist_service',
       negativeSignal: 'missing_primary_cta',
-      opportunity: 'specialist_service_positioning',
+      opportunity: 'high_value_service_conversion',
       evidence: 'Specialist/service positioning exists, but the booking/enquiry action is not prominent.',
-      strength: 0.78,
+      strength: 0.72,
     }))
   }
   return result.sort((a, b) => b.strength - a.strength)
@@ -273,6 +305,46 @@ function addScore(scores, id, value) {
 
 function summarizeLinks(links) {
   return links.slice(0, 3).map((link) => link.text ? `${link.text} -> ${link.href}` : link.href).join(' | ')
+}
+
+function highValueServiceMatches(e) {
+  const termsByIndustry = {
+    dentist: { orthodontics: ['tannregulering', 'kjeveortopedi', 'reguleringstannlege', 'orthodontic'], specialist_positioning: ['spesialist', 'spesialister', 'specialist'], implant: ['implantat', 'implant'] },
+    lawyer: { business_law: ['forretningsjus', 'selskapsrett', 'kontrakt', 'næringseiendom'], litigation: ['prosedyre', 'tvisteløsning', 'rettssak'], inheritance: ['arv', 'skifte', 'testament'] },
+    accountant: { advisory: ['rådgivning', 'økonomisk rådgivning', 'controller', 'cfo'], payroll: ['lønn', 'lønnskjøring'], annual_accounts: ['årsoppgjør', 'skattemelding'] },
+    plumber: { renovation: ['badrenovering', 'rehabilitering av bad', 'totalrenovering'], heat_pump: ['varmepumpe', 'varmeanlegg'], service_agreement: ['serviceavtale'] },
+    electrician: { ev_charger: ['elbillader', 'ladeanlegg'], smart_home: ['smarthus', 'smart home'], solar: ['solcelle', 'solceller'] },
+    'hair salon': { color: ['fargebehandling', 'balayage', 'striper'], extensions: ['extensions', 'hair extensions'], bridal: ['brud', 'bryllup'] },
+    physiotherapist: { sports_injury: ['idrettsskade', 'idrettsskader', 'sports injury'], first_consultation: ['førstegangskonsultasjon'], rehabilitation: ['rehabilitering'] },
+    'real estate agent': { valuation: ['verdivurdering', 'boligverdi'], premium_sale: ['premium', 'eksklusiv', 'boligsalg'], new_build: ['nybygg'] },
+    restaurant: { catering: ['catering', 'selskap', 'event'], tasting_menu: ['smaksmeny', 'tasting menu'], private_room: ['selskapslokale', 'private dining'] },
+  }
+  const generic = { specialist_positioning: ['spesialist', 'specialist'], premium_service: ['premium', 'skreddersydd'] }
+  const industry = normalizeIndustry(e.industry)
+  const termGroups = { ...generic, ...(termsByIndustry[industry] || {}) }
+  const matches = []
+  for (const [id, terms] of Object.entries(termGroups)) {
+    if (!includesAny(e.searchText, terms)) continue
+    matches.push({ id, evidence: matchedTextEvidence(e, terms) })
+  }
+  return matches
+}
+
+function matchedTextEvidence(e, terms) {
+  return matchedHeadings(e, terms) || matchedLinks(e, terms) || terms.find((term) => e.searchText.includes(term)) || ''
+}
+
+function normalizeIndustry(value) {
+  const v = clean(value).toLowerCase()
+  if (['dentists', 'dental clinic', 'tannlege', 'tannleger', 'tannklinikk', 'tannhelse'].includes(v)) return 'dentist'
+  if (['law firm', 'lawyer', 'lawyers', 'advokat', 'advokater', 'advokatfirma'].includes(v)) return 'lawyer'
+  if (['accountants', 'accounting firm', 'regnskapsfører', 'regnskapsførere', 'regnskapsbyrå'].includes(v)) return 'accountant'
+  if (['plumbers', 'plumbing company', 'rørlegger', 'rørleggere', 'rørleggerfirma'].includes(v)) return 'plumber'
+  if (['electricians', 'electrical contractor', 'elektriker', 'elektrikere', 'elektroinstallatør', 'elektrofirma'].includes(v)) return 'electrician'
+  if (['hair salon', 'hairdresser', 'hairdressers', 'frisør', 'frisører', 'frisørsalong'].includes(v)) return 'hair salon'
+  if (['physiotherapist', 'physiotherapists', 'fysioterapeut', 'fysioterapeuter', 'fysioterapiklinikk'].includes(v)) return 'physiotherapist'
+  if (['real estate agent', 'real estate agents', 'realtor', 'eiendomsmegler', 'eiendomsmeglere', 'meglerkontor'].includes(v)) return 'real estate agent'
+  return v
 }
 
 function matchedHeadings(e, terms) {

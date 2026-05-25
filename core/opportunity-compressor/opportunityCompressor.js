@@ -74,6 +74,7 @@ function collectContext(item, profile, insight) {
     providerTypes: normalizeArray(meta.providerTypes),
     hasOnlineBooking: hasSignalId(signalById, 'online_booking'),
     hasMissingCta: hasSignalId(signalById, 'missing_primary_cta'),
+    hasHighValueService: hasSignalId(signalById, 'high_value_service') || hasSignalId(signalById, 'specialist_service'),
     hasSpecialist: hasSignalId(signalById, 'specialist_service'),
     hasReviews: hasSignalId(signalById, 'local_review_proof'),
     hasTeam: hasSignalId(signalById, 'team_authority'),
@@ -116,9 +117,14 @@ function commercialPlaybook(type) {
       recommendedOffer: 'Treatment-specific landing page or campaign funnel',
       outreachMotion: 'consultative_growth',
     },
+    high_value_service_conversion_gap: {
+      leadClass: 'high_value_service_conversion',
+      recommendedOffer: 'High-value service booking/enquiry path optimization',
+      outreachMotion: 'service_line_growth',
+    },
     specialist_to_booking_gap: {
-      leadClass: 'specialist_conversion',
-      recommendedOffer: 'Specialist treatment booking path optimization',
+      leadClass: 'high_value_service_conversion',
+      recommendedOffer: 'High-value service booking/enquiry path optimization',
       outreachMotion: 'service_line_growth',
     },
     trust_to_conversion_gap: {
@@ -175,22 +181,22 @@ const strategies = {
     whyThisMatters: (ctx) => [
       trustSummary(ctx) || 'The clinic already has visible trust signals.',
       modernSiteSummary(ctx),
-      signalSummary(ctx, 'specialist_service') || 'Specific treatment or patient segments can be promoted through focused landing paths.',
+      signalSummary(ctx, 'high_value_service') || signalSummary(ctx, 'specialist_service') || 'Specific treatment or patient segments can be promoted through focused landing paths.',
     ],
     outreachAngle: () => 'Position the offer around campaign landing pages, treatment-specific funnels, or measurable new-patient growth instead of general website cleanup.',
     callOpener: (ctx) => `I noticed ${ctx.name} already has a strong site and trust profile. Are you testing dedicated campaigns or landing pages for the treatments you most want to grow?`,
   },
   specialistVisibility: {
-    type: 'specialist_to_booking_gap',
+    type: 'high_value_service_conversion_gap',
     businessImpact: 'positioning',
-    primaryOpportunity: () => 'Specialist or high-value services are visible, but treatment interest is not guided clearly enough into booking.',
+    primaryOpportunity: () => 'High-value services are visible, but visitor intent is not guided clearly enough into booking or enquiry.',
     whyThisMatters: (ctx) => [
-      signalSummary(ctx, 'specialist_service') || 'Specialist or high-value services are promoted.',
-      signalSummary(ctx, 'online_booking') || 'A booking path exists but needs clearer connection to services.',
+      signalSummary(ctx, 'high_value_service') || signalSummary(ctx, 'specialist_service') || 'High-value services are promoted.',
+      signalSummary(ctx, 'online_booking') || 'A booking or enquiry path exists but needs clearer connection to services.',
       signalSummary(ctx, 'missing_primary_cta') || 'The next action is not prominent enough.',
     ],
-    outreachAngle: () => 'Connect specialist/treatment pages directly to booking so interested patients know exactly what to do next.',
-    callOpener: (ctx) => `I noticed ${ctx.name} promotes specialist or high-value treatments, but the path from treatment interest to booking could be sharper. Are those treatments an area you want more enquiries for?`,
+    outreachAngle: () => 'Connect high-value service pages directly to booking or enquiry so interested visitors know exactly what to do next.',
+    callOpener: (ctx) => `I noticed ${ctx.name} promotes high-value services, but the path from service interest to booking or enquiry could be sharper. Are those services an area you want more enquiries for?`,
   },
   trustToConversion: {
     type: 'trust_to_conversion_gap',
@@ -223,7 +229,7 @@ const strategies = {
     whyThisMatters: (ctx) => [
       signalSummary(ctx, 'online_booking') || 'Online booking exists.',
       signalSummary(ctx, 'missing_primary_cta') || 'The audit still found weak primary CTA visibility.',
-      trustSummary(ctx) || signalSummary(ctx, 'specialist_service') || 'The clinic has enough demand signals to make booking clarity commercially relevant.',
+      trustSummary(ctx) || signalSummary(ctx, 'high_value_service') || signalSummary(ctx, 'specialist_service') || 'The clinic has enough demand signals to make booking clarity commercially relevant.',
     ],
     outreachAngle: () => 'Focus on making the treatment-to-booking path visible and obvious for new patients.',
     callOpener: (ctx) => `I noticed ${ctx.name} already has online booking, but it is harder to spot than expected. Is improving patient booking conversion something you are actively looking at?`,
@@ -277,7 +283,7 @@ function brandIdentityScore(ctx) {
 function modernCampaignScore(ctx) {
   let score = 0
   if (isStrongModernSite(ctx)) score += 0.95
-  if (ctx.hasSpecialist) score += 0.18
+  if (ctx.hasHighValueService) score += 0.18
   if (ctx.hasNewPatientSignal) score += 0.12
   if (hasContradiction(ctx, 'booking_exists_but_cta_weak')) score -= 0.2
   if (brandIdentityScore(ctx) > 0.8) score -= 0.5
@@ -286,8 +292,8 @@ function modernCampaignScore(ctx) {
 
 function specialistScore(ctx) {
   let score = 0
-  if (ctx.hasSpecialist) score += 0.72
-  if (hasContradiction(ctx, 'specialist_service_but_weak_action_path')) score += 0.28
+  if (ctx.hasHighValueService) score += 0.72
+  if (hasContradiction(ctx, 'high_value_service_but_weak_action_path')) score += 0.28
   if (ctx.hasOnlineBooking) score += 0.1
   if (isStrongModernSite(ctx)) score -= 0.22
   if (brandIdentityScore(ctx) > 0.8) score -= 0.3
@@ -318,7 +324,7 @@ function bookingVisibilityScore(ctx) {
   let score = 0
   if (hasContradiction(ctx, 'booking_exists_but_cta_weak')) score += 0.62
   if (ctx.hasOnlineBooking && ctx.hasMissingCta) score += 0.12
-  if (ctx.hasSpecialist) score -= 0.22
+  if (ctx.hasHighValueService) score -= 0.22
   if (isStrongModernSite(ctx)) score -= 0.4
   if (brandIdentityScore(ctx) > 0.8) score -= 0.45
   return score
@@ -349,7 +355,7 @@ function urgency(ctx, strategy) {
   let score = 0.35
   if (strategy.type === 'brand_identity_confusion') score += 0.38
   if (strategy.type === 'modern_site_campaign_optimization') score += 0.18
-  if (strategy.type === 'specialist_to_booking_gap') score += 0.28
+  if (strategy.type === 'high_value_service_conversion_gap' || strategy.type === 'specialist_to_booking_gap') score += 0.28
   if (strategy.type === 'trust_to_conversion_gap') score += 0.24
   if (strategy.type === 'booking_visibility_gap') score += 0.22
   if (strategy.type === 'technical_trust_risk') score += 0.18
@@ -357,7 +363,7 @@ function urgency(ctx, strategy) {
   else if (ctx.reviewCount >= 20) score += 0.08
   if (ctx.hasOnlineBooking) score += 0.06
   if (ctx.hasMissingCta && !isStrongModernSite(ctx)) score += 0.08
-  if (ctx.hasSpecialist) score += 0.06
+  if (ctx.hasHighValueService) score += 0.06
   if (!ctx.phone) score -= 0.2
   return score
 }
@@ -396,9 +402,13 @@ function signalSummary(ctx, id) {
   const evidence = signal.observation?.evidence || signal.interpretation?.opportunity || id
   if (id === 'online_booking') return signal.observation?.ctaProminence < 0.45 ? 'Online booking exists, but its CTA prominence is low.' : 'Online booking exists.'
   if (id === 'missing_primary_cta') return 'The audit classified the page as missing a clear primary CTA.'
+  if (id === 'high_value_service') {
+    const detail = evidence && evidence !== 'high_value_service_conversion' ? ` (${evidence})` : ''
+    return `High-value service positioning is visible${detail}.`
+  }
   if (id === 'specialist_service') {
-    const detail = evidence && evidence !== 'specialist_service_positioning' ? ` (${evidence})` : ''
-    return `Specialist/high-value service positioning is visible${detail}.`
+    const detail = evidence && !['specialist_service_positioning', 'high_value_service_conversion'].includes(evidence) ? ` (${evidence})` : ''
+    return `High-value service positioning is visible${detail}.`
   }
   if (id === 'local_review_proof') return trustSummary(ctx)
   return evidence

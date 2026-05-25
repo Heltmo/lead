@@ -45,3 +45,5 @@ Each compressed opportunity maps deterministically to sales operation fields:
 - `outreachMotion`: the sales motion style to use
 
 This keeps sales behavior rule-based and repeatable. LLMs should not invent the sales motion for each run; they may only improve wording later after the deterministic class is selected.
+
+`high_value_service_conversion_gap` is the generic service-line growth pattern. Vertical examples like orthodontics, business law, EV charger installation, or advisory services should enter through `high_value_service` signals rather than creating vertical-specific opportunity types.

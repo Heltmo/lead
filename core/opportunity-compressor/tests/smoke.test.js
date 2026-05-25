@@ -19,12 +19,12 @@ const halden = withSignals({
   },
 })
 const haldenCompressed = buildCompressedOpportunity(halden)
-assert(haldenCompressed.type === 'specialist_to_booking_gap', 'Halden should prioritize specialist-to-booking, not generic booking visibility')
+assert(haldenCompressed.type === 'high_value_service_conversion_gap', 'Halden should prioritize specialist-to-booking, not generic booking visibility')
 assert(haldenCompressed.businessImpact === 'positioning', 'specialist angle should be positioning impact')
-assert(haldenCompressed.leadClass === 'specialist_conversion', 'specialist angle should map to specialist_conversion lead class')
+assert(haldenCompressed.leadClass === 'high_value_service_conversion', 'specialist angle should map to high_value_service_conversion lead class')
 assert(haldenCompressed.outreachMotion === 'service_line_growth', 'specialist angle should map to service-line growth motion')
 assert(haldenCompressed.urgency > 0.75, 'specialist booking gap should stay urgent')
-assert(haldenCompressed.primaryOpportunity.includes('Specialist'), 'Halden primary opportunity should mention specialist services')
+assert(haldenCompressed.primaryOpportunity.includes('High-value') || haldenCompressed.primaryOpportunity.includes('Specialist'), 'Halden primary opportunity should mention high-value services')
 assert(haldenCompressed.whyThisMatters.length <= 3, 'whyThisMatters should be compressed to three bullets')
 assert(haldenCompressed.callOpener.length < 240, 'call opener should stay concise')
 assert(!haldenCompressed.callOpener.includes('concrete audit signals'), 'call opener should avoid reasoning dump phrasing')
@@ -93,3 +93,27 @@ function withSignals(item) {
   return item
 }
 function assert(condition, message) { if (!condition) throw new Error(message) }
+
+
+const lawyer = withSignals({
+  name: 'Eksempel Advokatfirma AS',
+  pageTitle: 'Advokatfirma for bedrifter',
+  industry: 'lawyer',
+  sourceMetadata: { rating: 4.8, reviewCount: 42, phone: '22 11 22 11', businessStatus: 'OPERATIONAL' },
+  emails: ['post@example-law.no'],
+  issueCategories: { conversion: 1 },
+  issues: ['No clear CTA detected'],
+  pageSignals: {
+    headings: [
+      { level: 'h2', text: 'Forretningsjus og selskapsrett' },
+      { level: 'h2', text: 'Tvisteløsning og prosedyre' },
+    ],
+    links: [
+      { text: 'Kontakt oss', href: '/kontakt' },
+    ],
+  },
+})
+const lawyerCompressed = buildCompressedOpportunity(lawyer)
+assert(lawyerCompressed.type === 'high_value_service_conversion_gap', 'lawyer high-value services should reuse high_value_service_conversion commercial pattern')
+assert(lawyerCompressed.leadClass === 'high_value_service_conversion', 'lawyer high-value services should map to high-value service conversion class')
+assert(lawyerCompressed.primaryOpportunity.includes('High-value') || lawyerCompressed.primaryOpportunity.includes('Specialist'), 'lawyer opportunity should use generic high-value framing')
