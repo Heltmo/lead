@@ -38,6 +38,9 @@ const CRM_SHORTLISTED_COLUMNS = [
   'recommendedOffer',
   'disqualifiers',
   'insightConfidence',
+  'businessSignals',
+  'businessContradictions',
+  'topOpportunities',
   'reviewStatus',
   'priority',
   'nextAction',
@@ -90,6 +93,9 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
         recommendedOffer: insight.recommendedOffer,
         disqualifiers: insight.disqualifiers.join('|'),
         insightConfidence: insight.confidence,
+        businessSignals: formatBusinessSignals(item.businessSignalProfile),
+        businessContradictions: formatBusinessContradictions(item.businessSignalProfile),
+        topOpportunities: formatTopOpportunities(item.businessSignalProfile),
         reviewStatus: review.status || 'unreviewed',
         priority: review.priority || 'unset',
         nextAction: review.nextAction || 'unset',
@@ -100,6 +106,18 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
       }
     })
   return renderCsv(rows, CRM_SHORTLISTED_COLUMNS)
+}
+
+function formatBusinessSignals(profile = {}) {
+  return (profile.signals || []).map((item) => [item.id, item.category, item.strength, item.confidence].join(':')).join('|')
+}
+
+function formatBusinessContradictions(profile = {}) {
+  return (profile.contradictions || []).map((item) => [item.id, item.opportunity, item.strength].join(':')).join('|')
+}
+
+function formatTopOpportunities(profile = {}) {
+  return (profile.topOpportunities || []).map((item) => [item.id, item.score].join(':')).join('|')
 }
 
 function formatIssueCategories(categories) {

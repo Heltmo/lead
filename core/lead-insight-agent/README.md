@@ -18,3 +18,5 @@ Output fields:
 - `confidence`
 
 Generated review workspaces cache insight JSON under `review-workspace/lead-insights/`.
+
+Lead insights consume `core/business-signal-engine` profiles for structured signals, contradictions, and opportunity ranking.

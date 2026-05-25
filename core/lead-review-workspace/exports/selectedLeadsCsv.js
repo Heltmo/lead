@@ -26,6 +26,9 @@ const SELECTED_LEADS_COLUMNS = [
   'recommendedOffer',
   'disqualifiers',
   'insightConfidence',
+  'businessSignals',
+  'businessContradictions',
+  'topOpportunities',
   'rank',
   'leadScore',
   'name',
@@ -78,6 +81,9 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
         recommendedOffer: insight.recommendedOffer,
         disqualifiers: insight.disqualifiers.join('|'),
         insightConfidence: insight.confidence,
+        businessSignals: formatBusinessSignals(item.businessSignalProfile),
+        businessContradictions: formatBusinessContradictions(item.businessSignalProfile),
+        topOpportunities: formatTopOpportunities(item.businessSignalProfile),
         rank: item.rank,
         leadScore: item.leadScore,
         name: item.name,
@@ -100,6 +106,18 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
       }
     })
   return renderCsv(rows, SELECTED_LEADS_COLUMNS)
+}
+
+function formatBusinessSignals(profile = {}) {
+  return (profile.signals || []).map((item) => [item.id, item.category, item.strength, item.confidence].join(':')).join('|')
+}
+
+function formatBusinessContradictions(profile = {}) {
+  return (profile.contradictions || []).map((item) => [item.id, item.opportunity, item.strength].join(':')).join('|')
+}
+
+function formatTopOpportunities(profile = {}) {
+  return (profile.topOpportunities || []).map((item) => [item.id, item.score].join(':')).join('|')
 }
 
 function formatIssueCategories(categories) {

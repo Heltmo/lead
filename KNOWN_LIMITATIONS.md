@@ -105,3 +105,8 @@ The platform should stay deterministic-first until the extraction, reporting, hi
 ## Lead Insight Agent
 
 The review workspace now includes downstream, evidence-grounded lead insight fields for operator triage and CRM export. These insights use audit facts and provider metadata, cache under generated review-workspace output, and do not mutate raw audit artifacts. LLM-backed generation is not enabled by default; deterministic fallback remains the verified path.
+
+
+## Business Signal Engine
+
+A structured `core/business-signal-engine` layer now extracts deterministic business signals, numeric strengths, confidence values, contradictions, and ranked opportunities from audit/page evidence. Lead insights consume this source-of-truth layer instead of re-parsing raw page text directly.

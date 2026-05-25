@@ -18,6 +18,7 @@ function renderIndexHtml(model) {
     suggestedAngleDetail: item.suggestedAngleDetail || 'The site has measurable improvement signals that are worth reviewing before outreach.',
     opportunityBullets: item.opportunityBullets || {},
     leadInsight: item.leadInsight || {},
+    businessSignalProfile: item.businessSignalProfile || {},
     sourceMetadata: item.sourceMetadata || {},
     reviewStatus: model.reviewStatus.items[item.id]?.status || 'unreviewed',
     priority: model.reviewStatus.items[item.id]?.priority || 'unset',
@@ -144,6 +145,7 @@ function renderCard(item) {
   const topIssues = item.issues.length ? item.issues.slice(0, 3) : ['No issues recorded'];
   const painPoints = (item.opportunityBullets.painPointBullets || []).slice(0, 3);
   const insight = item.leadInsight || {};
+  const signalProfile = item.businessSignalProfile || {};
   el.innerHTML = '<div class="lead-header">' +
     '<div><h2>' + escapeHtml(item.rank + '. ' + (item.name || item.title || item.url)) + '</h2><p class="lead-url"><a href="' + escapeAttr(item.url) + '">' + escapeHtml(item.url) + '</a></p></div>' +
     '<div class="score-badge"><span>Lead score</span><strong>' + item.leadScore + '</strong><small>' + escapeHtml(scoreLabel(item)) + '</small></div>' +
@@ -155,6 +157,7 @@ function renderCard(item) {
         '<p><strong>Recommended offer:</strong> ' + escapeHtml(insight.recommendedOffer || item.opportunityBullets.suggestedOffer || '') + '</p>' +
         '<p><strong>Call opener:</strong> ' + escapeHtml(insight.callOpeningLine || item.opportunityBullets.outreachOpener || '') + '</p>' +
         '<p><strong>Insight confidence:</strong> ' + escapeHtml(insight.confidence || 'medium') + '</p>' +
+        businessSignalsHtml(signalProfile) +
         (insight.disqualifiers && insight.disqualifiers.length ? '<p class="note"><strong>Disqualifiers:</strong> ' + escapeHtml(insight.disqualifiers.join('; ')) + '</p>' : '') +
         '<ul class="issue-list">' + painPoints.map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +
         '<div class="chips"><span class="chip urgent">Review: ' + escapeHtml(item.reviewStatus) + '</span><span class="chip">Priority: ' + escapeHtml(item.priority) + '</span><span class="chip">Next: ' + escapeHtml(item.nextAction) + '</span></div>' +
@@ -173,6 +176,15 @@ function renderCard(item) {
     '<div class="links">' + link('HTML report', item.links.htmlReport) + link('JSON', item.links.jsonArtifact) + link('Desktop screenshot', item.links.desktopScreenshot) + link('Mobile screenshot', item.links.mobileScreenshot) + '</div>';
   return el;
 }
+function businessSignalsHtml(profile) {
+  const signals = (profile.signals || []).slice(0, 4);
+  const contradictions = (profile.contradictions || []).slice(0, 3);
+  if (!signals.length && !contradictions.length) return '';
+  const signalRows = signals.map((item) => '<li>' + escapeHtml(item.id + ' / ' + item.category + ' / strength ' + item.strength + ': ' + (item.observation?.evidence || item.interpretation?.opportunity || '')) + '</li>').join('');
+  const contradictionRows = contradictions.map((item) => '<li>' + escapeHtml('Contradiction: ' + item.id + ' -> ' + item.opportunity) + '</li>').join('');
+  return '<p><strong>Business signals:</strong></p><ul class="issue-list">' + signalRows + contradictionRows + '</ul>';
+}
+
 function providerMetadataHtml(item) {
   const meta = item.sourceMetadata || {};
   const rows = [];
@@ -190,7 +202,9 @@ function opportunityValues(item) {
 }
 function insightValues(item) {
   const insight = item.leadInsight || {};
-  return [insight.leadSummary || '', insight.whyThisLeadIsInteresting || '', insight.mainProblem || '', insight.evidenceBasedAngle || '', insight.callOpeningLine || '', insight.recommendedOffer || '', (insight.disqualifiers || []).join(' ')];
+  const profile = item.businessSignalProfile || {};
+  const signalText = (profile.signals || []).map((item) => [item.id, item.category, item.interpretation?.opportunity].join(' ')).join(' ');
+  return [signalText, insight.leadSummary || '', insight.whyThisLeadIsInteresting || '', insight.mainProblem || '', insight.evidenceBasedAngle || '', insight.callOpeningLine || '', insight.recommendedOffer || '', (insight.disqualifiers || []).join(' ')];
 }
 function opportunityClass(item) {
   const issueTotal = Object.values(item.issueCategories || {}).reduce((sum, value) => sum + Number(value || 0), 0);

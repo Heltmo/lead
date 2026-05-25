@@ -1,0 +1,39 @@
+const { buildBusinessSignalProfile } = require('../businessSignalEngine')
+
+const profile = buildBusinessSignalProfile({
+  name: 'Halden tannhelsesenter AS',
+  sourceMetadata: { rating: 4.7, reviewCount: 83, phone: '69 17 51 52', businessStatus: 'OPERATIONAL' },
+  emails: ['post@example.no'],
+  issueCategories: { conversion: 1 },
+  issues: ['No clear CTA detected'],
+  pageSignals: {
+    metaDescription: 'Et tannhelsesenter med pasienten i fokus.',
+    headings: [
+      { level: 'h2', text: 'Tannleger og spesialister.' },
+      { level: 'h2', text: 'Tannregulering' },
+      { level: 'h3', text: 'Velkommen til nye Aremark-pasienter!' },
+    ],
+    links: [
+      { text: 'Bestill time til vanlig tannbehandling!', href: 'https://haldentannhelsesenter.opusdentalonline.com/' },
+      { text: 'Prisliste', href: 'https://example.com/prisliste/' },
+      { text: 'Møt våre ansatte', href: 'https://example.com/om-oss#team' },
+    ],
+  },
+})
+
+assertSignal(profile, 'online_booking')
+assertSignal(profile, 'specialist_service')
+assertSignal(profile, 'team_authority')
+assertSignal(profile, 'pricing_transparency')
+assertSignal(profile, 'new_patient_signal')
+assertSignal(profile, 'missing_primary_cta')
+assertContradiction(profile, 'booking_exists_but_cta_weak')
+assertContradiction(profile, 'strong_reviews_but_weak_conversion')
+assert(profile.topOpportunities.some((item) => item.id === 'booking_visibility'), 'booking visibility should be ranked as an opportunity')
+const booking = profile.signals.find((item) => item.id === 'online_booking')
+assert(typeof booking.strength === 'number', 'strength should be numeric')
+assert(booking.observation.ctaProminence < 0.6, 'booking prominence should be inspectable')
+
+function assertSignal(profile, id) { assert(profile.signals.some((item) => item.id === id), 'expected signal ' + id) }
+function assertContradiction(profile, id) { assert(profile.contradictions.some((item) => item.id === id), 'expected contradiction ' + id) }
+function assert(condition, message) { if (!condition) throw new Error(message) }

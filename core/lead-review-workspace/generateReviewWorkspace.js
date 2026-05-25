@@ -7,6 +7,7 @@ const { buildCrmShortlistedCsv } = require('./exports/crmShortlistedCsv')
 const { buildSuggestedAngle } = require('./exports/suggestedAngles')
 const { normalizeOpportunityBullets } = require('../opportunity-bullets/opportunityBullets')
 const { buildLeadInsight } = require('../lead-insight-agent/leadInsightAgent')
+const { buildBusinessSignalProfile } = require('../business-signal-engine/businessSignalEngine')
 const { loadOrCreateReviewStatus } = require('./state/reviewStatus')
 const { renderIndexHtml } = require('./templates/indexHtml')
 
@@ -18,7 +19,8 @@ function generateReviewWorkspace(options) {
   const insightCacheDir = path.join(outDir, 'lead-insights')
   const items = artifacts.items.map((item) => {
     const base = { ...item, ...buildSuggestedAngle(item), opportunityBullets: normalizeOpportunityBullets(item), relativeLinks: relativizeLinks(item.links, outDir) }
-    return { ...base, leadInsight: buildLeadInsight(base, { cacheDir: insightCacheDir }) }
+    const businessSignalProfile = buildBusinessSignalProfile(base)
+    return { ...base, businessSignalProfile, leadInsight: buildLeadInsight({ ...base, businessSignalProfile }, { cacheDir: insightCacheDir }) }
   })
   const statusPath = path.join(outDir, 'review-status.json')
   const reviewStatus = loadOrCreateReviewStatus(statusPath, items)
