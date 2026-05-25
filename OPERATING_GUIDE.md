@@ -327,3 +327,8 @@ https://www.advokat-bm.no
 Do not add historical comparison, dashboards, databases, AI outreach, Lighthouse, parallelism, or monitoring until the 5 to 10 lead manual workflow has been used successfully on real leads.
 
 Next practical step: generate demos on demand for 1 to 3 reviewed leads, inspect the demo pages and manifests, then decide which lead evidence is still missing.
+
+
+## Lead Insight Agent
+
+The review workspace now includes downstream, evidence-grounded lead insight fields for operator triage and CRM export. These insights use audit facts and provider metadata, cache under generated review-workspace output, and do not mutate raw audit artifacts. LLM-backed generation is not enabled by default; deterministic fallback remains the verified path.

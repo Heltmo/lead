@@ -1,6 +1,7 @@
 const { renderCsv } = require('../readers/csv')
 const { buildSuggestedAngle, suggestAngle, suggestAngleDetail } = require('./suggestedAngles')
 const { normalizeOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
+const { normalizeLeadInsight } = require('../../lead-insight-agent/leadInsightAgent')
 
 const CRM_SHORTLISTED_COLUMNS = [
   'company',
@@ -29,6 +30,14 @@ const CRM_SHORTLISTED_COLUMNS = [
   'suggestedOffer',
   'outreachOpener',
   'whyThisLeadMatters',
+  'leadSummary',
+  'whyThisLeadIsInteresting',
+  'mainProblem',
+  'evidenceBasedAngle',
+  'callOpeningLine',
+  'recommendedOffer',
+  'disqualifiers',
+  'insightConfidence',
   'reviewStatus',
   'priority',
   'nextAction',
@@ -45,6 +54,7 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
       const review = reviewStatus.items[item.id] || {}
       const angle = buildSuggestedAngle(item)
       const opportunity = normalizeOpportunityBullets(item)
+      const insight = normalizeLeadInsight(item.leadInsight || item)
       return {
         company: item.name || item.title,
         website: item.url,
@@ -72,6 +82,14 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
         suggestedOffer: opportunity.suggestedOffer,
         outreachOpener: opportunity.outreachOpener,
         whyThisLeadMatters: opportunity.whyThisLeadMatters,
+        leadSummary: insight.leadSummary,
+        whyThisLeadIsInteresting: insight.whyThisLeadIsInteresting,
+        mainProblem: insight.mainProblem,
+        evidenceBasedAngle: insight.evidenceBasedAngle,
+        callOpeningLine: insight.callOpeningLine,
+        recommendedOffer: insight.recommendedOffer,
+        disqualifiers: insight.disqualifiers.join('|'),
+        insightConfidence: insight.confidence,
         reviewStatus: review.status || 'unreviewed',
         priority: review.priority || 'unset',
         nextAction: review.nextAction || 'unset',

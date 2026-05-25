@@ -282,3 +282,8 @@ Use `OPERATING_GUIDE.md` as the source of truth for repeating this workflow.
 - structured JSON before narrative reports
 - Git-tracked capability evolution
 - add LLM reasoning only after deterministic primitives are reliable
+
+
+## Lead Insight Agent
+
+The review workspace now includes downstream, evidence-grounded lead insight fields for operator triage and CRM export. These insights use audit facts and provider metadata, cache under generated review-workspace output, and do not mutate raw audit artifacts. LLM-backed generation is not enabled by default; deterministic fallback remains the verified path.

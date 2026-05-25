@@ -100,3 +100,8 @@ This file distinguishes operational capabilities from work that is not reliable 
 ## Strategic Constraint
 
 The platform should stay deterministic-first until the extraction, reporting, history, and export layers are stronger. LLM reasoning should augment structured signals later, not replace them now.
+
+
+## Lead Insight Agent
+
+The review workspace now includes downstream, evidence-grounded lead insight fields for operator triage and CRM export. These insights use audit facts and provider metadata, cache under generated review-workspace output, and do not mutate raw audit artifacts. LLM-backed generation is not enabled by default; deterministic fallback remains the verified path.

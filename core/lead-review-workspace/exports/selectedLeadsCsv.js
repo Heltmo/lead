@@ -1,6 +1,7 @@
 const { renderCsv } = require('../readers/csv')
 const { buildSuggestedAngle } = require('./suggestedAngles')
 const { normalizeOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
+const { normalizeLeadInsight } = require('../../lead-insight-agent/leadInsightAgent')
 
 const SELECTED_LEADS_COLUMNS = [
   'id',
@@ -17,6 +18,14 @@ const SELECTED_LEADS_COLUMNS = [
   'suggestedOffer',
   'outreachOpener',
   'whyThisLeadMatters',
+  'leadSummary',
+  'whyThisLeadIsInteresting',
+  'mainProblem',
+  'evidenceBasedAngle',
+  'callOpeningLine',
+  'recommendedOffer',
+  'disqualifiers',
+  'insightConfidence',
   'rank',
   'leadScore',
   'name',
@@ -45,6 +54,7 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
       const review = reviewStatus.items[item.id] || {}
       const angle = buildSuggestedAngle(item)
       const opportunity = normalizeOpportunityBullets(item)
+      const insight = normalizeLeadInsight(item.leadInsight || item)
       return {
         id: item.id,
         reviewStatus: review.status || 'unreviewed',
@@ -60,6 +70,14 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
         suggestedOffer: opportunity.suggestedOffer,
         outreachOpener: opportunity.outreachOpener,
         whyThisLeadMatters: opportunity.whyThisLeadMatters,
+        leadSummary: insight.leadSummary,
+        whyThisLeadIsInteresting: insight.whyThisLeadIsInteresting,
+        mainProblem: insight.mainProblem,
+        evidenceBasedAngle: insight.evidenceBasedAngle,
+        callOpeningLine: insight.callOpeningLine,
+        recommendedOffer: insight.recommendedOffer,
+        disqualifiers: insight.disqualifiers.join('|'),
+        insightConfidence: insight.confidence,
         rank: item.rank,
         leadScore: item.leadScore,
         name: item.name,

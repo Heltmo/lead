@@ -1,0 +1,10 @@
+{
+  "name": "lead-insight-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Evidence-grounded lead insight generation for Webconsult review workflows",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node tests/smoke.test.js"
+  }
+}
