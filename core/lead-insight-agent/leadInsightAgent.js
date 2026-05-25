@@ -111,6 +111,7 @@ function compactLeadInput(item = {}) {
     contactability: { emails: item.emails || [], phones: item.phones || [] },
     performance: item.performance || {},
     links: item.links || {},
+    pageSignals: item.pageSignals || {},
   }
 }
 
@@ -123,6 +124,12 @@ function collectEvidence(item = {}) {
   const phones = normalizeArray(item.phones)
   const emails = normalizeArray(item.emails)
   const technologies = normalizeArray(item.technologies)
+  const pageSignals = item.pageSignals || {}
+  const headings = normalizeSignalTexts(pageSignals.headings)
+  const pageLinks = normalizeLinks(pageSignals.links)
+  const linkTexts = pageLinks.map((link) => link.text).filter(Boolean)
+  const searchablePageText = [item.pageTitle, item.title, pageSignals.metaDescription, ...headings, ...linkTexts, ...pageLinks.map((link) => link.href)].join(' ').toLowerCase()
+  const businessSignals = collectBusinessSignals(searchablePageText, pageLinks, headings)
   return {
     name: clean(item.name || meta.businessName || item.title || item.pageTitle || 'this business'),
     website: clean(item.url),
@@ -138,6 +145,10 @@ function collectEvidence(item = {}) {
     leadScore: numeric(item.leadScore, 0),
     technologies,
     primaryTechnology: technologies[0] || '',
+    pageSignals,
+    headings,
+    pageLinks,
+    businessSignals,
     categories,
     issues,
     topIssues: issues.slice(0, 4),
@@ -157,6 +168,20 @@ function collectEvidence(item = {}) {
 
 function selectPrimaryIssue(e) {
   const rules = [
+    {
+      active: e.businessSignals.hasBooking && e.missingCta && (e.businessSignals.hasOrthodontics || e.businessSignals.hasSpecialists || e.businessSignals.hasNewPatientSignal),
+      problem: 'Strong services exist, but booking is not promoted clearly enough',
+      offer: 'Make booking, specialist services, and new-patient paths clearer above the fold',
+      angle: (x) => `${x.name} already has useful commercial signals: ${businessSignalSummary(x)}. The site also has an online booking path, but the audit did not detect it as a clear primary CTA. The better angle is to make existing strengths easier to act on, not to pitch a generic redesign.`,
+      opener: (x) => `Hi, I noticed ${x.name} already presents ${businessSignalSummary(x)} but the booking path is not very obvious in the audit. Would it be useful to make booking and key treatments easier for new patients to find?`,
+    },
+    {
+      active: e.businessSignals.hasOrthodontics && (e.businessSignals.hasSpecialists || e.reviewCount),
+      problem: 'Orthodontics and specialist positioning could be turned into a clearer acquisition path',
+      offer: 'Build a clearer orthodontics/new-patient landing path',
+      angle: (x) => `${x.name} mentions ${businessSignalSummary(x)}. That creates a stronger outreach angle around service growth and patient acquisition than only talking about technical website issues.`,
+      opener: (x) => `Hi, I noticed ${x.name} highlights orthodontics/specialist services. Are you currently trying to get more patients for those treatments through the website?`,
+    },
     {
       active: e.responseStatus >= 400,
       problem: 'Website availability issue',
@@ -208,6 +233,41 @@ function selectPrimaryIssue(e) {
   }
 }
 
+function collectBusinessSignals(text, links, headings) {
+  const linkText = links.map((link) => [link.text, link.href].join(' ')).join(' ').toLowerCase()
+  return {
+    hasBooking: includesAny(text + ' ' + linkText, ['bestill', 'booking', 'book', 'timebestilling', 'opusdentalonline', 'appointment']),
+    hasOrthodontics: includesAny(text, ['tannregulering', 'kjeveortopedi', 'reguleringstannlege', 'orthodontic']),
+    hasSpecialists: includesAny(text, ['spesialist', 'spesialister', 'specialist']),
+    hasPricing: includesAny(text, ['prisliste', 'pris', 'prices']),
+    hasTeam: includesAny(text, ['møt våre ansatte', 'ansatte', 'team', 'tannleger og spesialister']),
+    hasNews: includesAny(text, ['nyheter', 'artikler', 'facebook-side']),
+    hasNewPatientSignal: includesAny(text, ['nye pasienter', 'aremark-pasienter', 'velkommen til nye']),
+    hasSocial: includesAny(text, ['facebook.com', 'instagram.com']),
+    headings: headings.slice(0, 6),
+  }
+}
+
+function businessSignalSummary(e) {
+  const signals = []
+  if (e.businessSignals.hasBooking) signals.push('online booking')
+  if (e.businessSignals.hasOrthodontics) signals.push('tannregulering/orthodontics')
+  if (e.businessSignals.hasSpecialists) signals.push('specialist positioning')
+  if (e.businessSignals.hasTeam) signals.push('team/competence content')
+  if (e.businessSignals.hasNewPatientSignal) signals.push('new-patient messaging')
+  if (e.businessSignals.hasPricing) signals.push('pricing information')
+  if (signals.length) return signals.slice(0, 4).join(', ')
+  return reviewProof(e)
+}
+
+function normalizeSignalTexts(values) {
+  return (Array.isArray(values) ? values : []).map((item) => clean(typeof item === 'string' ? item : item?.text)).filter(Boolean)
+}
+
+function normalizeLinks(values) {
+  return (Array.isArray(values) ? values : []).map((item) => ({ text: clean(item?.text), href: clean(item?.href) })).filter((item) => item.text || item.href)
+}
+
 function leadSummary(e) {
   const parts = [e.name]
   if (e.address || e.location) parts.push(`at ${e.address || e.location}`)
@@ -221,6 +281,7 @@ function whyInteresting(e, primary) {
   if (e.businessStatus) proof.push(`Google status is ${e.businessStatus}`)
   if (e.phone) proof.push('phone is available')
   if (e.primaryTechnology) proof.push(`${e.primaryTechnology} is detectable`)
+  if (businessSignalSummary(e)) proof.push(`business signals include ${businessSignalSummary(e)}`)
   if (e.topIssues[0]) proof.push(`top issue: ${e.topIssues[0]}`)
   return `${e.name} is interesting because ${proof.length ? proof.join(', ') : 'it has enough verified metadata for review'}, and the strongest angle is: ${primary.problem}.`
 }
@@ -286,7 +347,7 @@ function parseJsonResponse(response) {
 }
 
 function cacheKey(item) {
-  const basis = JSON.stringify({ id: item.id, url: item.url, score: item.leadScore, issues: item.issues, meta: item.sourceMetadata, title: item.pageTitle || item.title })
+  const basis = JSON.stringify({ id: item.id, url: item.url, score: item.leadScore, issues: item.issues, meta: item.sourceMetadata, title: item.pageTitle || item.title, pageSignals: item.pageSignals })
   return crypto.createHash('sha1').update(basis).digest('hex')
 }
 

@@ -43,6 +43,13 @@ function normalizeLead(lead, summaryItem, context) {
       failedRequestCount: Number(lead.failedRequestCount || report?.performance?.failedRequests?.length || 0),
       consoleErrorCount: Number(lead.consoleErrorCount || report?.performance?.consoleErrors?.length || 0),
     },
+    pageSignals: {
+      metaDescription: report?.signals?.metaDescription || '',
+      headings: Array.isArray(report?.signals?.headings) ? report.signals.headings : [],
+      ctas: Array.isArray(report?.signals?.ctas) ? report.signals.ctas : [],
+      links: Array.isArray(report?.signals?.links) ? report.signals.links : [],
+      socialLinks: Array.isArray(report?.signals?.socialLinks) ? report.signals.socialLinks : [],
+    },
     links: {
       htmlReport: path.join(context.runDir, 'report-surfaces', 'report.html'),
       jsonArtifact,

@@ -15,14 +15,30 @@ const item = {
   phones: ['69 17 51 52'],
   emails: ['post@example.no'],
   performance: { responseStatus: 200, failedRequestCount: 2, consoleErrorCount: 0 },
+  pageSignals: {
+    metaDescription: 'Et tannhelsesenter med pasienten i fokus.',
+    headings: [
+      { level: 'h1', text: 'Velkommen til Halden Tannhelsesenter' },
+      { level: 'h2', text: 'Tannleger og spesialister.' },
+      { level: 'h2', text: 'Tannregulering' },
+      { level: 'h2', text: 'Velkommen til nye Aremark-pasienter!' },
+    ],
+    links: [
+      { text: 'Bestill time til vanlig tannbehandling!', href: 'https://haldentannhelsesenter.opusdentalonline.com/' },
+      { text: 'Prisliste', href: 'https://example.com/prisliste/' },
+      { text: 'Møt våre ansatte', href: 'https://example.com/om-oss#team' },
+    ],
+  },
 }
 
 const insight = generateLeadInsight(item)
 assertIncludes(insight.leadSummary, 'Halden tannhelsesenter AS', 'summary should name the business')
 assertIncludes(insight.leadSummary, '4.7', 'summary should include rating evidence')
-assertIncludes(insight.mainProblem, 'Booking path', 'main problem should be specific')
-assertIncludes(insight.evidenceBasedAngle, '2 failed request', 'angle should include concrete evidence')
+assertIncludes(insight.mainProblem, 'Strong services exist', 'main problem should use positive business signals')
+assertIncludes(insight.evidenceBasedAngle, 'online booking', 'angle should include booking signal')
+assertIncludes(insight.evidenceBasedAngle, 'tannregulering', 'angle should include service signal')
 assertIncludes(insight.callOpeningLine, 'Halden tannhelsesenter AS', 'opener should be lead-specific')
+assertIncludes(insight.callOpeningLine, 'online booking', 'opener should mention booking path')
 assert(insight.confidence === 'high', 'call-ready lead should have high insight confidence')
 assert(!JSON.stringify(insight).includes('focused website cleanup opportunity'), 'insight should avoid old generic phrase')
 
