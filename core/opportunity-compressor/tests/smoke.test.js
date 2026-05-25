@@ -21,6 +21,8 @@ const halden = withSignals({
 const haldenCompressed = buildCompressedOpportunity(halden)
 assert(haldenCompressed.type === 'specialist_to_booking_gap', 'Halden should prioritize specialist-to-booking, not generic booking visibility')
 assert(haldenCompressed.businessImpact === 'positioning', 'specialist angle should be positioning impact')
+assert(haldenCompressed.leadClass === 'specialist_conversion', 'specialist angle should map to specialist_conversion lead class')
+assert(haldenCompressed.outreachMotion === 'service_line_growth', 'specialist angle should map to service-line growth motion')
 assert(haldenCompressed.urgency > 0.75, 'specialist booking gap should stay urgent')
 assert(haldenCompressed.primaryOpportunity.includes('Specialist'), 'Halden primary opportunity should mention specialist services')
 assert(haldenCompressed.whyThisMatters.length <= 3, 'whyThisMatters should be compressed to three bullets')
@@ -52,6 +54,8 @@ const norfloss = withSignals({
 })
 const norflossCompressed = buildCompressedOpportunity(norfloss)
 assert(norflossCompressed.type === 'modern_site_campaign_optimization', 'Norfloss should not receive the generic booking visibility angle')
+assert(norflossCompressed.leadClass === 'campaign_optimization', 'modern site angle should map to campaign_optimization lead class')
+assert(norflossCompressed.outreachMotion === 'consultative_growth', 'modern site angle should map to consultative growth motion')
 assert(norflossCompressed.primaryOpportunity.includes('conversion-ready'), 'modern site angle should acknowledge the site is already strong')
 assert(norflossCompressed.outreachAngle.includes('campaign'), 'modern site angle should suggest campaign optimization')
 
@@ -76,6 +80,8 @@ const berg = withSignals({
 })
 const bergCompressed = buildCompressedOpportunity(berg)
 assert(bergCompressed.type === 'brand_identity_confusion', 'Tannlegene Berg should prioritize rebrand/identity confusion')
+assert(bergCompressed.leadClass === 'brand_identity', 'brand angle should map to brand_identity lead class')
+assert(bergCompressed.outreachMotion === 'authority_trust_call', 'brand angle should map to authority/trust call motion')
 assert(bergCompressed.primaryOpportunity.includes('brand transition'), 'brand angle should mention transition')
 assert(bergCompressed.callOpener.includes('brand'), 'brand call opener should be about brand/search consistency')
 

@@ -3,6 +3,7 @@ function buildCompressedOpportunity(item = {}) {
   const insight = item.leadInsight || {}
   const ctx = collectContext(item, profile, insight)
   const strategy = selectStrategy(ctx)
+  const playbook = commercialPlaybook(strategy.type)
   return normalizeCompressedOpportunity({
     type: strategy.type,
     businessImpact: strategy.businessImpact,
@@ -11,6 +12,9 @@ function buildCompressedOpportunity(item = {}) {
     whyThisMatters: strategy.whyThisMatters(ctx).filter(Boolean).slice(0, 3),
     outreachAngle: strategy.outreachAngle(ctx),
     callOpener: strategy.callOpener(ctx),
+    leadClass: playbook.leadClass,
+    recommendedOffer: playbook.recommendedOffer,
+    outreachMotion: playbook.outreachMotion,
   })
 }
 
@@ -23,6 +27,9 @@ function normalizeCompressedOpportunity(value = {}) {
     whyThisMatters: normalizeArray(value.whyThisMatters).slice(0, 3),
     outreachAngle: clean(value.outreachAngle) || 'Use the audit evidence to ask whether website improvements are already a priority.',
     callOpener: clean(value.callOpener) || 'Hi, I reviewed your website and noticed one specific improvement opportunity. Is this something you are actively looking at?',
+    leadClass: clean(value.leadClass) || commercialPlaybook(value.type).leadClass,
+    recommendedOffer: clean(value.recommendedOffer) || commercialPlaybook(value.type).recommendedOffer,
+    outreachMotion: clean(value.outreachMotion) || commercialPlaybook(value.type).outreachMotion,
   }
 }
 
@@ -96,6 +103,57 @@ function rankCandidates(input) {
 }
 
 function candidate(strategy, score) { return { strategy, score: Number(score || 0) } }
+
+function commercialPlaybook(type) {
+  const playbooks = {
+    brand_identity_confusion: {
+      leadClass: 'brand_identity',
+      recommendedOffer: 'Brand and local search consistency cleanup',
+      outreachMotion: 'authority_trust_call',
+    },
+    modern_site_campaign_optimization: {
+      leadClass: 'campaign_optimization',
+      recommendedOffer: 'Treatment-specific landing page or campaign funnel',
+      outreachMotion: 'consultative_growth',
+    },
+    specialist_to_booking_gap: {
+      leadClass: 'specialist_conversion',
+      recommendedOffer: 'Specialist treatment booking path optimization',
+      outreachMotion: 'service_line_growth',
+    },
+    trust_to_conversion_gap: {
+      leadClass: 'conversion_optimization',
+      recommendedOffer: 'Trust-to-enquiry conversion cleanup',
+      outreachMotion: 'conversion_call',
+    },
+    local_seo_consistency_gap: {
+      leadClass: 'local_visibility',
+      recommendedOffer: 'Local SEO and page-structure clarity cleanup',
+      outreachMotion: 'visibility_call',
+    },
+    booking_visibility_gap: {
+      leadClass: 'conversion_optimization',
+      recommendedOffer: 'Booking CTA visibility cleanup',
+      outreachMotion: 'conversion_call',
+    },
+    conversion_path_friction: {
+      leadClass: 'conversion_optimization',
+      recommendedOffer: 'First-screen CTA and contact path cleanup',
+      outreachMotion: 'conversion_call',
+    },
+    technical_trust_risk: {
+      leadClass: 'technical_redesign',
+      recommendedOffer: 'Website trust and reliability cleanup',
+      outreachMotion: 'direct_fix_call',
+    },
+    manual_review: {
+      leadClass: 'manual_review',
+      recommendedOffer: 'Manual lead review before offer selection',
+      outreachMotion: 'manual_review',
+    },
+  }
+  return playbooks[clean(type)] || playbooks.manual_review
+}
 
 const strategies = {
   brandIdentity: {
@@ -420,4 +478,4 @@ function tokenOverlap(a, b) {
   return bb.filter((token) => aa.has(token)).length / Math.max(aa.size, bb.length)
 }
 
-module.exports = { buildCompressedOpportunity, normalizeCompressedOpportunity, rankCandidates }
+module.exports = { buildCompressedOpportunity, normalizeCompressedOpportunity, rankCandidates, commercialPlaybook }

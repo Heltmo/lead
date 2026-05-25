@@ -158,7 +158,8 @@ function renderCard(item) {
         '<ul class="issue-list">' + (compressed.whyThisMatters || []).slice(0, 3).map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +
         '<p><strong>Outreach angle:</strong> ' + escapeHtml(compressed.outreachAngle || insight.evidenceBasedAngle || '') + '</p>' +
         '<p><strong>Call opener:</strong> ' + escapeHtml(compressed.callOpener || insight.callOpeningLine || '') + '</p>' +
-        '<div class="chips"><span class="chip urgent">Impact: ' + escapeHtml(compressed.businessImpact || 'unknown') + '</span><span class="chip">Urgency: ' + escapeHtml(compressed.urgency || '0') + '</span><span class="chip">Type: ' + escapeHtml(compressed.type || 'manual_review') + '</span></div>' +
+        '<p><strong>Recommended offer:</strong> ' + escapeHtml(compressed.recommendedOffer || insight.recommendedOffer || '') + '</p>' +
+        '<div class="chips"><span class="chip urgent">Class: ' + escapeHtml(compressed.leadClass || 'manual_review') + '</span><span class="chip">Motion: ' + escapeHtml(compressed.outreachMotion || 'manual_review') + '</span><span class="chip">Impact: ' + escapeHtml(compressed.businessImpact || 'unknown') + '</span><span class="chip">Urgency: ' + escapeHtml(compressed.urgency || '0') + '</span><span class="chip">Type: ' + escapeHtml(compressed.type || 'manual_review') + '</span></div>' +
         '<details><summary>Supporting intelligence</summary>' +
         '<p><strong>Lead insight:</strong> ' + escapeHtml(insight.evidenceBasedAngle || '') + '</p>' +
         businessSignalsHtml(signalProfile) +
@@ -213,7 +214,7 @@ function insightValues(item) {
 }
 function compressedValues(item) {
   const opportunity = item.compressedOpportunity || {};
-  return [opportunity.primaryOpportunity || '', opportunity.outreachAngle || '', opportunity.callOpener || '', opportunity.businessImpact || '', opportunity.type || '', (opportunity.whyThisMatters || []).join(' ')];
+  return [opportunity.primaryOpportunity || '', opportunity.outreachAngle || '', opportunity.callOpener || '', opportunity.recommendedOffer || '', opportunity.leadClass || '', opportunity.outreachMotion || '', opportunity.businessImpact || '', opportunity.type || '', (opportunity.whyThisMatters || []).join(' ')];
 }
 function opportunityClass(item) {
   const issueTotal = Object.values(item.issueCategories || {}).reduce((sum, value) => sum + Number(value || 0), 0);

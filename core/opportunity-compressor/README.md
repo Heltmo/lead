@@ -35,3 +35,13 @@ Opportunity candidates are ranked before output. Current high-priority different
 - technical trust risks when reliability issues are the clearest commercial angle
 
 The output should synthesize one dominant opportunity, not summarize every audit finding.
+
+## Commercial Playbooks
+
+Each compressed opportunity maps deterministically to sales operation fields:
+
+- `leadClass`: stable commercial bucket for filtering and prioritization
+- `recommendedOffer`: the offer family to lead with
+- `outreachMotion`: the sales motion style to use
+
+This keeps sales behavior rule-based and repeatable. LLMs should not invent the sales motion for each run; they may only improve wording later after the deterministic class is selected.
