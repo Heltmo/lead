@@ -16,6 +16,8 @@ async function main() {
   assertTarget('https://www.1881.no/tannlege/tannlege-oestfold/tannlege-halden', 'directory', false)
   assertTarget('https://www.facebook.com/dyrendaltannhelsesenter', 'social', false)
   assertTarget('https://www.gulesider.no/tannlege/bedrifter', 'directory', false)
+  assertTarget('https://ofk.no/tjenester/tannhelse/tannklinikker/halden-tannklinikk', 'publicSector', false)
+  assertTarget('https://halden.kommune.no/tjenester/helse', 'publicSector', false)
   const server = http.createServer((request, response) => {
     response.writeHead(200, { 'content-type': 'text/html' })
     response.end('<title>Halden Tannklinikk</title>')

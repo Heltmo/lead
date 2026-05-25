@@ -108,7 +108,7 @@ function normalizeConfidence(value) {
 }
 
 function strongestSourceType(left, right) {
-  const order = { directBusiness: 5, unknown: 4, directory: 3, governmentRegistry: 2, social: 1 }
+  const order = { directBusiness: 6, unknown: 5, directory: 4, publicSector: 3, governmentRegistry: 2, social: 1 }
   return (order[right] || 0) > (order[left] || 0) ? right : left
 }
 

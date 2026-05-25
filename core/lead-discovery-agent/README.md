@@ -143,9 +143,10 @@ Discovery classifies candidate domains before handoff:
 - `directory`
 - `social`
 - `governmentRegistry`
+- `publicSector`
 - `unknown`
 
-Known directory/social/registry domains such as `legelisten.no`, `1881.no`, `gulesider.no`, `proff.no`, `facebook.com`, `instagram.com`, `linkedin.com`, and `tannlegerinorge.no` are retained in discovery reports but marked `auditEligible: false`. They can be useful discovery sources, but direct business websites are preferred audit targets.
+Known directory/social/registry/public-sector domains such as `legelisten.no`, `1881.no`, `gulesider.no`, `proff.no`, `ofk.no`, `*.kommune.no`, `helsenorge.no`, `facebook.com`, `instagram.com`, `linkedin.com`, and `tannlegerinorge.no` are retained in discovery reports but marked `auditEligible: false`. They can be useful discovery sources, but direct private business websites are preferred audit targets.
 
 Automatic handoff excludes non-audit targets by default. Include them only when explicitly needed:
 
