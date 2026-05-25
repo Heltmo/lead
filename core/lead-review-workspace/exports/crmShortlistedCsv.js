@@ -2,6 +2,7 @@ const { renderCsv } = require('../readers/csv')
 const { buildSuggestedAngle, suggestAngle, suggestAngleDetail } = require('./suggestedAngles')
 const { normalizeOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
 const { normalizeLeadInsight } = require('../../lead-insight-agent/leadInsightAgent')
+const { normalizeCompressedOpportunity } = require('../../opportunity-compressor/opportunityCompressor')
 
 const CRM_SHORTLISTED_COLUMNS = [
   'company',
@@ -41,6 +42,13 @@ const CRM_SHORTLISTED_COLUMNS = [
   'businessSignals',
   'businessContradictions',
   'topOpportunities',
+  'primaryOpportunity',
+  'whyThisMatters',
+  'outreachAngle',
+  'callOpenerCompressed',
+  'businessImpact',
+  'opportunityUrgency',
+  'opportunityType',
   'reviewStatus',
   'priority',
   'nextAction',
@@ -58,6 +66,7 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
       const angle = buildSuggestedAngle(item)
       const opportunity = normalizeOpportunityBullets(item)
       const insight = normalizeLeadInsight(item.leadInsight || item)
+      const compressed = normalizeCompressedOpportunity(item.compressedOpportunity || item)
       return {
         company: item.name || item.title,
         website: item.url,
@@ -96,6 +105,13 @@ function buildCrmShortlistedCsv(items, reviewStatus) {
         businessSignals: formatBusinessSignals(item.businessSignalProfile),
         businessContradictions: formatBusinessContradictions(item.businessSignalProfile),
         topOpportunities: formatTopOpportunities(item.businessSignalProfile),
+        primaryOpportunity: compressed.primaryOpportunity,
+        whyThisMatters: compressed.whyThisMatters.join('|'),
+        outreachAngle: compressed.outreachAngle,
+        callOpenerCompressed: compressed.callOpener,
+        businessImpact: compressed.businessImpact,
+        opportunityUrgency: compressed.urgency,
+        opportunityType: compressed.type,
         reviewStatus: review.status || 'unreviewed',
         priority: review.priority || 'unset',
         nextAction: review.nextAction || 'unset',

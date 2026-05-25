@@ -2,6 +2,7 @@ const { renderCsv } = require('../readers/csv')
 const { buildSuggestedAngle } = require('./suggestedAngles')
 const { normalizeOpportunityBullets } = require('../../opportunity-bullets/opportunityBullets')
 const { normalizeLeadInsight } = require('../../lead-insight-agent/leadInsightAgent')
+const { normalizeCompressedOpportunity } = require('../../opportunity-compressor/opportunityCompressor')
 
 const SELECTED_LEADS_COLUMNS = [
   'id',
@@ -29,6 +30,13 @@ const SELECTED_LEADS_COLUMNS = [
   'businessSignals',
   'businessContradictions',
   'topOpportunities',
+  'primaryOpportunity',
+  'whyThisMatters',
+  'outreachAngle',
+  'callOpenerCompressed',
+  'businessImpact',
+  'opportunityUrgency',
+  'opportunityType',
   'rank',
   'leadScore',
   'name',
@@ -58,6 +66,7 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
       const angle = buildSuggestedAngle(item)
       const opportunity = normalizeOpportunityBullets(item)
       const insight = normalizeLeadInsight(item.leadInsight || item)
+      const compressed = normalizeCompressedOpportunity(item.compressedOpportunity || item)
       return {
         id: item.id,
         reviewStatus: review.status || 'unreviewed',
@@ -84,6 +93,13 @@ function buildSelectedLeadsCsv(items, reviewStatus) {
         businessSignals: formatBusinessSignals(item.businessSignalProfile),
         businessContradictions: formatBusinessContradictions(item.businessSignalProfile),
         topOpportunities: formatTopOpportunities(item.businessSignalProfile),
+        primaryOpportunity: compressed.primaryOpportunity,
+        whyThisMatters: compressed.whyThisMatters.join('|'),
+        outreachAngle: compressed.outreachAngle,
+        callOpenerCompressed: compressed.callOpener,
+        businessImpact: compressed.businessImpact,
+        opportunityUrgency: compressed.urgency,
+        opportunityType: compressed.type,
         rank: item.rank,
         leadScore: item.leadScore,
         name: item.name,

@@ -8,6 +8,7 @@ const { buildSuggestedAngle } = require('./exports/suggestedAngles')
 const { normalizeOpportunityBullets } = require('../opportunity-bullets/opportunityBullets')
 const { buildLeadInsight } = require('../lead-insight-agent/leadInsightAgent')
 const { buildBusinessSignalProfile } = require('../business-signal-engine/businessSignalEngine')
+const { buildCompressedOpportunity } = require('../opportunity-compressor/opportunityCompressor')
 const { loadOrCreateReviewStatus } = require('./state/reviewStatus')
 const { renderIndexHtml } = require('./templates/indexHtml')
 
@@ -20,7 +21,9 @@ function generateReviewWorkspace(options) {
   const items = artifacts.items.map((item) => {
     const base = { ...item, ...buildSuggestedAngle(item), opportunityBullets: normalizeOpportunityBullets(item), relativeLinks: relativizeLinks(item.links, outDir) }
     const businessSignalProfile = buildBusinessSignalProfile(base)
-    return { ...base, businessSignalProfile, leadInsight: buildLeadInsight({ ...base, businessSignalProfile }, { cacheDir: insightCacheDir }) }
+    const leadInsight = buildLeadInsight({ ...base, businessSignalProfile }, { cacheDir: insightCacheDir })
+    const compressedOpportunity = buildCompressedOpportunity({ ...base, businessSignalProfile, leadInsight })
+    return { ...base, businessSignalProfile, leadInsight, compressedOpportunity }
   })
   const statusPath = path.join(outDir, 'review-status.json')
   const reviewStatus = loadOrCreateReviewStatus(statusPath, items)

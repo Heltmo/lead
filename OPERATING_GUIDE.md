@@ -337,3 +337,8 @@ The review workspace now includes downstream, evidence-grounded lead insight fie
 ## Business Signal Engine
 
 A structured `core/business-signal-engine` layer now extracts deterministic business signals, numeric strengths, confidence values, contradictions, and ranked opportunities from audit/page evidence. Lead insights consume this source-of-truth layer instead of re-parsing raw page text directly.
+
+
+## Opportunity Compressor
+
+A downstream `core/opportunity-compressor` layer now converts signal profiles, contradictions, and lead insights into one operator-facing opportunity with primaryOpportunity, whyThisMatters, outreachAngle, callOpener, businessImpact, urgency, and type. Review cards lead with this compressed opportunity while raw signals remain supporting evidence.

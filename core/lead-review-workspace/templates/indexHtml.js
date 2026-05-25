@@ -19,6 +19,7 @@ function renderIndexHtml(model) {
     opportunityBullets: item.opportunityBullets || {},
     leadInsight: item.leadInsight || {},
     businessSignalProfile: item.businessSignalProfile || {},
+    compressedOpportunity: item.compressedOpportunity || {},
     sourceMetadata: item.sourceMetadata || {},
     reviewStatus: model.reviewStatus.items[item.id]?.status || 'unreviewed',
     priority: model.reviewStatus.items[item.id]?.priority || 'unset',
@@ -131,7 +132,8 @@ function render() {
     if (issue !== 'all' && !Object.keys(item.issueCategories).includes(issue)) continue;
     const opportunityText = opportunityValues(item).join(' ');
     const insightText = insightValues(item).join(' ');
-    const haystack = [item.url, item.title, item.pageTitle, item.name, item.suggestedAngle, item.suggestedAngleDetail, opportunityText, insightText, item.owner, item.nextAction, item.priority, item.notes, item.tags.join(' '), item.issues.join(' ')].join(' ').toLowerCase();
+    const compressedText = compressedValues(item).join(' ');
+    const haystack = [item.url, item.title, item.pageTitle, item.name, item.suggestedAngle, item.suggestedAngleDetail, opportunityText, insightText, compressedText, item.owner, item.nextAction, item.priority, item.notes, item.tags.join(' '), item.issues.join(' ')].join(' ').toLowerCase();
     if (query && !haystack.includes(query)) continue;
     list.appendChild(renderCard(item));
   }
@@ -146,18 +148,21 @@ function renderCard(item) {
   const painPoints = (item.opportunityBullets.painPointBullets || []).slice(0, 3);
   const insight = item.leadInsight || {};
   const signalProfile = item.businessSignalProfile || {};
+  const compressed = item.compressedOpportunity || {};
   el.innerHTML = '<div class="lead-header">' +
     '<div><h2>' + escapeHtml(item.rank + '. ' + (item.name || item.title || item.url)) + '</h2><p class="lead-url"><a href="' + escapeAttr(item.url) + '">' + escapeHtml(item.url) + '</a></p></div>' +
     '<div class="score-badge"><span>Lead score</span><strong>' + item.leadScore + '</strong><small>' + escapeHtml(scoreLabel(item)) + '</small></div>' +
     '</div>' +
     '<div class="triage-grid">' +
-      '<section class="panel"><p class="panel-title">Lead insight</p><p class="angle">' + escapeHtml(insight.mainProblem || item.suggestedAngle) + '</p><p class="angle-detail">' + escapeHtml(insight.evidenceBasedAngle || item.suggestedAngleDetail) + '</p>' +
-        '<p><strong>Summary:</strong> ' + escapeHtml(insight.leadSummary || '') + '</p>' +
-        '<p><strong>Why interesting:</strong> ' + escapeHtml(insight.whyThisLeadIsInteresting || '') + '</p>' +
-        '<p><strong>Recommended offer:</strong> ' + escapeHtml(insight.recommendedOffer || item.opportunityBullets.suggestedOffer || '') + '</p>' +
-        '<p><strong>Call opener:</strong> ' + escapeHtml(insight.callOpeningLine || item.opportunityBullets.outreachOpener || '') + '</p>' +
-        '<p><strong>Insight confidence:</strong> ' + escapeHtml(insight.confidence || 'medium') + '</p>' +
+      '<section class="panel"><p class="panel-title">Primary opportunity</p><p class="angle">' + escapeHtml(compressed.primaryOpportunity || insight.mainProblem || item.suggestedAngle) + '</p>' +
+        '<ul class="issue-list">' + (compressed.whyThisMatters || []).slice(0, 3).map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +
+        '<p><strong>Outreach angle:</strong> ' + escapeHtml(compressed.outreachAngle || insight.evidenceBasedAngle || '') + '</p>' +
+        '<p><strong>Call opener:</strong> ' + escapeHtml(compressed.callOpener || insight.callOpeningLine || '') + '</p>' +
+        '<div class="chips"><span class="chip urgent">Impact: ' + escapeHtml(compressed.businessImpact || 'unknown') + '</span><span class="chip">Urgency: ' + escapeHtml(compressed.urgency || '0') + '</span><span class="chip">Type: ' + escapeHtml(compressed.type || 'manual_review') + '</span></div>' +
+        '<details><summary>Supporting intelligence</summary>' +
+        '<p><strong>Lead insight:</strong> ' + escapeHtml(insight.evidenceBasedAngle || '') + '</p>' +
         businessSignalsHtml(signalProfile) +
+        '</details>' +
         (insight.disqualifiers && insight.disqualifiers.length ? '<p class="note"><strong>Disqualifiers:</strong> ' + escapeHtml(insight.disqualifiers.join('; ')) + '</p>' : '') +
         '<ul class="issue-list">' + painPoints.map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +
         '<div class="chips"><span class="chip urgent">Review: ' + escapeHtml(item.reviewStatus) + '</span><span class="chip">Priority: ' + escapeHtml(item.priority) + '</span><span class="chip">Next: ' + escapeHtml(item.nextAction) + '</span></div>' +
@@ -205,6 +210,10 @@ function insightValues(item) {
   const profile = item.businessSignalProfile || {};
   const signalText = (profile.signals || []).map((item) => [item.id, item.category, item.interpretation?.opportunity].join(' ')).join(' ');
   return [signalText, insight.leadSummary || '', insight.whyThisLeadIsInteresting || '', insight.mainProblem || '', insight.evidenceBasedAngle || '', insight.callOpeningLine || '', insight.recommendedOffer || '', (insight.disqualifiers || []).join(' ')];
+}
+function compressedValues(item) {
+  const opportunity = item.compressedOpportunity || {};
+  return [opportunity.primaryOpportunity || '', opportunity.outreachAngle || '', opportunity.callOpener || '', opportunity.businessImpact || '', opportunity.type || '', (opportunity.whyThisMatters || []).join(' ')];
 }
 function opportunityClass(item) {
   const issueTotal = Object.values(item.issueCategories || {}).reduce((sum, value) => sum + Number(value || 0), 0);
