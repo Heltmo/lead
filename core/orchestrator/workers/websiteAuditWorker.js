@@ -25,6 +25,13 @@ function sourceMetadataFromItem(item) {
     auditEligible: item.auditEligible ?? item.sourceMetadata?.auditEligible,
     auditExclusionReason: item.auditExclusionReason || item.sourceMetadata?.auditExclusionReason || '',
     provenance: item.provenance || item.sourceMetadata?.provenance || {},
+    phone: item.phone || item.sourceMetadata?.phone || '',
+    address: item.address || item.sourceMetadata?.address || '',
+    placeId: item.placeId || item.sourceMetadata?.placeId || '',
+    rating: item.rating || item.sourceMetadata?.rating || '',
+    reviewCount: item.reviewCount || item.sourceMetadata?.reviewCount || '',
+    businessStatus: item.businessStatus || item.sourceMetadata?.businessStatus || '',
+    providerTypes: item.providerTypes || item.sourceMetadata?.providerTypes || [],
   }
   return Object.fromEntries(Object.entries(metadata).filter(([, value]) => hasMetadataValue(value)))
 }

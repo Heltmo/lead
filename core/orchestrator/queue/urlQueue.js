@@ -15,6 +15,13 @@ function createQueue(urls, options = {}) {
       auditEligible: item.auditEligible,
       auditExclusionReason: item.auditExclusionReason,
       provenance: item.provenance,
+      phone: item.phone,
+      address: item.address,
+      placeId: item.placeId,
+      rating: item.rating,
+      reviewCount: item.reviewCount,
+      businessStatus: item.businessStatus,
+      providerTypes: item.providerTypes,
       sourceMetadata: item.sourceMetadata,
       status: 'pending',
       attempts: 0,
@@ -54,6 +61,13 @@ function normalizeQueueInput(input) {
   const auditEligible = normalizeOptionalBoolean(raw.auditEligible)
   const auditExclusionReason = clean(raw.auditExclusionReason)
   const provenance = raw.provenance && typeof raw.provenance === 'object' && !Array.isArray(raw.provenance) ? raw.provenance : {}
+  const phone = clean(raw.phone || raw.nationalPhoneNumber || raw.internationalPhoneNumber)
+  const address = clean(raw.address || raw.formattedAddress || raw.formatted_address)
+  const placeId = clean(raw.placeId || raw.place_id)
+  const rating = clean(raw.rating)
+  const reviewCount = clean(raw.reviewCount || raw.userRatingCount || raw.user_ratings_total)
+  const businessStatus = clean(raw.businessStatus || raw.business_status)
+  const providerTypes = Array.isArray(raw.providerTypes) ? raw.providerTypes : []
   const sourceMetadata = {
     businessName,
     source,
@@ -65,8 +79,15 @@ function normalizeQueueInput(input) {
     auditEligible,
     auditExclusionReason,
     provenance,
+    phone,
+    address,
+    placeId,
+    rating,
+    reviewCount,
+    businessStatus,
+    providerTypes,
   }
-  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, sourceMetadata }
+  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, phone, address, placeId, rating, reviewCount, businessStatus, providerTypes, sourceMetadata }
 }
 
 function clean(value) {

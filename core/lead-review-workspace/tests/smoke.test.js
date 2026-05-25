@@ -10,7 +10,7 @@ const reportPath = path.join(root, 'items', 'url-0001', 'report.json')
 fs.writeFileSync(reportPath, JSON.stringify({
   url: 'https://example.com',
   status: 'passed',
-  sourceMetadata: { businessName: 'Discovered Example Clinic', source: 'manual-urls.txt', location: 'Halden', industry: 'dentists', confidence: 'medium' },
+  sourceMetadata: { businessName: 'Discovered Example Clinic', source: 'manual-urls.txt', location: 'Halden', industry: 'dentists', confidence: 'medium', phone: '+4799999999', address: 'Clinicgata 1, Halden', placeId: 'places/example', rating: 4.6, reviewCount: 17, businessStatus: 'OPERATIONAL' },
   signals: { title: 'Example', emails: ['hello@example.com'], phones: ['+4712345678'] },
   technology: { technologies: ['WordPress'] },
   issueClassification: { counts: { seo: 1, conversion: 1 }, severityCounts: { high: 1 } },
@@ -30,7 +30,7 @@ fs.writeFileSync(summaryPath, JSON.stringify({
   completedItems: 1,
   failedItems: 0,
   pendingItems: 0,
-  results: [{ id: 'url-0001', url: 'https://example.com', businessName: 'Discovered Example Clinic', source: 'manual-urls.txt', location: 'Halden', industry: 'dentists', confidence: 'medium', sourceMetadata: { businessName: 'Discovered Example Clinic', source: 'manual-urls.txt', location: 'Halden', industry: 'dentists', confidence: 'medium' }, status: 'completed', attempts: 1, reportPath, errors: [] }],
+  results: [{ id: 'url-0001', url: 'https://example.com', businessName: 'Discovered Example Clinic', source: 'manual-urls.txt', location: 'Halden', industry: 'dentists', confidence: 'medium', sourceMetadata: { businessName: 'Discovered Example Clinic', source: 'manual-urls.txt', location: 'Halden', industry: 'dentists', confidence: 'medium', phone: '+4799999999', address: 'Clinicgata 1, Halden', placeId: 'places/example', rating: 4.6, reviewCount: 17, businessStatus: 'OPERATIONAL' }, status: 'completed', attempts: 1, reportPath, errors: [] }],
 }, null, 2))
 generateReportSurfaces(summaryPath, { outDir: path.join(root, 'report-surfaces') })
 const result = generateReviewWorkspace({ summaryPath })
@@ -48,6 +48,8 @@ assert(html.includes('Top evidence'), 'workspace should show prioritized evidenc
 assert(html.includes('Review metadata'), 'workspace should show review metadata section')
 assert(html.includes('Audit status:'), 'workspace should label audit status clearly')
 assert(html.includes('Contactability:'), 'workspace should show contactability signals')
+assert(html.includes('Provider phone:'), 'workspace should show provider phone metadata')
+assert(html.includes('Clinicgata 1, Halden'), 'workspace should show provider address metadata')
 assert(html.includes('Offer:'), 'workspace should show suggested opportunity offer')
 assert(html.includes('Opener:'), 'workspace should show outreach opener')
 assert(html.includes('Discovered Example Clinic'), 'workspace should prefer discovered business name')
@@ -58,7 +60,7 @@ assert(status.items['url-0001'].nextAction === 'unset', 'default next action sho
 assert(Array.isArray(status.items['url-0001'].tags), 'default tags should be an array')
 assert(selected.startsWith('id,reviewStatus,priority,nextAction,owner,lastReviewedAt,tags,notes'), 'selected CSV should have stable header')
 assert(!selected.includes('https://example.com'), 'unreviewed leads should not export as selected')
-assert(crm.startsWith('company,website,pageTitle,industry,location,score'), 'CRM CSV should have stable header')
+assert(crm.startsWith('company,website,pageTitle,sourcePhone,address,placeId,rating,reviewCount,businessStatus,industry,location,score'), 'CRM CSV should have stable header')
 assert(!crm.includes('https://example.com'), 'unreviewed leads should not export to CRM')
 status.items['url-0001'] = { status: 'shortlisted', priority: 'high', nextAction: 'contact', owner: 'GG', lastReviewedAt: '2026-05-23T00:00:00.000Z', tags: ['redesign', 'seo'], notes: 'Strong redesign opportunity' }
 fs.writeFileSync(result.reviewStatusPath, `${JSON.stringify(status, null, 2)}\n`)
@@ -82,7 +84,10 @@ assert(crmAfter.includes('dentists'), 'CRM export should include industry')
 assert(crmAfter.includes('Halden'), 'CRM export should include location')
 assert(crmAfter.includes('https://example.com'), 'shortlisted lead should export to CRM')
 assert(crmAfter.includes('hello@example.com'), 'CRM export should include email')
-assert(crmAfter.includes('+4712345678'), 'CRM export should include phone')
+assert(crmAfter.includes('+4799999999'), 'CRM export should prefer provider phone')
+assert(crmAfter.includes('Clinicgata 1, Halden'), 'CRM export should include provider address')
+assert(crmAfter.includes('places/example'), 'CRM export should include place id')
+assert(crmAfter.includes('OPERATIONAL'), 'CRM export should include business status')
 assert(crmAfter.includes('painPointBullets'), 'CRM export should include opportunity bullets header')
 assert(crmAfter.includes('Booking/contact conversion cleanup'), 'CRM export should include suggested offer')
 assert(crmAfter.includes('I noticed'), 'CRM export should include deterministic outreach opener')

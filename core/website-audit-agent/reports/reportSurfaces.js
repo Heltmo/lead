@@ -10,6 +10,12 @@ const CSV_COLUMNS = [
   'leadScore',
   'title',
   'pageTitle',
+  'businessStatus',
+  'reviewCount',
+  'rating',
+  'placeId',
+  'sourceAddress',
+  'sourcePhone',
   'technologies',
   'issueCategories',
   'highIssues',
@@ -197,11 +203,12 @@ function normalizeSourceMetadata(...values) {
   for (const value of values) {
     if (!value) continue
     if (value.sourceMetadata) Object.assign(metadata, normalizeSourceMetadata(value.sourceMetadata))
-    for (const key of ['businessName', 'source', 'location', 'industry', 'confidence', 'sourceType', 'auditExclusionReason']) {
+    for (const key of ['businessName', 'source', 'location', 'industry', 'confidence', 'sourceType', 'auditExclusionReason', 'phone', 'address', 'placeId', 'rating', 'reviewCount', 'businessStatus']) {
       if (!metadata[key] && value[key]) metadata[key] = String(value[key]).trim()
     }
     if (metadata.auditEligible == null && value.auditEligible != null) metadata.auditEligible = value.auditEligible
     if (!metadata.sources && Array.isArray(value.sources)) metadata.sources = value.sources
+    if (!metadata.providerTypes && Array.isArray(value.providerTypes)) metadata.providerTypes = value.providerTypes
     if (!metadata.provenance && value.provenance && typeof value.provenance === 'object') metadata.provenance = value.provenance
   }
   return metadata
@@ -336,6 +343,12 @@ function renderCsv(model, outDir) {
       leadScore: result.leadScore,
       title: result.title,
       pageTitle: result.pageTitle || result.title,
+      sourcePhone: result.sourceMetadata.phone || '',
+      sourceAddress: result.sourceMetadata.address || '',
+      placeId: result.sourceMetadata.placeId || '',
+      rating: result.sourceMetadata.rating || '',
+      reviewCount: result.sourceMetadata.reviewCount || '',
+      businessStatus: result.sourceMetadata.businessStatus || '',
       technologies: result.technologies.join('|'),
       issueCategories: formatCounts(result.issueCategories),
       highIssues: result.issueSeverities.high ?? 0,

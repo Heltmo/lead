@@ -37,7 +37,7 @@ function normalizeLead(lead, summaryItem, context) {
       whyThisLeadMatters: lead.whyThisLeadMatters || '',
     },
     emails: splitList((report?.signals?.emails || []).join('|')),
-    phones: splitList((report?.signals?.phones || []).join('|')),
+    phones: uniqueList([...(summaryItem?.sourceMetadata?.phone ? [summaryItem.sourceMetadata.phone] : []), ...splitList((report?.signals?.phones || []).join('|'))]),
     performance: {
       responseStatus: Number(lead.responseStatus || report?.performance?.responseStatus || 0),
       failedRequestCount: Number(lead.failedRequestCount || report?.performance?.failedRequests?.length || 0),
@@ -55,6 +55,10 @@ function normalizeLead(lead, summaryItem, context) {
 function resolveArtifact(value, baseDir) {
   if (!value) return ''
   return path.isAbsolute(value) ? value : path.resolve(baseDir, value)
+}
+
+function uniqueList(values) {
+  return [...new Set((values || []).map((item) => String(item || '').trim()).filter(Boolean))]
 }
 
 function splitList(value) {

@@ -184,6 +184,7 @@ function whyThisLeadMatters(evidence, selectedRules) {
 }
 
 function normalizePerformance(performance = {}) {
+  performance = performance || {}
   return {
     responseStatus: numeric(performance.responseStatus, 0),
     failedRequestCount: numeric(performance.failedRequestCount ?? performance.failedRequests?.length, 0),

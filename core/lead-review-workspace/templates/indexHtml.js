@@ -17,6 +17,7 @@ function renderIndexHtml(model) {
     suggestedAngle: item.suggestedAngle || 'General improvement opportunity',
     suggestedAngleDetail: item.suggestedAngleDetail || 'The site has measurable improvement signals that are worth reviewing before outreach.',
     opportunityBullets: item.opportunityBullets || {},
+    sourceMetadata: item.sourceMetadata || {},
     reviewStatus: model.reviewStatus.items[item.id]?.status || 'unreviewed',
     priority: model.reviewStatus.items[item.id]?.priority || 'unset',
     nextAction: model.reviewStatus.items[item.id]?.nextAction || 'unset',
@@ -151,7 +152,7 @@ function renderCard(item) {
         '<p><strong>Opener:</strong> ' + escapeHtml(item.opportunityBullets.outreachOpener || '') + '</p>' +
         '<p class="note">' + escapeHtml(item.opportunityBullets.whyThisLeadMatters || '') + '</p>' +
         '<div class="chips"><span class="chip urgent">Review: ' + escapeHtml(item.reviewStatus) + '</span><span class="chip">Priority: ' + escapeHtml(item.priority) + '</span><span class="chip">Next: ' + escapeHtml(item.nextAction) + '</span></div>' +
-        '<p class="note">' + escapeHtml(contactability(item)) + '</p></section>' +
+        '<p class="note">' + escapeHtml(contactability(item)) + '</p>' + providerMetadataHtml(item) + '</section>' +
       '<section class="panel"><p class="panel-title">Top evidence</p><ul class="issue-list">' + topIssues.map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>' +
         '<div class="chips">' + Object.keys(item.issueCategories).map((value) => '<span class="chip">' + escapeHtml(value + ':' + item.issueCategories[value]) + '</span>').join('') + '</div></section>' +
       '<section class="panel"><p class="panel-title">Review metadata</p>' +
@@ -166,6 +167,17 @@ function renderCard(item) {
     '<div class="links">' + link('HTML report', item.links.htmlReport) + link('JSON', item.links.jsonArtifact) + link('Desktop screenshot', item.links.desktopScreenshot) + link('Mobile screenshot', item.links.mobileScreenshot) + '</div>';
   return el;
 }
+function providerMetadataHtml(item) {
+  const meta = item.sourceMetadata || {};
+  const rows = [];
+  if (meta.phone) rows.push('Provider phone: ' + meta.phone);
+  if (meta.address) rows.push('Address: ' + meta.address);
+  if (meta.rating) rows.push('Rating: ' + meta.rating + (meta.reviewCount ? ' / reviews: ' + meta.reviewCount : ''));
+  if (meta.businessStatus) rows.push('Status: ' + meta.businessStatus);
+  if (!rows.length) return '';
+  return '<ul class="issue-list">' + rows.map((value) => '<li>' + escapeHtml(value) + '</li>').join('') + '</ul>';
+}
+
 function opportunityValues(item) {
   const opportunity = item.opportunityBullets || {};
   return (opportunity.painPointBullets || []).concat([opportunity.suggestedOffer || '', opportunity.outreachOpener || '', opportunity.whyThisLeadMatters || '']);

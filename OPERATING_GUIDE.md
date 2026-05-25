@@ -106,7 +106,7 @@ Discovery remains deterministic when source-file based. Do not use protected/pri
 
 ## 4. Optional: Run Live Search Provider Discovery
 
-Use this when you want the system to discover candidates from a configured search API instead of manually collected source files. The first supported live provider is `brave`, configured through `BRAVE_SEARCH_API_KEY`.
+Use this when you want the system to discover candidates from a configured search API instead of manually collected source files. Supported providers are `brave` through `BRAVE_SEARCH_API_KEY` and `google-places` through `GOOGLE_PLACES_API_KEY`. Prefer Google Places when you need call-ready local leads with phone/address metadata.
 
 Dry-run first. This shows the taxonomy-expanded provider queries without calling the API:
 
@@ -120,7 +120,20 @@ npm run discover -- \
   --summary reports/tannleger-halden-live-dry-run-summary.json
 ```
 
-Live run with an API key:
+Google Places live run with an API key:
+
+```bash
+export GOOGLE_PLACES_API_KEY="your-key-here"
+cd ~/webconsult/core/lead-discovery-agent
+npm run discover -- \
+  --query "tannleger i Halden" \
+  --provider google-places \
+  --max-results 10 \
+  --out reports/tannleger-halden-places-candidates.json \
+  --summary reports/tannleger-halden-places-summary.json \
+  --handoff reports/tannleger-halden-places-handoff.jsonl
+```
+Brave live run with an API key:
 
 ```bash
 export BRAVE_SEARCH_API_KEY="your-key-here"
@@ -134,7 +147,7 @@ npm run discover -- \
   --handoff reports/tannleger-halden-live-handoff.jsonl
 ```
 
-Provider results can be combined with manual `--source` files in the same command. The discovery agent merges, deduplicates, validates reachability, classifies targets by `sourceType`, and writes the same orchestrator handoff format as deterministic source mode. Directory/social/registry pages are kept in discovery reports but excluded from audit handoff by default because direct business websites are preferred audit targets. Use `--include-non-audit-targets true` only when you intentionally want directories or social profiles audited.
+Provider results can be combined with manual `--source` files in the same command. The discovery agent merges, deduplicates, validates reachability, classifies targets by `sourceType`, and writes the same orchestrator handoff format as deterministic source mode. Google Places metadata such as phone, address, placeId, rating, reviewCount, and businessStatus flows through review workspace and CRM exports when available. Directory/social/registry pages are kept in discovery reports but excluded from audit handoff by default because direct business websites are preferred audit targets. Use `--include-non-audit-targets true` only when you intentionally want directories or social profiles audited.
 
 ## 5. Inspect Discovery Target Quality
 

@@ -1,39 +1,56 @@
 # Next Milestone
 
-The system now supports the intended V1 product boundary: lead intelligence, review, CRM export, campaign summaries, and deterministic demo generation for leads the operator chooses. It does not send outreach or automate follow-up.
+The system now has taxonomy-backed discovery, Brave live provider support, Google Places provider support, and deterministic discovery target filtering. The next phase is operational validation of Google Places for call-ready Norwegian leads, not Brreg or multi-provider merge yet.
 
-## Priority 1: Validate Demo-On-Demand Quality
+## Priority 1: Run A Google Places Call-Ready Lead Test
 
-Use the real campaign run to generate demos for selected leads and judge whether the generated pages help manual review.
+Run:
+
+```text
+tannleger i Halden
+```
 
 Success target:
 
-- operator can choose a lead by domain, URL, business name, or item id
-- selected lead resolves deterministically
-- generated demo includes business context, issue evidence, opportunity bullets, contactability signals, and audit paths
-- manifest records source run, review state, audit report, screenshots, and generated files
-- no outreach automation is introduced
+- Google Places returns businesses with real businessName values
+- candidates include phone and address when available
+- direct business websites enter the audit handoff
+- review workspace shows provider phone/address/rating/status metadata
+- CRM export contains call-ready phone/address fields for shortlisted leads
+- at least 1 to 3 leads are realistic enough to call manually
 
-## Priority 2: Fix Only Review/Demo Workflow Blockers
+## Priority 2: Add callReadyScore
 
-Examples:
+Only after Google Places output is operationally useful, add a deterministic `callReadyScore` separate from website/audit score.
 
-- ambiguous lead selectors need clearer errors
-- demo content missing important audit evidence
-- generated demo path not easy to find from campaign output
-- selected lead names still too generic
-- screenshot/audit links missing from manifests
+Suggested inputs:
+
+- phone exists
+- direct website exists
+- Google businessStatus is operational
+- correct industry/category
+- audit-worthy website issues exist
+- not directory/social
+
+## Priority 3: Brreg Enrichment
+
+Add Brreg only after Google Places has proven it can produce call-ready local leads. Brreg should validate/enrich existing candidates, not replace discovery.
 
 ## Paused Work
 
-- outreach sending
-- automated follow-up
-- CRM integration
+- Brreg enrichment until Google Places is validated
+- Brave fallback merge until Google Places gaps are clear
+- live Google scraping
+- protected/private source scraping
+- dashboard UI
 - database
-- dashboard server
+- AI outreach
+- historical comparison
+- Lighthouse
 - parallel workers
-- AI sales automation
+- monitoring
+- multi-agent orchestration
 
 ## Operating Principle
 
-Webconsult should first be a reliable lead intelligence and demo generation machine. Sales messages and follow-up remain manual until the review/demo workflow is consistently useful.
+The current question is whether Google Places can produce leads that are directly callable, then whether the existing audit/review/export pipeline can turn them into 1 to 3 manual outreach candidates.

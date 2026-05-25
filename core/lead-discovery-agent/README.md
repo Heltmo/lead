@@ -72,7 +72,7 @@ The summary includes raw candidate count, invalid candidates, duplicates removed
 
 ## Live Search Provider Mode
 
-Discovery also supports a provider abstraction for API-based search. The first live provider is Brave Search. It uses the official Web Search endpoint and requires an API key in an environment variable; no key is stored in this repo.
+Discovery also supports a provider abstraction for API-based search. Supported live providers are Brave Search and Google Places. API keys are read from environment variables; no key is stored in this repo.
 
 ```bash
 export BRAVE_SEARCH_API_KEY="your-key-here"
@@ -112,6 +112,29 @@ npm run discover -- \
 
 The summary includes a `provider` block with provider name, dry-run status, max result target, and planned queries. Provider tests use mocked fixtures, so verification does not require live network access or API credentials.
 
+## Google Places Provider Mode
+
+Use Google Places when the goal is call-ready local business discovery. It can return business names, websites, phone numbers, addresses, ratings, review counts, business status, and place IDs.
+
+```bash
+export GOOGLE_PLACES_API_KEY="your-key-here"
+cd ~/webconsult/core/lead-discovery-agent
+npm run discover -- \
+  --query "tannleger i Halden" \
+  --provider google-places \
+  --max-results 10 \
+  --out reports/tannleger-halden-places-candidates.json \
+  --summary reports/tannleger-halden-places-summary.json \
+  --handoff reports/tannleger-halden-places-handoff.jsonl
+```
+
+Dry-run works without calling Google:
+
+```bash
+npm run discover -- --query "tannleger i Halden" --provider google-places --dry-run true --max-results 10
+```
+
+Google Places tests use mocked fixtures. Verification never calls Google APIs and never requires `GOOGLE_PLACES_API_KEY`.
 ## Discovery Target Filtering
 
 Discovery classifies candidate domains before handoff:

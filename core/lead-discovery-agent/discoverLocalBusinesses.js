@@ -35,6 +35,9 @@ async function discoverLocalBusinesses(options) {
     mockResults: options.mockResults,
     mockResultsPath: options.mockResultsPath,
     braveEndpoint: options.braveEndpoint,
+    googlePlacesEndpoint: options.googlePlacesEndpoint,
+    languageCode: options.languageCode,
+    regionCode: options.regionCode,
   })
   const rawResults = [...sourceResults, ...providerResult.rows]
   const normalized = rawResults
@@ -90,6 +93,13 @@ function formatHandoffCandidate(candidate) {
     sourceType: candidate.sourceType || 'unknown',
     auditEligible: candidate.auditEligible !== false,
     auditExclusionReason: candidate.auditExclusionReason || '',
+    phone: candidate.phone || '',
+    address: candidate.address || '',
+    placeId: candidate.placeId || '',
+    rating: candidate.rating || '',
+    reviewCount: candidate.reviewCount || '',
+    businessStatus: candidate.businessStatus || '',
+    providerTypes: candidate.providerTypes || [],
   })
 }
 

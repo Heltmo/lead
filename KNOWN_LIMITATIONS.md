@@ -10,11 +10,12 @@ This file distinguishes operational capabilities from work that is not reliable 
 - query expansion generates deterministic search phrases and can feed a configured provider, but provider ranking/noise is external
 - static HTML parsing is intentionally simple and may miss complex search-result markup
 - no Google scraping or protected-source scraping
-- Brave Search is the first provider; it requires `BRAVE_SEARCH_API_KEY` and is not used by tests
-- no multi-provider fallback/ranking strategy yet
+- Brave Search requires `BRAVE_SEARCH_API_KEY`; Google Places requires `GOOGLE_PLACES_API_KEY`; neither provider is used by tests
+- no multi-provider fallback/ranking strategy yet; Google Places and Brave are selected explicitly per run
 - reachability checks are simple HTTP/HTTPS checks and may be affected by timeouts or bot protections
 - deduplication is domain-based and may merge distinct branches on the same domain
 - candidate quality depends on the quality of the source data or provider result quality
+- Google Places results without websites are not handed to audit yet, even if they have phone numbers
 - target filtering uses a deterministic known-domain list and can miss new directories/social platforms until the list is expanded
 - unknown domains are audit-eligible by default to avoid dropping real business sites
 - discovered business names are preserved when source data provides them, but URL-only inputs still depend on audited page titles

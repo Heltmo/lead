@@ -86,6 +86,7 @@ async function main() {
   assert(lawyerReport.candidates[0].businessName === 'Oslo Advokatfirma', 'taxonomy filtering should keep matching lawyer candidate')
 
   const mockProviderFixture = path.join(root, 'brave.mock-results.json')
+  const googlePlacesFixture = path.join(root, 'google-places.mock-results.json')
   fs.writeFileSync(mockProviderFixture, JSON.stringify({
     web: {
       results: [
@@ -94,6 +95,35 @@ async function main() {
         { title: 'Provider Oslo Tannlege', url: 'https://provider-oslo.example', description: 'Different location in search text' },
       ],
     },
+  }, null, 2))
+
+  fs.writeFileSync(googlePlacesFixture, JSON.stringify({
+    places: [
+      {
+        id: 'places/norfloss',
+        displayName: { text: 'Norfloss Tannklinikk' },
+        websiteUri: 'https://norfloss.no',
+        nationalPhoneNumber: '+47 69 18 00 00',
+        formattedAddress: 'Storgata 1, 1767 Halden, Norway',
+        businessStatus: 'OPERATIONAL',
+        rating: 4.7,
+        userRatingCount: 23,
+        types: ['dentist', 'health'],
+      },
+      {
+        id: 'places/norfloss-duplicate',
+        displayName: { text: 'Norfloss Duplicate' },
+        websiteUri: 'https://www.norfloss.no/kontakt',
+        nationalPhoneNumber: '+47 69 18 00 00',
+        formattedAddress: 'Storgata 1, 1767 Halden, Norway',
+      },
+      {
+        id: 'places/no-website',
+        displayName: { text: 'No Website Dental' },
+        nationalPhoneNumber: '+47 00 00 00 00',
+        formattedAddress: 'Halden, Norway',
+      },
+    ],
   }, null, 2))
 
   const providerDryRunReport = await discoverLocalBusinesses({
@@ -128,6 +158,34 @@ async function main() {
   assert(providerCandidate.provenance.searchQuery === 'tannlege Halden', 'provider provenance should include search query')
   assert(providerCandidate.sources[0].sourceFormat === 'provider', 'provider provenance should be preserved')
   assert(providerReport.candidatesBySource['mock:tannlege Halden'] === 2, 'provider source should be counted in summary')
+
+  const googleReport = await discoverLocalBusinesses({
+    query: 'tannleger i Halden',
+    provider: 'google-places',
+    mockResultsPath: googlePlacesFixture,
+    maxResults: 4,
+    validate: false,
+  })
+  assert(googleReport.provider.provider === 'google-places', 'Google Places provider should be recorded in report')
+  assert(googleReport.totalRawCandidates === 3, 'Google Places fixture should count raw place results')
+  assert(googleReport.invalidCandidates === 1, 'Google Places fixture without website should be invalid for audit handoff')
+  assert(googleReport.candidates.length === 1, 'Google Places candidates should dedupe by business domain')
+  const googleCandidate = googleReport.candidates[0]
+  assert(googleCandidate.businessName === 'Norfloss Tannklinikk', 'Google Places displayName should become businessName')
+  assert(googleCandidate.phone === '+47 69 18 00 00', 'Google Places phone should be preserved')
+  assert(googleCandidate.address.includes('Halden'), 'Google Places address should be preserved')
+  assert(googleCandidate.placeId === 'places/norfloss', 'Google Places place id should be preserved')
+  assert(googleCandidate.rating === 4.7, 'Google Places rating should be preserved')
+  assert(googleCandidate.reviewCount === 23, 'Google Places review count should be preserved')
+  assert(googleCandidate.businessStatus === 'OPERATIONAL', 'Google Places business status should be preserved')
+  assert(googleCandidate.providerTypes.includes('dentist'), 'Google Places types should be preserved')
+  const googleHandoff = path.join(root, 'google-handoff.jsonl')
+  writeDiscoveryOutputs(googleReport, { outPath: path.join(root, 'google-candidates.json'), summaryPath: path.join(root, 'google-summary.json'), handoffPath: googleHandoff })
+  const googleRows = fs.readFileSync(googleHandoff, 'utf8').trim().split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
+  assert(googleRows.length === 1, 'Google Places handoff should include audit-eligible website candidate')
+  assert(googleRows[0].phone === '+47 69 18 00 00', 'Google Places handoff should preserve phone')
+  assert(googleRows[0].address.includes('Halden'), 'Google Places handoff should preserve address')
+  assert(googleRows[0].placeId === 'places/norfloss', 'Google Places handoff should preserve place id')
 
   const reportPayload = await discoverLocalBusinesses({ query: 'dentists in Halden', sourceFile: jsonFixture, timeoutMs: 3000 })
   writeDiscoveryOutputs(reportPayload, { outPath: out, summaryPath: summary, handoffPath: handoff })

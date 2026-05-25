@@ -2,14 +2,17 @@ const fs = require('fs')
 const { normalizeBusinessName, normalizeLocation } = require('../normalizers/leadCandidate')
 
 const BRAVE_ENDPOINT = 'https://api.search.brave.com/res/v1/web/search'
+const GOOGLE_PLACES_ENDPOINT = 'https://places.googleapis.com/v1/places:searchText'
 
 async function loadLiveSearchResults(options = {}) {
   const provider = normalizeProvider(options.provider)
   if (!provider) return createEmptyProviderResult(options)
   const plan = createProviderPlan(options)
   if (options.dryRun) return { plan, rows: [] }
+  if (options.mockResults || options.mockResultsPath) return { plan, rows: loadMockRows(options, plan) }
   if (provider === 'mock') return { plan, rows: loadMockRows(options, plan) }
   if (provider === 'brave') return fetchBraveRows(options, plan)
+  if (provider === 'google-places') return fetchGooglePlacesRows(options, plan)
   throw new Error('Unsupported discovery provider: ' + provider)
 }
 
@@ -53,6 +56,63 @@ function loadMockRows(options, plan) {
   }))
 }
 
+async function fetchGooglePlacesRows(options, plan) {
+  const apiKey = (options.env || process.env).GOOGLE_PLACES_API_KEY
+  if (!apiKey) throw new Error('GOOGLE_PLACES_API_KEY is required for --provider google-places. Use --dry-run true to inspect queries without calling Google Places.')
+  const fetchImpl = options.fetchImpl || globalThis.fetch
+  if (typeof fetchImpl !== 'function') throw new Error('A fetch implementation is required for the Google Places provider.')
+  const rows = []
+  for (const query of plan.queries) {
+    if (rows.length >= plan.maxResults) break
+    const response = await fetchImpl(options.googlePlacesEndpoint || GOOGLE_PLACES_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': googlePlacesFieldMask(),
+      },
+      body: JSON.stringify({
+        textQuery: query,
+        maxResultCount: Math.min(20, plan.maxResults - rows.length),
+        languageCode: options.languageCode || 'no',
+        regionCode: options.regionCode || 'NO',
+      }),
+    })
+    if (!response.ok) throw new Error('Google Places provider failed with HTTP ' + response.status)
+    const payload = await response.json()
+    const results = extractProviderResults(payload)
+    for (const result of results) {
+      if (rows.length >= plan.maxResults) break
+      rows.push(normalizeProviderResult(result, {
+        provider: plan.provider,
+        query,
+        location: options.location,
+        industry: options.canonicalIndustry || options.industry,
+        confidence: 'high',
+        rank: rows.length + 1,
+      }))
+    }
+  }
+  return { plan, rows }
+}
+
+function googlePlacesFieldMask() {
+  return [
+    'places.id',
+    'places.displayName',
+    'places.formattedAddress',
+    'places.nationalPhoneNumber',
+    'places.internationalPhoneNumber',
+    'places.websiteUri',
+    'places.businessStatus',
+    'places.rating',
+    'places.userRatingCount',
+    'places.types',
+    'places.primaryType',
+    'places.primaryTypeDisplayName',
+  ].join(',')
+}
+
 async function fetchBraveRows(options, plan) {
   const apiKey = (options.env || process.env).BRAVE_SEARCH_API_KEY
   if (!apiKey) throw new Error('BRAVE_SEARCH_API_KEY is required for --provider brave. Use --dry-run true to inspect queries without calling Brave.')
@@ -90,12 +150,12 @@ async function fetchBraveRows(options, plan) {
 }
 
 function normalizeProviderResult(result, defaults = {}) {
-  const website = result.website || result.url || result.link || ''
+  const website = result.website || result.websiteUri || result.url || result.link || ''
   const businessName = selectProviderBusinessName(result, website)
   const provider = cleanText(defaults.provider) || 'provider'
   const query = cleanText(defaults.query)
   const source = query ? provider + ':' + query : provider
-  const location = normalizeLocation(result.location, defaults.location)
+  const location = normalizeLocation(result.location || result.formattedAddress || result.formatted_address, defaults.location)
   return {
     businessName,
     website,
@@ -108,6 +168,13 @@ function normalizeProviderResult(result, defaults = {}) {
     industry: cleanText(result.industry) || defaults.industry || '',
     confidence: result.confidence || defaults.confidence || 'medium',
     description: cleanText(result.description || result.snippet || ''),
+    phone: cleanText(result.phone || result.nationalPhoneNumber || result.internationalPhoneNumber || ''),
+    address: cleanText(result.address || result.formattedAddress || result.formatted_address || ''),
+    placeId: cleanText(result.placeId || result.place_id || result.id || ''),
+    rating: normalizeNumber(result.rating),
+    reviewCount: normalizeNumber(result.reviewCount || result.userRatingCount || result.user_ratings_total),
+    businessStatus: cleanText(result.businessStatus || result.business_status || ''),
+    providerTypes: Array.isArray(result.types) ? result.types.filter(Boolean).map(cleanText).filter(Boolean) : [],
     providerTitle: cleanText(result.title || result.name || ''),
     providerDisplayUrl: cleanText(result.displayUrl || result.display_url || result.meta_url?.netloc || result.meta_url?.hostname || ''),
   }
@@ -117,6 +184,8 @@ function selectProviderBusinessName(result, website) {
   const explicit = [
     result.businessName,
     result.business_name,
+    result.displayName?.text,
+    result.displayName,
     result.organization?.name,
     result.place?.name,
     result.profile?.long_name,
@@ -131,6 +200,7 @@ function extractProviderResults(payload) {
   if (!payload) return []
   if (Array.isArray(payload)) return payload
   if (Array.isArray(payload.results)) return payload.results
+  if (Array.isArray(payload.places)) return payload.places
   if (payload.web && Array.isArray(payload.web.results)) return payload.web.results
   if (payload.response && Array.isArray(payload.response.results)) return payload.response.results
   return []
@@ -148,6 +218,11 @@ function domainBusinessName(website) {
   } catch {
     return ''
   }
+}
+
+function normalizeNumber(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : ''
 }
 
 function cleanText(value) {
@@ -182,10 +257,12 @@ function readJson(filePath) {
 
 module.exports = {
   BRAVE_ENDPOINT,
+  GOOGLE_PLACES_ENDPOINT,
   loadLiveSearchResults,
   createProviderPlan,
   createSearchQueries,
   extractProviderResults,
   normalizeProviderResult,
+  googlePlacesFieldMask,
   stripSearchTitle,
 }

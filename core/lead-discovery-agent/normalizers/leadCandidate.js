@@ -34,6 +34,13 @@ function normalizeLeadCandidate(raw, defaults = {}) {
     location: normalizeLocation(raw.location, defaults.location),
     industry: firstClean(raw.industry, defaults.canonicalIndustry, defaults.industry),
     confidence: normalizeConfidence(raw.confidence),
+    phone: firstClean(raw.phone, raw.nationalPhoneNumber, raw.internationalPhoneNumber),
+    address: firstClean(raw.address, raw.formattedAddress, raw.formatted_address),
+    placeId: firstClean(raw.placeId, raw.place_id),
+    rating: normalizeNumber(raw.rating),
+    reviewCount: normalizeNumber(raw.reviewCount, raw.userRatingCount, raw.user_ratings_total),
+    businessStatus: firstClean(raw.businessStatus, raw.business_status),
+    providerTypes: Array.isArray(raw.providerTypes) ? raw.providerTypes.map(cleanString).filter(Boolean) : (Array.isArray(raw.types) ? raw.types.map(cleanString).filter(Boolean) : []),
     normalizedDomain: normalizeDomain(website),
     sourceType,
     auditEligible,
@@ -60,6 +67,13 @@ function deduplicateCandidates(candidates) {
     existing.location = existing.location || candidate.location
     existing.industry = existing.industry || candidate.industry
     existing.confidence = bestConfidence(existing.confidence, candidate.confidence)
+    existing.phone = existing.phone || candidate.phone || ''
+    existing.address = existing.address || candidate.address || ''
+    existing.placeId = existing.placeId || candidate.placeId || ''
+    existing.rating = existing.rating || candidate.rating || ''
+    existing.reviewCount = existing.reviewCount || candidate.reviewCount || ''
+    existing.businessStatus = existing.businessStatus || candidate.businessStatus || ''
+    existing.providerTypes = uniqueValues([...(existing.providerTypes || []), ...(candidate.providerTypes || [])])
     existing.sourceType = strongestSourceType(existing.sourceType, candidate.sourceType)
     existing.auditEligible = Boolean(existing.auditEligible || candidate.auditEligible)
     existing.auditExclusionReason = existing.auditEligible ? '' : (existing.auditExclusionReason || candidate.auditExclusionReason || '')
@@ -226,6 +240,14 @@ function firstClean(...values) {
 function cleanString(value) {
   if (value == null) return ''
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value).trim()
+  return ''
+}
+
+function normalizeNumber(...values) {
+  for (const value of values) {
+    const number = Number(value)
+    if (Number.isFinite(number)) return number
+  }
   return ''
 }
 
