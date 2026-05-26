@@ -621,6 +621,66 @@ Main rules for next tuning if needed:
 4. Restaurant opportunities should remain LOW/MEDIUM, not HIGH, unless severe technical pain exists.
 5. Lawyers should only become HIGH for technical trust, identity confusion, or very visible trust/friction issues.
 
+
+## Commercial Pressure Retune Result
+
+This retune used the human decisions above as calibration input. The key distinction was that `KEEP LOW` and `KEEP MEDIUM` are not HIGH successes.
+
+HIGH-only human alignment before tuning:
+
+```text
+Current HIGH leads reviewed: 8
+KEEP HIGH: 2
+DEMOTE HIGH: 3
+DEMOTE / borderline: 1
+Not-HIGH operator decisions: 2
+VERIFY: 0
+```
+
+Distribution before this retune, after CTA/contact fix:
+
+```text
+High: 8
+Medium: 7
+Low: 7
+Verify: 1
+```
+
+Distribution after `Tighten high call priority calibration` retune:
+
+```text
+High: 2
+Medium: 12
+Low: 8
+Verify: 1
+```
+
+HIGH leads retained:
+
+- Glomma Tannklinikk
+- Advokatfirmaet Bjornebekk og Martinsen AS
+
+Priority changes from the post-CTA baseline:
+
+- Moss Elektro AS: HIGH -> MEDIUM
+- Storm Elektro Moss AS: HIGH -> MEDIUM
+- Sentrum Ror AS: HIGH -> MEDIUM
+- Moss Rorleggerservice: HIGH -> MEDIUM
+- Skutebrygga: HIGH -> MEDIUM
+- Alpenhaus Drammen: HIGH -> MEDIUM
+- Advokatene i Lykkeberg: MEDIUM -> LOW
+- Advokatfirmaet Hohmann AS: MEDIUM -> LOW
+- Advokatfirmaet Ytterbol & Co Fredrikstad: MEDIUM -> LOW
+- Advokathuset Fredrikstad: LOW -> MEDIUM
+- Storm VVS Rorlegger Moss: LOW -> MEDIUM
+
+Calibration conclusion:
+
+- HIGH now maps to the two clear human KEEP HIGH examples from the reviewed batch.
+- Contactability still helps salesEase and call readiness, but it no longer creates HIGH unless pain is also strong.
+- Service-line or campaign opportunities with strong contact maturity now land mostly in MEDIUM/LOW.
+- Restaurants and mature law firms are less likely to receive HIGH from generic conversion or service-line opportunities.
+
 ## Manual Review Instructions
 
 For each HIGH lead, answer:

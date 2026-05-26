@@ -75,13 +75,27 @@ function buildCommercialPressure(item = {}) {
   painScore += vertical.basePain
   buyingLikelihood += vertical.baseBuying
 
-  for (const hit of resistance.reasons) reasons.push(hit)
+  for (const hit of [...resistance.reasons].reverse()) reasons.unshift(hit)
   painScore -= resistance.painPenalty
   buyingLikelihood -= resistance.buyingPenalty
 
   painScore = clamp(painScore)
   buyingLikelihood = clamp(buyingLikelihood)
-  const context = { leadClass, type, status, vertical, resistance, hasPhone, directBusiness, industry }
+  const context = {
+    leadClass,
+    type,
+    status,
+    vertical,
+    resistance,
+    hasPhone,
+    directBusiness,
+    industry,
+    failedRequests,
+    consoleErrors,
+    hasStrongContactCta: resistance.hasStrongContactCta,
+    hasVisibleContactPath: resistance.hasVisibleContactPath,
+    hasContactability: resistance.hasContactability,
+  }
   const callPriority = priority(painScore, buyingLikelihood, context)
   return normalizeCommercialPressure({
     painScore,
@@ -114,23 +128,53 @@ function priority(pain, buying, context = {}) {
   const highValue = context.leadClass === 'high_value_service_conversion'
   const conversion = context.leadClass === 'conversion_optimization'
   const campaign = context.leadClass === 'campaign_optimization'
+  const contactMature = Boolean(context.hasStrongContactCta || context.hasVisibleContactPath)
+  const severeTechnical = hasSevereTechnicalPain(context)
 
-  if (technical && context.directBusiness && pain >= 0.76 && buying >= 0.62) return 'high'
-  if (brand && context.directBusiness && pain >= 0.76 && buying >= 0.62 && !strongResistance) return 'high'
-  if (highValue && tier === 'tier1' && pain >= 0.78 && buying >= 0.72 && !strongResistance) return 'high'
-  if (conversion && tier === 'tier1' && pain >= 0.82 && buying >= 0.74 && !strongResistance) return 'high'
-  if (!campaign && !strongResistance && pain >= 0.86 && buying >= 0.78) return 'high'
+  if (technical && context.directBusiness) {
+    if (tier === 'tier1' && ['dentist', 'clinic'].includes(context.industry) && severeTechnical && pain >= 0.82 && buying >= 0.68 && !veryStrongResistance(resistance)) return 'high'
+    if (tier === 'tier2' && context.industry === 'lawyer' && severeTechnical && pain >= 0.84 && buying >= 0.7 && !veryStrongResistance(resistance)) return 'high'
+    if (['electrician', 'plumber', 'hvac'].includes(context.industry)) {
+      if (!contactMature && severeTechnical && pain >= 0.84 && buying >= 0.7 && !veryStrongResistance(resistance)) return 'high'
+      if (contactMature && context.failedRequests >= 5 && context.consoleErrors > 0 && pain >= 0.9 && buying >= 0.78 && !strongResistance) return 'high'
+    }
+    if (tier === 'tier3') {
+      if (!contactMature && context.failedRequests >= 5 && context.consoleErrors > 0 && pain >= 0.9 && buying >= 0.78 && !strongResistance) return 'high'
+    }
+    if (!contactMature && severeTechnical && pain >= 0.88 && buying >= 0.76 && !strongResistance) return 'high'
+  }
+  if (brand && context.directBusiness && pain >= 0.78 && buying >= 0.66 && !strongResistance) return 'high'
+  if (highValue && tier === 'tier1' && !contactMature && pain >= 0.82 && buying >= 0.76 && !strongResistance) return 'high'
+  if (conversion && tier === 'tier1' && !contactMature && pain >= 0.86 && buying >= 0.78 && !strongResistance) return 'high'
+  if (!campaign && !contactMature && !strongResistance && pain >= 0.9 && buying >= 0.82) return 'high'
 
   if (campaign && pain < 0.72) return buying >= 0.68 ? 'medium' : 'low'
-  if (strongResistance && !technical && pain < 0.84) return buying >= 0.58 ? 'medium' : 'low'
-  if (tier === 'tier3' && !technical && !brand && pain < 0.86) return buying >= 0.56 ? 'medium' : 'low'
-  if (tier === 'tier2' && highValue && pain < 0.82) return buying >= 0.58 ? 'medium' : 'low'
+  if (context.industry === 'lawyer' && highValue && strongResistance && pain < 0.4) return 'low'
+  if (strongResistance && pain < 0.9) return buying >= 0.58 ? 'medium' : 'low'
+  if (tier === 'tier3' && !brand && pain < 0.9) return buying >= 0.56 ? 'medium' : 'low'
+  if (tier === 'tier2' && highValue && pain < 0.86) return buying >= 0.58 ? 'medium' : 'low'
+  if (contactMature && ['high_value_service_conversion', 'conversion_optimization'].includes(context.leadClass) && pain < 0.86) return buying >= 0.58 ? 'medium' : 'low'
+  if (tier !== 'tier3' && pain >= 0.5 && buying >= 0.6) return 'medium'
   if (pain >= 0.58 && buying >= 0.48) return 'medium'
   return 'low'
 }
 
+function hasSevereTechnicalPain(context = {}) {
+  const failed = Number(context.failedRequests || 0)
+  const consoleErrors = Number(context.consoleErrors || 0)
+  if (failed >= 5) return true
+  if (failed >= 2 && consoleErrors > 0) return true
+  if (consoleErrors >= 3) return true
+  return false
+}
+
+function veryStrongResistance(resistance = {}) {
+  return Number(resistance.level || 0) >= 3
+}
+
 function salesEase(pain, buying, context = {}) {
   if (!context.hasPhone) return 'low'
+  if (context.leadClass === 'technical_redesign' && ['electrician', 'plumber', 'hvac', 'restaurant'].includes(context.industry) && (context.hasStrongContactCta || context.hasVisibleContactPath)) return 'medium'
   if (context.leadClass === 'technical_redesign' && pain >= 0.72) return 'high'
   if (context.leadClass === 'brand_identity' && pain >= 0.76 && buying >= 0.62) return 'medium'
   if (context.leadClass === 'campaign_optimization') return 'low'
@@ -194,10 +238,17 @@ function resistanceProfile(item = {}, compressed = {}, industry = 'unknown') {
   if (strongConversion) { painPenalty += 0.18; buyingPenalty += 0.1; level += 2; reasons.push('strong_existing_conversion_flow') }
 
   if (hasStrongContactCta && ['high_value_service_conversion', 'conversion_optimization'].includes(compressed.leadClass)) {
-    painPenalty += 0.1
+    painPenalty += industry === 'restaurant' ? 0.18 : 0.14
+    buyingPenalty += industry === 'restaurant' ? 0.08 : 0.06
+    level += 2
+    reasons.push('clear_contact_path_reduces_cta_pain')
+  }
+
+  if (hasStrongContactCta && compressed.leadClass === 'technical_redesign' && ['electrician', 'plumber', 'hvac', 'restaurant'].includes(industry)) {
+    painPenalty += industry === 'restaurant' ? 0.16 : 0.12
     buyingPenalty += 0.04
     level += 1
-    reasons.push('clear_contact_path_reduces_cta_pain')
+    reasons.push('contact_maturity_requires_stronger_technical_pain')
   }
 
   const matureBrand = reviewCount >= 120 && rating >= 4.6 && hasContactability
@@ -217,16 +268,23 @@ function resistanceProfile(item = {}, compressed = {}, industry = 'unknown') {
   }
 
   if (industry === 'restaurant' && ['conversion_optimization', 'high_value_service_conversion'].includes(compressed.leadClass) && !highTicketRestaurantSignal(text)) {
-    painPenalty += 0.12
-    buyingPenalty += 0.08
-    level += 1
+    painPenalty += 0.16
+    buyingPenalty += 0.1
+    level += 2
     reasons.push('restaurant_generic_web_issue_lower_pressure')
   }
 
-  if (industry === 'lawyer' && compressed.leadClass === 'high_value_service_conversion') {
+  if (industry === 'restaurant' && hasStrongContactCta && compressed.leadClass === 'technical_redesign') {
     painPenalty += 0.08
-    buyingPenalty += 0.05
+    buyingPenalty += 0.04
     level += 1
+    reasons.push('restaurant_contact_maturity_lowers_fix_urgency')
+  }
+
+  if (industry === 'lawyer' && compressed.leadClass === 'high_value_service_conversion') {
+    painPenalty += hasStrongContactCta ? 0.14 : 0.1
+    buyingPenalty += hasStrongContactCta ? 0.08 : 0.06
+    level += hasStrongContactCta ? 2 : 1
     reasons.push('law_firm_service_line_lower_immediate_pressure')
   }
 
@@ -236,7 +294,7 @@ function resistanceProfile(item = {}, compressed = {}, industry = 'unknown') {
     reasons.push('no_obvious_primary_pain')
   }
 
-  return { painPenalty, buyingPenalty, reasons, level }
+  return { painPenalty, buyingPenalty, reasons, level, hasStrongContactCta, hasVisibleContactPath, hasContactability }
 }
 
 function highTicketRestaurantSignal(text) {
