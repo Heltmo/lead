@@ -168,7 +168,7 @@ const strategies = {
     primaryOpportunity: () => 'The clinic appears to be in a brand transition, but the website identity is not fully aligned across name, title, and domain.',
     whyThisMatters: (ctx) => [
       brandMismatchSummary(ctx),
-      'Brand inconsistency can weaken local search trust and make patients unsure which clinic they are contacting.',
+      'Brand inconsistency can weaken local search trust and make visitors unsure which business they are contacting.',
       contactSummary(ctx),
     ],
     outreachAngle: () => 'Focus on cleaning up brand, title, domain, and local search consistency before broader redesign work.',
@@ -181,9 +181,9 @@ const strategies = {
     whyThisMatters: (ctx) => [
       trustSummary(ctx) || 'The clinic already has visible trust signals.',
       modernSiteSummary(ctx),
-      signalSummary(ctx, 'high_value_service') || signalSummary(ctx, 'specialist_service') || 'Specific treatment or patient segments can be promoted through focused landing paths.',
+      signalSummary(ctx, 'high_value_service') || signalSummary(ctx, 'specialist_service') || 'Specific services or customer segments can be promoted through focused landing paths.',
     ],
-    outreachAngle: () => 'Position the offer around campaign landing pages, treatment-specific funnels, or measurable new-patient growth instead of general website cleanup.',
+    outreachAngle: () => 'Position the offer around campaign landing pages, service-specific funnels, or measurable enquiry growth instead of general website cleanup.',
     callOpener: (ctx) => `I noticed ${ctx.name} already has a strong site and trust profile. Are you testing dedicated campaigns or landing pages for the treatments you most want to grow?`,
   },
   specialistVisibility: {
@@ -208,12 +208,12 @@ const strategies = {
       contactSummary(ctx),
     ],
     outreachAngle: () => 'Turn existing trust into more calls, bookings, or enquiries with a clearer conversion path.',
-    callOpener: (ctx) => `I noticed ${ctx.name} has solid local trust signals, but the website does not make the next step as clear as it could. Are new patient enquiries a current priority?`,
+    callOpener: (ctx) => `I noticed ${ctx.name} has solid local trust signals, but the website does not make the next step as clear as it could. Are new enquiries a current priority?`,
   },
   localSeoConsistency: {
     type: 'local_seo_consistency_gap',
     businessImpact: 'discovery',
-    primaryOpportunity: () => 'The business is contactable, but search identity and page structure may make it harder for local patients to evaluate quickly.',
+    primaryOpportunity: () => 'The business is contactable, but search identity and page structure may make it harder for local visitors to evaluate quickly.',
     whyThisMatters: (ctx) => [
       ctx.pageTitle ? `Current page title: ${ctx.pageTitle}.` : '',
       issueIncludes(ctx, 'Expected exactly one h1') ? 'The audit found weak H1 structure, which can reduce page clarity.' : '',
@@ -225,38 +225,38 @@ const strategies = {
   bookingVisibility: {
     type: 'booking_visibility_gap',
     businessImpact: 'conversion',
-    primaryOpportunity: () => 'High-intent patients may drop off before booking because the booking path exists but is not visually dominant.',
+    primaryOpportunity: () => 'High-intent visitors may drop off before booking or enquiry because the next-step path exists but is not visually dominant.',
     whyThisMatters: (ctx) => [
       signalSummary(ctx, 'online_booking') || 'Online booking exists.',
       signalSummary(ctx, 'missing_primary_cta') || 'The audit still found weak primary CTA visibility.',
       trustSummary(ctx) || signalSummary(ctx, 'high_value_service') || signalSummary(ctx, 'specialist_service') || 'The clinic has enough demand signals to make booking clarity commercially relevant.',
     ],
-    outreachAngle: () => 'Focus on making the treatment-to-booking path visible and obvious for new patients.',
-    callOpener: (ctx) => `I noticed ${ctx.name} already has online booking, but it is harder to spot than expected. Is improving patient booking conversion something you are actively looking at?`,
+    outreachAngle: () => 'Focus on making the service-to-booking path visible and obvious for new customers or clients.',
+    callOpener: (ctx) => `I noticed ${ctx.name} already has online booking, but it is harder to spot than expected. Is improving booking or enquiry conversion something you are actively looking at?`,
   },
   bookingFriction: {
     type: 'conversion_path_friction',
     businessImpact: 'conversion',
-    primaryOpportunity: () => 'Potential patient intent may leak because the website does not make the next action obvious enough.',
+    primaryOpportunity: () => 'Potential customer intent may leak because the website does not make the next action obvious enough.',
     whyThisMatters: (ctx) => [
       signalSummary(ctx, 'missing_primary_cta') || 'The audit found weak CTA clarity.',
       contactSummary(ctx),
       ctx.topIssues[0] ? `Supporting evidence: ${ctx.topIssues[0]}.` : '',
     ],
     outreachAngle: () => 'Improve first-screen CTA clarity and contact paths before broader redesign work.',
-    callOpener: (ctx) => `I noticed ${ctx.name}'s website could make the next patient action clearer. Do most new enquiries come through the site today?`,
+    callOpener: (ctx) => `I noticed ${ctx.name}'s website could make the next action clearer. Do most new enquiries come through the site today?`,
   },
   technicalTrust: {
     type: 'technical_trust_risk',
     businessImpact: 'trust',
-    primaryOpportunity: () => 'Technical issues may weaken trust even if the clinic itself appears contactable and operational.',
+    primaryOpportunity: () => 'Technical issues may weaken trust even if the business itself appears contactable and operational.',
     whyThisMatters: (ctx) => [
       failedRequestSummary(ctx),
       accessibilitySummary(ctx),
       contactSummary(ctx),
     ],
     outreachAngle: () => 'Frame the offer as a trust and reliability cleanup, not a generic redesign.',
-    callOpener: (ctx) => `I noticed ${ctx.name}'s site has a few technical reliability signals that could affect patient trust. Is website maintenance handled internally or by an external partner?`,
+    callOpener: (ctx) => `I noticed ${ctx.name}'s site has a few technical reliability signals that could affect visitor trust. Is website maintenance handled internally or by an external partner?`,
   },
   manualReview: {
     type: 'manual_review',
@@ -371,8 +371,8 @@ function urgency(ctx, strategy) {
 function isStrongModernSite(ctx) {
   const hasVendor = includesAny(ctx.text, ['dental markedsføring', 'utviklet av', 'webdesign', 'by '])
   const strongReviews = ctx.reviewCount >= 80 && Number(ctx.rating || 0) >= 4.7
-  const patientFlow = includesAny(ctx.text, ['ny pasient', 'nye pasient', 'fra bestilling til besøk', 'faste priser', 'uten skjulte kostnader'])
-  return Boolean(strongReviews && ctx.hasOnlineBooking && (hasVendor || patientFlow) && (ctx.phone || ctx.emailFound))
+  const customerFlow = includesAny(ctx.text, ['ny pasient', 'nye pasient', 'fra bestilling til besøk', 'faste priser', 'uten skjulte kostnader'])
+  return Boolean(strongReviews && ctx.hasOnlineBooking && (hasVendor || customerFlow) && (ctx.phone || ctx.emailFound))
 }
 
 function brandMismatchSummary(ctx) {
@@ -392,7 +392,7 @@ function brandMismatchSummary(ctx) {
 function modernSiteSummary(ctx) {
   if (includesAny(ctx.text, ['dental markedsføring'])) return 'The site appears professionally maintained by a dental marketing vendor, so generic redesign outreach is likely weak.'
   if (ctx.hasOnlineBooking && ctx.hasPricing && ctx.hasTeam) return 'Booking, pricing, and team trust signals are already present.'
-  if (ctx.hasOnlineBooking && ctx.hasNewPatientSignal) return 'The site already has a visible new-patient journey and booking path.'
+  if (ctx.hasOnlineBooking && ctx.hasNewPatientSignal) return 'The site already has a visible customer journey and booking path.'
   return 'The site already has several conversion and trust fundamentals in place.'
 }
 

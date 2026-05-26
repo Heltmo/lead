@@ -110,7 +110,7 @@ search phrase or spreadsheet
 
 The platform is in a human-aligned calibration phase. The technical pipeline works across discovery, audit, opportunity compression, commercial pressure scoring, review workspace, and CRM export. The current bottleneck is commercial realism: the system still over-promotes too many theoretical opportunities as high-priority calls.
 
-The latest cross-industry calibration batch across dentists, lawyers, electricians, plumbers, and restaurants produced:
+The initial cross-industry calibration batch across dentists, lawyers, electricians, plumbers, and restaurants produced:
 
 ```text
 Total:  23
@@ -120,7 +120,17 @@ Low:    1
 Verify: 1
 ```
 
-This is too high-priority biased. The next work should tune `core/commercial-pressure` toward scarce operator attention, false-positive reduction, vertical-aware weighting, and stronger penalties for polished/mature/low-pain businesses. See `CALIBRATION_SUMMARY.md`.
+After the first pressure-tuning pass, the same batch produced:
+
+```text
+Total:  23
+High:   7
+Medium: 9
+Low:    6
+Verify: 1
+```
+
+This is healthier but should still be validated against manual YES/MAYBE/NO/VERIFY labels. See `CALIBRATION_SUMMARY.md`.
 
 ## Lead Discovery Agent
 

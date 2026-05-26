@@ -12,7 +12,7 @@ Manual calibration was started across five vertical batches:
 - plumbers
 - restaurants
 
-Current aggregate from 23 reviewed candidates:
+Initial aggregate from 23 reviewed candidates before pressure tuning:
 
 ```text
 High:   15
@@ -21,7 +21,7 @@ Low:    1
 Verify: 1
 ```
 
-This is too high-priority biased. The system still treats too many theoretical opportunities as call-worthy leads.
+This was too high-priority biased. The system treated too many theoretical opportunities as call-worthy leads.
 
 Target distribution should be closer to:
 
@@ -30,6 +30,19 @@ High:   10-25%
 Medium: 30-50%
 Low/Verify: remainder
 ```
+
+## First Pressure Tuning Result
+
+After adding vertical-aware pressure modifiers and resistance penalties, the same 23-lead calibration set produced:
+
+```text
+High:   7
+Medium: 9
+Low:    6
+Verify: 1
+```
+
+This is materially healthier than the original distribution. It is still slightly high for a final production target, but HIGH is now much more reserved for obvious technical trust pain, strong local-service fit, or clearly call-worthy high-value service friction.
 
 ## What Works Best
 

@@ -4,7 +4,7 @@ The system now has working discovery, Google Places/Brave/manual source support,
 
 ## Priority 1: Human-Aligned Commercial Pressure Calibration
 
-The current cross-industry calibration batch produced:
+The initial cross-industry calibration batch produced:
 
 ```text
 Total:  23
@@ -14,7 +14,16 @@ Low:    1
 Verify: 1
 ```
 
-This is too high-priority biased. The system is still more opportunity-biased than operator-time-biased.
+First pressure tuning reduced the same batch to:
+
+```text
+High:   7
+Medium: 9
+Low:    6
+Verify: 1
+```
+
+This is much healthier, but calibration should continue against manual YES/MAYBE/NO/VERIFY labels. The system may still be slightly high-priority biased.
 
 Target distribution:
 
