@@ -126,6 +126,9 @@ function collectEvidence(item = {}) {
   const emails = normalizeArray(item.emails)
   const technologies = normalizeArray(item.technologies)
   const businessSignalProfile = item.businessSignalProfile || buildBusinessSignalProfile(item)
+  const contactCtaSignal = (businessSignalProfile.signals || []).find((signal) => signal.id === 'visible_contact_cta_path')
+  const hasStrongContactCta = Boolean(contactCtaSignal?.observation?.hasStrongPrimaryCta)
+  const filteredIssues = hasStrongContactCta ? issues.filter((issue) => !/no clear cta|missing cta/i.test(issue)) : issues
   return {
     name: clean(item.name || meta.businessName || item.title || item.pageTitle || 'this business'),
     website: clean(item.url),
@@ -144,14 +147,15 @@ function collectEvidence(item = {}) {
     businessSignalProfile,
     categories,
     issues,
-    topIssues: issues.slice(0, 4),
+    topIssues: filteredIssues.slice(0, 4),
     issueText,
     emails,
     phones,
     responseStatus: numeric(performance.responseStatus, 0),
     failedRequestCount: numeric(performance.failedRequestCount, 0),
     consoleErrorCount: numeric(performance.consoleErrorCount, 0),
-    missingCta: hasCategory(categories, 'conversion') || includesAny(issueText, ['no clear cta', 'missing cta']),
+    hasStrongContactCta,
+    missingCta: (hasCategory(categories, 'conversion') || includesAny(issueText, ['no clear cta', 'missing cta'])) && !hasStrongContactCta,
     accessibility: hasCategory(categories, 'accessibility') || issueText.includes('accessibility'),
     seo: hasCategory(categories, 'seo') || includesAny(issueText, ['h1', 'meta description', 'seo']),
     failedRequests: numeric(performance.failedRequestCount, 0) > 0 || includesAny(issueText, ['failed request', 'failed network']),
@@ -163,44 +167,44 @@ function selectPrimaryIssue(e) {
   const rules = [
     {
       active: hasSignal(e, 'online_booking') && e.missingCta && (hasSignal(e, 'specialist_service') || hasSignal(e, 'new_patient_signal')),
-      problem: 'Strong services exist, but booking is not promoted clearly enough',
-      offer: 'Make booking, specialist services, and new-patient paths clearer above the fold',
-      angle: (x) => `${x.name} already has useful commercial signals: ${businessSignalSummary(x)}. The site also has an online booking path, but the audit did not detect it as a clear primary CTA. The better angle is to make existing strengths easier to act on, not to pitch a generic redesign.`,
-      opener: (x) => `Hi, I noticed ${x.name} already presents ${businessSignalSummary(x)} but the booking path is not very obvious in the audit. Would it be useful to make booking and key treatments easier for new patients to find?`,
+      problem: 'Strong services exist, but the service-to-enquiry path could be sharper',
+      offer: 'Make key services and enquiry paths clearer above the fold',
+      angle: (x) => `${x.name} already has useful commercial signals: ${businessSignalSummary(x)}. The better angle is to connect those strengths more directly to enquiry, not to pitch a generic redesign.`,
+      opener: (x) => `Hi, I noticed ${x.name} already presents ${businessSignalSummary(x)}. Would it be useful to make the path from key services to enquiry clearer?`,
     },
     {
       active: hasSignal(e, 'specialist_service') && (hasSignal(e, 'local_review_proof') || e.reviewCount),
-      problem: 'Orthodontics and specialist positioning could be turned into a clearer acquisition path',
-      offer: 'Build a clearer orthodontics/new-patient landing path',
-      angle: (x) => `${x.name} mentions ${businessSignalSummary(x)}. That creates a stronger outreach angle around service growth and patient acquisition than only talking about technical website issues.`,
-      opener: (x) => `Hi, I noticed ${x.name} highlights orthodontics/specialist services. Are you currently trying to get more patients for those treatments through the website?`,
+      problem: 'High-value services could be turned into a clearer acquisition path',
+      offer: 'Build a clearer service-line landing or enquiry path',
+      angle: (x) => `${x.name} mentions ${businessSignalSummary(x)}. That creates a stronger outreach angle around service growth than only talking about technical website issues.`,
+      opener: (x) => `Hi, I noticed ${x.name} highlights high-value services. Are you currently trying to get more enquiries for those services through the website?`,
     },
     {
       active: e.responseStatus >= 400,
       problem: 'Website availability issue',
       offer: 'Fix the broken availability path and verify the main contact journey',
-      angle: (x) => `${x.name} is listed as operational, but the audited website returned HTTP ${x.responseStatus}. That is a direct reason to verify whether potential patients can reach the clinic online.`,
-      opener: (x) => `Hi, I found ${x.name} through Google Places and noticed the website returned HTTP ${x.responseStatus} during a browser audit. Is the website still the main way patients find you?`,
+      angle: (x) => `${x.name} is listed as operational, but the audited website returned HTTP ${x.responseStatus}. That is a direct reason to verify whether potential customers can reach the business online.`,
+      opener: (x) => `Hi, I found ${x.name} through Google Places and noticed the website returned HTTP ${x.responseStatus} during a browser audit. Is the website still the main way customers find you?`,
     },
     {
       active: e.failedRequests && e.missingCta,
-      problem: 'Booking path is unclear and the page has failed requests',
-      offer: 'Repair failed resources and make booking/contact actions clearer',
-      angle: (x) => `${x.name} ${reviewProof(x)} and ${contactPath(x)}, but the site audit found no clear booking CTA plus ${x.failedRequestCount} failed request(s)${techContext(x)}. That makes the call about protecting an existing local reputation, not selling a generic redesign.`,
-      opener: (x) => `Hi, I noticed ${x.name} ${reviewProof(x)}, but the website audit found no clear booking CTA and ${x.failedRequestCount} failed request(s). Are online bookings or contact requests important for you right now?`,
+      problem: 'Technical reliability issues may weaken the contact journey',
+      offer: 'Repair failed resources and protect the enquiry path',
+      angle: (x) => `${x.name} ${reviewProof(x)} and ${contactPath(x)}, but the site audit found ${x.failedRequestCount} failed request(s)${techContext(x)}. That makes the call about protecting an existing local reputation, not selling a generic redesign.`,
+      opener: (x) => `Hi, I noticed ${x.name} ${reviewProof(x)}, but the website audit found ${x.failedRequestCount} failed request(s). Is the website an important source of enquiries for you right now?`,
     },
     {
       active: e.missingCta,
-      problem: 'The site does not make the next patient action obvious',
-      offer: 'Add a clearer booking/contact section and improve the first-screen conversion path',
-      angle: (x) => `${x.name} ${reviewProof(x)} and ${contactPath(x)}, but the website audit did not detect a clear primary CTA${techContext(x)}. The call angle is about turning existing search interest into an easier booking or enquiry path.`,
-      opener: (x) => `Hi, I was looking at ${x.name}'s website after finding the clinic in Google Places. The audit did not find a clear booking or contact CTA. Do most new patient enquiries come through the website or by phone?`,
+      problem: 'The site could make the next action clearer',
+      offer: 'Improve first-screen enquiry/contact clarity',
+      angle: (x) => `${x.name} ${reviewProof(x)} and ${contactPath(x)}, but the website audit suggests the primary action could be clearer${techContext(x)}. The call angle is about turning existing search interest into an easier enquiry path.`,
+      opener: (x) => `Hi, I was looking at ${x.name}'s website after finding the business in Google Places. Do most new enquiries come through the website or by phone?`,
     },
     {
       active: e.accessibility,
       problem: 'Accessibility issues may reduce trust and usability',
       offer: 'Accessibility and readability cleanup for key pages',
-      angle: (x) => `${x.name} has public rating/contact data, but the audit found accessibility issues. For a healthcare business, readability and clear interaction paths are useful trust signals.`,
+      angle: (x) => `${x.name} has public rating/contact data, but the audit found accessibility issues. Readability and clear interaction paths are useful trust signals.`,
       opener: (x) => `Hi, I noticed ${x.name}'s website has accessibility findings in a browser audit. Would it be useful if I showed you the specific issues affecting readability and usability?`,
     },
     {
@@ -208,7 +212,7 @@ function selectPrimaryIssue(e) {
       problem: 'Basic page structure is weak for local discovery',
       offer: 'Local SEO structure cleanup for title, headings, and metadata',
       angle: (x) => `${x.name} is discoverable in Google Places, but the website audit found basic SEO structure issues such as heading or metadata gaps. That gives a narrow local-search improvement angle.`,
-      opener: (x) => `Hi, I found ${x.name} in local search and noticed the website has basic SEO structure gaps. Do you actively work on local visibility for new patients?`,
+      opener: (x) => `Hi, I found ${x.name} in local search and noticed the website has basic SEO structure gaps. Do you actively work on local visibility for new enquiries?`,
     },
     {
       active: e.consoleErrors || e.failedRequests,
@@ -257,7 +261,8 @@ function businessSignalSummary(e) {
     online_booking: 'online booking',
     specialist_service: 'tannregulering/specialist positioning',
     team_authority: 'team/competence content',
-    new_patient_signal: 'new-patient messaging',
+    new_patient_signal: 'new-customer messaging',
+    visible_contact_cta_path: 'visible contact/enquiry path',
     pricing_transparency: 'pricing information',
     local_review_proof: 'local review proof',
   }

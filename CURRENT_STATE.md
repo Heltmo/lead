@@ -104,6 +104,7 @@ search phrase or spreadsheet
 - generated demo paths for shortlisted or top opportunity leads
 - on-demand selected-lead demo generation from existing runs
 - downstream opportunity compression and commercial pressure scoring for operator triage
+- vertical-aware CTA/contact profile recognition that suppresses false no-CTA reasoning when contact paths are visible
 - Git-tracked capability evolution
 
 ## Current Calibration Phase

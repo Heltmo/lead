@@ -145,7 +145,8 @@ function render() {
 function renderCard(item) {
   const el = document.createElement('article');
   el.className = 'lead ' + opportunityClass(item);
-  const topIssues = item.issues.length ? item.issues.slice(0, 3) : ['No issues recorded'];
+  const visibleIssues = filteredIssues(item);
+  const topIssues = visibleIssues.length ? visibleIssues.slice(0, 3) : ['No issues recorded'];
   const painPoints = (item.opportunityBullets.painPointBullets || []).slice(0, 3);
   const insight = item.leadInsight || {};
   const signalProfile = item.businessSignalProfile || {};
@@ -186,6 +187,13 @@ function renderCard(item) {
     '<div class="links">' + link('HTML report', item.links.htmlReport) + link('JSON', item.links.jsonArtifact) + link('Desktop screenshot', item.links.desktopScreenshot) + link('Mobile screenshot', item.links.mobileScreenshot) + '</div>';
   return el;
 }
+function filteredIssues(item) {
+  const profile = item.businessSignalProfile || {};
+  const strongContactPath = (profile.signals || []).some((signal) => signal.id === 'visible_contact_cta_path' && signal.observation && signal.observation.hasStrongPrimaryCta);
+  if (!strongContactPath) return item.issues || [];
+  return (item.issues || []).filter((issue) => !/no clear cta|missing cta/i.test(issue));
+}
+
 function businessSignalsHtml(profile) {
   const signals = (profile.signals || []).slice(0, 4);
   const contradictions = (profile.contradictions || []).slice(0, 3);

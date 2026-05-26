@@ -1,3 +1,4 @@
+const { buildContactCtaProfile } = require('../website-audit-agent/extractors/contactCtaProfile')
 function buildBusinessSignalProfile(item = {}) {
   const evidence = collectEvidence(item)
   const signals = [
@@ -8,6 +9,7 @@ function buildBusinessSignalProfile(item = {}) {
     pricingTransparencySignal(evidence),
     socialPresenceSignal(evidence),
     newPatientSignal(evidence),
+    contactCtaProfileSignal(evidence),
     missingPrimaryCtaSignal(evidence),
     localTrustSignal(evidence),
     contactabilitySignal(evidence),
@@ -35,6 +37,14 @@ function collectEvidence(item = {}) {
   const emails = normalizeArray(item.emails)
   const technologies = normalizeArray(item.technologies)
   const searchText = [item.pageTitle, item.title, pageSignals.metaDescription, ...headings, ...linkTexts, ...pageLinks.map((link) => link.href)].join(' ').toLowerCase()
+  const contactCtaProfile = pageSignals.contactCtaProfile || buildContactCtaProfile({
+    texts: [item.pageTitle, item.title, pageSignals.metaDescription, ...headings],
+    links: pageLinks,
+    emails,
+    phones,
+    hasForm: Boolean(pageSignals.hasForm),
+  })
+  const suppressedNoCta = Boolean(contactCtaProfile.hasStrongPrimaryCta && (hasCategory(categories, 'conversion') || includesAny(issueText, ['no clear cta', 'missing cta'])))
   return {
     businessName: clean(item.name || meta.businessName || item.title || item.pageTitle || ''),
     pageTitle: clean(item.pageTitle || item.title),
@@ -60,7 +70,9 @@ function collectEvidence(item = {}) {
     },
     emails,
     phones,
-    missingCta: hasCategory(categories, 'conversion') || includesAny(issueText, ['no clear cta', 'missing cta']),
+    contactCtaProfile,
+    missingCta: (hasCategory(categories, 'conversion') || includesAny(issueText, ['no clear cta', 'missing cta'])) && !contactCtaProfile.hasStrongPrimaryCta,
+    suppressedNoCta,
   }
 }
 
@@ -174,6 +186,29 @@ function newPatientSignal(e) {
     confidence: 0.82,
     observation: { exists: true, evidence: matchedHeadings(e, ['nye pasienter', 'aremark-pasienter', 'velkommen til nye']) },
     interpretation: { businessImpact: 'conversion', opportunity: 'new_patient_acquisition' },
+  })
+}
+
+function contactCtaProfileSignal(e) {
+  const profile = e.contactCtaProfile || {}
+  if (!profile.hasVisibleContactPath) return null
+  return signal({
+    id: 'visible_contact_cta_path',
+    category: 'conversion',
+    strength: profile.hasStrongPrimaryCta ? 0.76 : 0.56,
+    confidence: Number(profile.confidence || 0.68),
+    observation: {
+      exists: true,
+      hasStrongPrimaryCta: Boolean(profile.hasStrongPrimaryCta),
+      contactMethods: profile.contactMethods || [],
+      verticalCtaType: profile.verticalCtaType || 'general_contact',
+      evidence: (profile.evidence || profile.ctaTerms || []).slice(0, 4).join(' | '),
+      suppressedNoCta: Boolean(e.suppressedNoCta),
+    },
+    interpretation: {
+      businessImpact: 'conversion',
+      opportunity: profile.hasStrongPrimaryCta ? 'contact_path_maturity' : 'contact_path_visibility',
+    },
   })
 }
 

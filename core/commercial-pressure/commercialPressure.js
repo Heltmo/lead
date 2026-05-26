@@ -177,6 +177,9 @@ function resistanceProfile(item = {}, compressed = {}, industry = 'unknown') {
   const reviewCount = Number(meta.reviewCount || 0)
   const rating = Number(meta.rating || 0)
   const hasOnlineBooking = signals.some((signal) => signal.id === 'online_booking')
+  const contactCtaSignal = signals.find((signal) => signal.id === 'visible_contact_cta_path')
+  const hasStrongContactCta = Boolean(contactCtaSignal?.observation?.hasStrongPrimaryCta)
+  const hasVisibleContactPath = Boolean(contactCtaSignal || item.pageSignals?.contactCtaProfile?.hasVisibleContactPath)
   const hasContactability = signals.some((signal) => signal.id === 'contactability')
   const hasMissingCta = signals.some((signal) => signal.id === 'missing_primary_cta') || Number((item.issueCategories || {}).conversion || 0) > 0
   const reasons = []
@@ -187,8 +190,15 @@ function resistanceProfile(item = {}, compressed = {}, industry = 'unknown') {
   const polished = compressed.leadClass === 'campaign_optimization' || includesAny(text, ['dental markedsføring', 'utviklet av', 'webdesign', 'wix', 'squarespace'])
   if (polished) { painPenalty += 0.12; buyingPenalty += 0.06; level += 1; reasons.push('polished_or_vendor_built_site') }
 
-  const strongConversion = hasOnlineBooking && hasContactability && !hasMissingCta
+  const strongConversion = (hasOnlineBooking || hasStrongContactCta) && hasContactability && !hasMissingCta
   if (strongConversion) { painPenalty += 0.18; buyingPenalty += 0.1; level += 2; reasons.push('strong_existing_conversion_flow') }
+
+  if (hasStrongContactCta && ['high_value_service_conversion', 'conversion_optimization'].includes(compressed.leadClass)) {
+    painPenalty += 0.1
+    buyingPenalty += 0.04
+    level += 1
+    reasons.push('clear_contact_path_reduces_cta_pain')
+  }
 
   const matureBrand = reviewCount >= 120 && rating >= 4.6 && hasContactability
   if (matureBrand && compressed.leadClass !== 'technical_redesign') { painPenalty += 0.08; buyingPenalty += 0.05; level += 1; reasons.push('mature_local_brand') }
@@ -198,6 +208,13 @@ function resistanceProfile(item = {}, compressed = {}, industry = 'unknown') {
 
   const publicSector = includesAny(String(item.url || meta.website || ''), ['.kommune.no', 'ofk.no', 'fylkeskommune'])
   if (publicSector) { painPenalty += 0.22; buyingPenalty += 0.2; level += 3; reasons.push('public_sector_low_fit') }
+
+  if (String(item.status || '').toLowerCase() === 'failed' && (chainLike || publicSector) && hasVisibleContactPath) {
+    painPenalty += 0.12
+    buyingPenalty += 0.16
+    level += 2
+    reasons.push('audit_failed_chain_or_enterprise_verify')
+  }
 
   if (industry === 'restaurant' && ['conversion_optimization', 'high_value_service_conversion'].includes(compressed.leadClass) && !highTicketRestaurantSignal(text)) {
     painPenalty += 0.12

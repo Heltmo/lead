@@ -9,7 +9,7 @@
   "scripts": {
     "audit": "node cli/audit-url.js",
     "audit:batch": "node cli/audit-batch.js",
-    "test": "node tests/smoke.test.js && node tests/batch.test.js && node tests/reportSurfaces.test.js",
+    "test": "node tests/contactCtaProfile.test.js && node tests/smoke.test.js && node tests/batch.test.js && node tests/reportSurfaces.test.js",
     "reports": "node cli/generate-reports.js"
   },
   "keywords": [],

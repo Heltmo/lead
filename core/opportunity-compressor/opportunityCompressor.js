@@ -77,6 +77,9 @@ function collectContext(item, profile, insight) {
     hasHighValueService: hasSignalId(signalById, 'high_value_service') || hasSignalId(signalById, 'specialist_service'),
     hasSpecialist: hasSignalId(signalById, 'specialist_service'),
     hasReviews: hasSignalId(signalById, 'local_review_proof'),
+    hasVisibleContactCta: hasSignalId(signalById, 'visible_contact_cta_path'),
+    hasStrongContactCta: Boolean(signalById.get('visible_contact_cta_path')?.observation?.hasStrongPrimaryCta),
+    contactCtaType: clean(signalById.get('visible_contact_cta_path')?.observation?.verticalCtaType || ''),
     hasTeam: hasSignalId(signalById, 'team_authority'),
     hasPricing: hasSignalId(signalById, 'pricing_transparency'),
     hasNewPatientSignal: hasSignalId(signalById, 'new_patient_signal'),
@@ -193,7 +196,7 @@ const strategies = {
     whyThisMatters: (ctx) => [
       signalSummary(ctx, 'high_value_service') || signalSummary(ctx, 'specialist_service') || 'High-value services are promoted.',
       signalSummary(ctx, 'online_booking') || 'A booking or enquiry path exists but needs clearer connection to services.',
-      signalSummary(ctx, 'missing_primary_cta') || 'The next action is not prominent enough.',
+      ctx.hasStrongContactCta ? 'Contact paths exist, but service pages could connect more directly to enquiry.' : signalSummary(ctx, 'missing_primary_cta') || 'The next action is not prominent enough.',
     ],
     outreachAngle: () => 'Connect high-value service pages directly to booking or enquiry so interested visitors know exactly what to do next.',
     callOpener: (ctx) => `I noticed ${ctx.name} promotes high-value services, but the path from service interest to booking or enquiry could be sharper. Are those services an area you want more enquiries for?`,
@@ -204,7 +207,7 @@ const strategies = {
     primaryOpportunity: () => 'Strong local trust signals are not being translated into a clear next-step action on the website.',
     whyThisMatters: (ctx) => [
       trustSummary(ctx) || 'Google review proof is present.',
-      signalSummary(ctx, 'missing_primary_cta') || 'The main next action is not clear enough.',
+      ctx.hasStrongContactCta ? 'Contact paths are visible, so the opportunity is sharper conversion from trust to enquiry rather than basic CTA cleanup.' : signalSummary(ctx, 'missing_primary_cta') || 'The main next action is not clear enough.',
       contactSummary(ctx),
     ],
     outreachAngle: () => 'Turn existing trust into more calls, bookings, or enquiries with a clearer conversion path.',
@@ -228,7 +231,7 @@ const strategies = {
     primaryOpportunity: () => 'High-intent visitors may drop off before booking or enquiry because the next-step path exists but is not visually dominant.',
     whyThisMatters: (ctx) => [
       signalSummary(ctx, 'online_booking') || 'Online booking exists.',
-      signalSummary(ctx, 'missing_primary_cta') || 'The audit still found weak primary CTA visibility.',
+      ctx.hasStrongContactCta ? 'Contact or booking actions are visible, but prominence and service connection can still be improved.' : signalSummary(ctx, 'missing_primary_cta') || 'The audit still found weak primary CTA visibility.',
       trustSummary(ctx) || signalSummary(ctx, 'high_value_service') || signalSummary(ctx, 'specialist_service') || 'The clinic has enough demand signals to make booking clarity commercially relevant.',
     ],
     outreachAngle: () => 'Focus on making the service-to-booking path visible and obvious for new customers or clients.',
@@ -239,7 +242,7 @@ const strategies = {
     businessImpact: 'conversion',
     primaryOpportunity: () => 'Potential customer intent may leak because the website does not make the next action obvious enough.',
     whyThisMatters: (ctx) => [
-      signalSummary(ctx, 'missing_primary_cta') || 'The audit found weak CTA clarity.',
+      ctx.hasStrongContactCta ? 'Contact paths exist, so review whether the first-screen action is prominent enough.' : signalSummary(ctx, 'missing_primary_cta') || 'The audit found weak CTA clarity.',
       contactSummary(ctx),
       ctx.topIssues[0] ? `Supporting evidence: ${ctx.topIssues[0]}.` : '',
     ],
@@ -285,6 +288,7 @@ function modernCampaignScore(ctx) {
   if (isStrongModernSite(ctx)) score += 0.95
   if (ctx.hasHighValueService) score += 0.18
   if (ctx.hasNewPatientSignal) score += 0.12
+  if (ctx.hasStrongContactCta) score += 0.08
   if (hasContradiction(ctx, 'booking_exists_but_cta_weak')) score -= 0.2
   if (brandIdentityScore(ctx) > 0.8) score -= 0.5
   return score
@@ -295,6 +299,7 @@ function specialistScore(ctx) {
   if (ctx.hasHighValueService) score += 0.72
   if (hasContradiction(ctx, 'high_value_service_but_weak_action_path')) score += 0.28
   if (ctx.hasOnlineBooking) score += 0.1
+  if (ctx.hasStrongContactCta) score -= 0.16
   if (isStrongModernSite(ctx)) score -= 0.22
   if (brandIdentityScore(ctx) > 0.8) score -= 0.3
   return score
@@ -306,6 +311,7 @@ function trustScore(ctx) {
   else if (ctx.reviewCount >= 20) score += 0.48
   else if (ctx.reviewCount > 0) score += 0.22
   if (hasContradiction(ctx, 'strong_reviews_but_weak_conversion')) score += 0.2
+  if (ctx.hasStrongContactCta) score -= 0.18
   if (isStrongModernSite(ctx)) score -= 0.3
   if (brandIdentityScore(ctx) > 0.8) score -= 0.35
   return score
@@ -322,8 +328,8 @@ function localSeoScore(ctx) {
 
 function bookingVisibilityScore(ctx) {
   let score = 0
-  if (hasContradiction(ctx, 'booking_exists_but_cta_weak')) score += 0.62
-  if (ctx.hasOnlineBooking && ctx.hasMissingCta) score += 0.12
+  if (hasContradiction(ctx, 'booking_exists_but_cta_weak')) score += ctx.hasStrongContactCta ? 0.28 : 0.62
+  if (ctx.hasOnlineBooking && ctx.hasMissingCta) score += ctx.hasStrongContactCta ? 0.04 : 0.12
   if (ctx.hasHighValueService) score -= 0.22
   if (isStrongModernSite(ctx)) score -= 0.4
   if (brandIdentityScore(ctx) > 0.8) score -= 0.45
@@ -332,8 +338,8 @@ function bookingVisibilityScore(ctx) {
 
 function bookingFrictionScore(ctx) {
   let score = 0
-  if (ctx.hasMissingCta) score += 0.46
-  if (!ctx.hasOnlineBooking) score += 0.12
+  if (ctx.hasMissingCta) score += ctx.hasStrongContactCta ? 0.12 : 0.46
+  if (!ctx.hasOnlineBooking) score += ctx.hasVisibleContactCta ? 0.02 : 0.12
   if (ctx.phone || ctx.emailFound) score += 0.08
   if (isStrongModernSite(ctx)) score -= 0.28
   if (brandIdentityScore(ctx) > 0.8) score -= 0.3
@@ -362,7 +368,7 @@ function urgency(ctx, strategy) {
   if (ctx.reviewCount >= 100) score += 0.12
   else if (ctx.reviewCount >= 20) score += 0.08
   if (ctx.hasOnlineBooking) score += 0.06
-  if (ctx.hasMissingCta && !isStrongModernSite(ctx)) score += 0.08
+  if (ctx.hasMissingCta && !isStrongModernSite(ctx) && !ctx.hasStrongContactCta) score += 0.08
   if (ctx.hasHighValueService) score += 0.06
   if (!ctx.phone) score -= 0.2
   return score
@@ -401,7 +407,7 @@ function signalSummary(ctx, id) {
   if (!signal) return ''
   const evidence = signal.observation?.evidence || signal.interpretation?.opportunity || id
   if (id === 'online_booking') return signal.observation?.ctaProminence < 0.45 ? 'Online booking exists, but its CTA prominence is low.' : 'Online booking exists.'
-  if (id === 'missing_primary_cta') return 'The audit classified the page as missing a clear primary CTA.'
+  if (id === 'missing_primary_cta') return ctx.hasVisibleContactCta ? 'Contact evidence exists, but primary action prominence may still need review.' : 'The audit classified the page as missing a clear primary CTA.'
   if (id === 'high_value_service') {
     const detail = evidence && evidence !== 'high_value_service_conversion' ? ` (${evidence})` : ''
     return `High-value service positioning is visible${detail}.`

@@ -1,11 +1,13 @@
+const { buildContactCtaProfile } = require('../../website-audit-agent/extractors/contactCtaProfile')
 function buildSuggestedAngle(item) {
   const issues = normalizeText((item.issues || []).join(' '))
   const categories = item.issueCategories || {}
   const responseStatus = Number(item.performance?.responseStatus || 0)
   const failedRequestCount = Number(item.performance?.failedRequestCount || 0)
   const consoleErrorCount = Number(item.performance?.consoleErrorCount || 0)
-  const missingContact = !hasAny(item.emails) && !hasAny(item.phones)
-  const missingCta = includesAny(issues, ['no clear cta', 'missing cta'])
+  const contactProfile = contactCtaProfile(item)
+  const missingContact = !hasAny(item.emails) && !hasAny(item.phones) && !contactProfile.hasVisibleContactPath
+  const missingCta = includesAny(issues, ['no clear cta', 'missing cta']) && !contactProfile.hasStrongPrimaryCta
   const missingMeta = issues.includes('meta description')
   const missingH1 = issues.includes('h1')
   const hasAccessibility = (categories.accessibility || 0) > 0 || issues.includes('accessibility')
@@ -25,19 +27,19 @@ function buildSuggestedAngle(item) {
   }
 
   if (missingCta && browserIssues) {
-    return angle('Conversion and technical friction', 'Visitors may not know how to book or request help because the site lacks a clear CTA, and the browser observed ' + browserIssues + '.')
+    return angle('Conversion and technical friction', 'The page action could be clearer, and the browser observed ' + browserIssues + '.')
   }
 
   if (missingCta && hasPerformance) {
-    return angle('Booking and mobile performance', 'Visitors may not know how to book or request help, and performance or asset issues may make mobile browsing feel slower.')
+    return angle('Contact path and mobile performance', 'The main action could be more prominent, and performance or asset issues may make mobile browsing feel slower.')
   }
 
   if (missingCta && hasAccessibility) {
-    return angle('Booking and accessibility friction', 'Visitors may not know how to book or request help, and accessibility issues may make the page harder to use.')
+    return angle('Contact path and accessibility friction', 'The main action could be clearer, and accessibility issues may make the page harder to use.')
   }
 
   if (missingCta) {
-    return angle('Booking/contact friction', 'Visitors may not know how to book or request help because the site does not expose a clear primary CTA.')
+    return angle('Booking/contact friction', 'Visitors may need a clearer primary action before booking, enquiry, or contact.')
   }
 
   if (missingContact || (categories.contactability || 0) > 0) {
@@ -74,6 +76,23 @@ function suggestAngleDetail(item) {
 
 function angle(suggestedAngle, suggestedAngleDetail) {
   return { suggestedAngle, suggestedAngleDetail }
+}
+
+function contactCtaProfile(item) {
+  const signal = (item.businessSignalProfile?.signals || []).find((entry) => entry.id === 'visible_contact_cta_path')
+  if (signal) {
+    return {
+      hasVisibleContactPath: true,
+      hasStrongPrimaryCta: Boolean(signal.observation?.hasStrongPrimaryCta),
+    }
+  }
+  return item.pageSignals?.contactCtaProfile || buildContactCtaProfile({
+    texts: [item.title, item.pageTitle, item.pageSignals?.metaDescription, ...((item.pageSignals?.headings || []).map((heading) => heading.text || heading))],
+    links: item.pageSignals?.links || [],
+    emails: item.emails || [],
+    phones: item.phones || [],
+    hasForm: Boolean(item.pageSignals?.hasForm),
+  })
 }
 
 function hasAny(value) {

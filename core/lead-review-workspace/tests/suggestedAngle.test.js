@@ -12,18 +12,21 @@ const base = {
 
 assertAngle(item({ performance: { responseStatus: 404 } }), 'Website availability issue', 'HTTP 404', 'broken website angle should mention observed HTTP status')
 assertAngle(item({ issues: ['No clear CTA detected'], emails: [], phones: [] }), 'Booking/contact friction', 'no clear booking/contact CTA', 'missing CTA/contact angle should be specific')
-assertAngle(item({ issues: ['No clear CTA detected', 'Failed network requests detected'], performance: { responseStatus: 200, failedRequestCount: 2 } }), 'Conversion and technical friction', 'lacks a clear CTA, and the browser observed failed network requests', 'CTA angle should include technical evidence when present')
+assertAngle(item({ issues: ['No clear CTA detected', 'Failed network requests detected'], emails: [], phones: [], performance: { responseStatus: 200, failedRequestCount: 2 } }), 'Booking/contact friction', 'no clear booking/contact CTA', 'CTA plus missing contact should prioritize contact friction')
 assertAngle(item({ issues: ['Missing meta description', 'Missing H1'] }), 'SEO foundation gap', 'meta description and H1 heading', 'SEO angle should mention missing structure')
 assertAngle(item({ issueCategories: { accessibility: 1 } }), 'Accessibility/usability issue', 'Accessibility issues may make the site harder to use', 'accessibility angle should explain usability impact')
 assertAngle(item({ performance: { responseStatus: 200, failedRequestCount: 2, consoleErrorCount: 1 }, issues: ['Failed network requests detected', 'Console errors detected'] }), 'Technical trust issue', 'failed network requests and console errors', 'technical browser angle should include observed errors')
 assertAngle(item({ issueCategories: { performance: 1 }, technologies: ['WordPress'], issues: ['Oversized image assets detected'] }), 'Mobile performance issue', 'WordPress site shows performance or asset issues', 'performance angle should use technology context when available')
 assertAngle(item(), 'General improvement opportunity', 'measurable improvement signals', 'fallback angle should remain deterministic')
 
+const strongContactAngle = buildSuggestedAngle(item({ issues: ['No clear CTA detected', 'Failed network requests detected'], performance: { responseStatus: 200, failedRequestCount: 2 } }))
+assertEqual(strongContactAngle.suggestedAngle, 'Technical trust issue', 'strong contact path should suppress CTA angle when browser issues exist')
+
 const seo = item({ issues: ['Missing meta description'] })
 assertEqual(suggestAngle(seo), 'SEO foundation gap', 'suggestAngle helper should return label')
 assertIncludes(suggestAngleDetail(seo), 'meta description', 'suggestAngleDetail helper should return detail')
 
-const opportunity = buildOpportunityBullets(item({ issues: ['No clear CTA detected', 'Missing meta description'], issueCategories: { conversion: 1, seo: 1 }, technologies: ['WordPress'], leadScore: 48 }))
+const opportunity = buildOpportunityBullets(item({ issues: ['No clear CTA detected', 'Missing meta description'], emails: [], phones: [], issueCategories: { conversion: 1, seo: 1 }, technologies: ['WordPress'], leadScore: 48 }))
 assertEqual(opportunity.painPointBullets.length, 3, 'opportunity should include three pain-point bullets')
 assertIncludes(opportunity.painPointBullets.join(' '), 'clear primary CTA', 'opportunity should include CTA pain point')
 assertIncludes(opportunity.suggestedOffer, 'Booking/contact', 'opportunity should include deterministic suggested offer')

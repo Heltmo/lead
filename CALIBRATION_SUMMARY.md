@@ -227,3 +227,9 @@ discovery
 ```
 
 The real moat is not AI summaries. It is accurate commercial prioritization plus feedback learning from real sales outcomes.
+
+## CTA/Contact Recognition Calibration
+
+Manual review showed that many Norwegian sites had real contact paths even when the audit said `No clear CTA detected`. The system now builds a deterministic contact/CTA profile from phone, email, forms, links, and vertical CTA terms such as `Ring oss`, `Bestill time`, `Be om tilbud`, `Bestill bord`, and `Kontakt oss`.
+
+When a strong contact path exists, no-CTA language is suppressed in review reasoning, suggested angles, opportunity bullets, lead insights, and visible top evidence. This improves operator trust without adding new architecture.

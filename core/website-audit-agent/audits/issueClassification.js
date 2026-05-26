@@ -7,7 +7,11 @@ function classifyIssues(report) {
 
   if (!signals.metaDescription) add(issues, 'seo', 'medium', 'Missing meta description', 'Meta description is empty or absent.')
   if (h1Count !== 1) add(issues, 'seo', 'medium', `Expected exactly one h1, found ${h1Count}`, 'The page should expose one clear primary heading.')
-  if (signals.ctas.length === 0) add(issues, 'conversion', 'high', 'No clear CTA detected', 'No link text matched common action patterns.')
+  const contactCtaProfile = signals.contactCtaProfile || {}
+  const hasContactPath = Boolean(contactCtaProfile.hasVisibleContactPath)
+  const hasStrongCta = Boolean(contactCtaProfile.hasStrongPrimaryCta)
+  if (signals.ctas.length === 0 && !hasContactPath) add(issues, 'conversion', 'high', 'No clear CTA detected', 'No link text matched common action patterns.')
+  else if (!hasStrongCta && hasContactPath) add(issues, 'conversion', 'low', 'Contact path could be more prominent', 'The page exposes contact evidence, but the primary action could be clearer.')
   if (signals.emails.length === 0 && signals.phones.length === 0) add(issues, 'contactability', 'high', 'No email or phone detected', 'The page did not expose obvious contact details.')
   if ((accessibility?.seriousViolationCount ?? 0) > 0) add(issues, 'accessibility', 'high', 'Serious accessibility issues detected', `${accessibility.seriousViolationCount} serious or critical Axe violations found.`)
   if ((signals.socialLinks ?? []).length === 0) add(issues, 'trust', 'low', 'No social links detected', 'No common social profile links were found.')

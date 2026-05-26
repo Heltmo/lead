@@ -1,3 +1,4 @@
+const { buildContactCtaProfile } = require('../website-audit-agent/extractors/contactCtaProfile')
 const DEFAULT_PAIN_POINTS = [
   'The audit found measurable website friction that gives outreach a concrete starting point.',
   'The current page leaves room to make the next customer action clearer and easier to complete.',
@@ -32,7 +33,7 @@ function normalizeOpportunityBullets(input = {}) {
     source.outreachOpener &&
     source.whyThisLeadMatters
 
-  if (hasCompleteExisting) {
+  if (hasCompleteExisting && !shouldRebuildForSuppressedCta(input, existingPainPoints)) {
     return {
       painPointBullets: existingPainPoints.slice(0, 3),
       suggestedOffer: String(source.suggestedOffer),
@@ -42,6 +43,13 @@ function normalizeOpportunityBullets(input = {}) {
   }
 
   return buildOpportunityBullets(input)
+}
+
+function shouldRebuildForSuppressedCta(input, painPoints) {
+  const signal = (input.businessSignalProfile?.signals || []).find((entry) => entry.id === 'visible_contact_cta_path')
+  const strongContact = Boolean(signal?.observation?.hasStrongPrimaryCta)
+  if (!strongContact) return false
+  return painPoints.some((point) => /no clear cta|clear primary cta|booking or enquiry intent leak|visitors do not get a clear next step/i.test(String(point || '')))
 }
 
 function collectEvidence(input) {
@@ -57,6 +65,8 @@ function collectEvidence(input) {
   const emails = normalizeArray(input.emails ?? signals.emails)
   const phones = normalizeArray(input.phones ?? signals.phones)
   const ctas = normalizeArray(input.ctas ?? signals.ctas)
+  const pageSignals = input.pageSignals || signals
+  const contactProfile = contactCtaProfile(input, pageSignals, emails, phones)
   const technologies = normalizeTechnologies(input.technologies ?? input.technology?.technologies)
   const performance = normalizePerformance(input.performance)
   const sourceMetadata = input.sourceMetadata || {}
@@ -84,8 +94,8 @@ function collectEvidence(input) {
     consoleErrorCount: performance.consoleErrorCount,
     loadMs: performance.loadMs,
     transferSizeBytes: performance.transferSizeBytes,
-    missingCta: (categories.conversion || 0) > 0 || includesAny(issueText, ['no clear cta', 'missing cta']) || (hasCtaSignal && ctas.length === 0),
-    missingContact: (categories.contactability || 0) > 0 || includesAny(issueText, ['no email or phone', 'contactability']) || (hasContactSignal && emails.length === 0 && phones.length === 0),
+    missingCta: ((categories.conversion || 0) > 0 || includesAny(issueText, ['no clear cta', 'missing cta']) || (hasCtaSignal && ctas.length === 0)) && !contactProfile.hasStrongPrimaryCta,
+    missingContact: ((categories.contactability || 0) > 0 || includesAny(issueText, ['no email or phone', 'contactability']) || (hasContactSignal && emails.length === 0 && phones.length === 0)) && !contactProfile.hasVisibleContactPath,
     hasSeo: (categories.seo || 0) > 0 || includesAny(issueText, ['meta description', 'h1', 'seo']),
     hasAccessibility: (categories.accessibility || 0) > 0 || includesAny(issueText, ['accessibility', 'axe violation']),
     hasPerformance: (categories.performance || 0) > 0 || includesAny(issueText, ['slow', 'page transfer size', 'oversized image', 'performance']) || performance.loadMs > 3000 || performance.transferSizeBytes > 1500000,
@@ -181,6 +191,18 @@ function whyThisLeadMatters(evidence, selectedRules) {
   const scorePart = evidence.leadScore ? ` with a lead score of ${evidence.leadScore}` : ''
   const techPart = evidence.primaryTechnology ? ` and a detectable ${evidence.primaryTechnology} stack` : ''
   return `This lead matters because it has ${issueCount || 'multiple'} deterministic opportunity signal(s)${scorePart}${techPart}${location}, making the outreach angle specific and evidence-backed.`
+}
+
+function contactCtaProfile(input, pageSignals, emails, phones) {
+  const signal = (input.businessSignalProfile?.signals || []).find((entry) => entry.id === 'visible_contact_cta_path')
+  if (signal) return { hasVisibleContactPath: true, hasStrongPrimaryCta: Boolean(signal.observation?.hasStrongPrimaryCta) }
+  return pageSignals?.contactCtaProfile || buildContactCtaProfile({
+    texts: [input.title, input.pageTitle, pageSignals?.metaDescription, ...((pageSignals?.headings || []).map((heading) => heading.text || heading))],
+    links: pageSignals?.links || [],
+    emails,
+    phones,
+    hasForm: Boolean(pageSignals?.hasForm),
+  })
 }
 
 function normalizePerformance(performance = {}) {

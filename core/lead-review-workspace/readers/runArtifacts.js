@@ -48,6 +48,8 @@ function normalizeLead(lead, summaryItem, context) {
       headings: Array.isArray(report?.signals?.headings) ? report.signals.headings : [],
       ctas: Array.isArray(report?.signals?.ctas) ? report.signals.ctas : [],
       links: Array.isArray(report?.signals?.links) ? report.signals.links : [],
+      contactCtaProfile: report?.signals?.contactCtaProfile || null,
+      hasForm: Boolean(report?.signals?.hasForm),
       socialLinks: Array.isArray(report?.signals?.socialLinks) ? report.signals.socialLinks : [],
     },
     links: {

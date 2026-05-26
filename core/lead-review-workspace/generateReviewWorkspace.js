@@ -20,12 +20,20 @@ function generateReviewWorkspace(options) {
   fs.mkdirSync(outDir, { recursive: true })
   const insightCacheDir = path.join(outDir, 'lead-insights')
   const items = artifacts.items.map((item) => {
-    const base = { ...item, ...buildSuggestedAngle(item), opportunityBullets: normalizeOpportunityBullets(item), relativeLinks: relativizeLinks(item.links, outDir) }
+    const base = { ...item, relativeLinks: relativizeLinks(item.links, outDir) }
     const businessSignalProfile = buildBusinessSignalProfile(base)
-    const leadInsight = buildLeadInsight({ ...base, businessSignalProfile }, { cacheDir: insightCacheDir })
-    const compressedOpportunity = buildCompressedOpportunity({ ...base, businessSignalProfile, leadInsight })
-    const commercialPressure = buildCommercialPressure({ ...base, businessSignalProfile, leadInsight, compressedOpportunity })
-    return { ...base, businessSignalProfile, leadInsight, compressedOpportunity, commercialPressure }
+    const enriched = { ...base, businessSignalProfile }
+    const leadInsight = buildLeadInsight(enriched, { cacheDir: insightCacheDir })
+    const compressedOpportunity = buildCompressedOpportunity({ ...enriched, leadInsight })
+    const commercialPressure = buildCommercialPressure({ ...enriched, leadInsight, compressedOpportunity })
+    return {
+      ...enriched,
+      ...buildSuggestedAngle({ ...enriched, leadInsight, compressedOpportunity, commercialPressure }),
+      opportunityBullets: normalizeOpportunityBullets({ ...enriched, leadInsight, compressedOpportunity, commercialPressure }),
+      leadInsight,
+      compressedOpportunity,
+      commercialPressure,
+    }
   })
   const statusPath = path.join(outDir, 'review-status.json')
   const reviewStatus = loadOrCreateReviewStatus(statusPath, items)

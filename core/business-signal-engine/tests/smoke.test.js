@@ -27,11 +27,12 @@ assertSignal(profile, 'specialist_service')
 assertSignal(profile, 'team_authority')
 assertSignal(profile, 'pricing_transparency')
 assertSignal(profile, 'new_patient_signal')
-assertSignal(profile, 'missing_primary_cta')
-assertContradiction(profile, 'booking_exists_but_cta_weak')
-assertContradiction(profile, 'high_value_service_but_weak_action_path')
-assertContradiction(profile, 'strong_reviews_but_weak_conversion')
-assert(profile.topOpportunities.some((item) => item.id === 'booking_visibility'), 'booking visibility should be ranked as an opportunity')
+assertSignal(profile, 'visible_contact_cta_path')
+assert(!profile.signals.some((item) => item.id === 'missing_primary_cta'), 'strong booking/contact path should suppress missing_primary_cta')
+assert(!profile.contradictions.some((item) => item.id === 'booking_exists_but_cta_weak'), 'strong booking/contact path should suppress booking CTA contradiction')
+assert(!profile.contradictions.some((item) => item.id === 'high_value_service_but_weak_action_path'), 'strong booking/contact path should suppress high-value CTA contradiction')
+assert(!profile.contradictions.some((item) => item.id === 'strong_reviews_but_weak_conversion'), 'strong booking/contact path should suppress trust conversion contradiction')
+assert(profile.topOpportunities.some((item) => item.id === 'contact_path_maturity'), 'contact path maturity should be ranked as an opportunity')
 assert(profile.topOpportunities.some((item) => item.id === 'high_value_service_conversion'), 'high-value service conversion should be ranked as an opportunity')
 const booking = profile.signals.find((item) => item.id === 'online_booking')
 assert(typeof booking.strength === 'number', 'strength should be numeric')
@@ -61,5 +62,17 @@ const lawyerProfile = buildBusinessSignalProfile({
 })
 assertSignal(lawyerProfile, 'high_value_service')
 assert(!lawyerProfile.signals.some((item) => item.id === 'specialist_service'), 'lawyer high-value service should not use dentist specialist alias')
-assertContradiction(lawyerProfile, 'high_value_service_but_weak_action_path')
+assertSignal(lawyerProfile, 'visible_contact_cta_path')
+assert(!lawyerProfile.signals.some((item) => item.id === 'missing_primary_cta'), 'lawyer contact CTAs should suppress missing_primary_cta')
+assert(!lawyerProfile.contradictions.some((item) => item.id === 'high_value_service_but_weak_action_path'), 'lawyer contact CTAs should suppress high-value CTA contradiction')
 assert(lawyerProfile.topOpportunities.some((item) => item.id === 'high_value_service_conversion'), 'lawyer high-value service should create generic commercial opportunity')
+
+
+const weakProfile = buildBusinessSignalProfile({
+  name: 'Weak Local Site',
+  issueCategories: { conversion: 1 },
+  issues: ['No clear CTA detected'],
+  pageSignals: { headings: [{ level: 'h1', text: 'Weak Local Site' }], links: [] },
+})
+assertSignal(weakProfile, 'missing_primary_cta')
+assert(weakProfile.topOpportunities.some((item) => item.id === 'cta_clarity'), 'weak site without contact path should keep CTA clarity opportunity')
