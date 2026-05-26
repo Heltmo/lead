@@ -40,6 +40,11 @@ This file distinguishes operational capabilities from work that is not reliable 
 
 - scoring is deterministic and still early
 - issue weights will need calibration against real lead outcomes
+- commercial pressure scoring exists, but the first cross-industry batch is still too high-priority biased
+- the system currently over-scores some high-value-service and trust/conversion opportunities when sites are already modern, polished, or marketing-aware
+- vertical-aware pressure weighting is incomplete; the same signal can still create too much pressure across unrelated industries
+- negative indicators such as polished vendor-built sites, chain/public-sector patterns, mature branding, and strong conversion structure are not yet strong enough as penalties
+- outreach and opportunity wording can still leak vertical-specific language into other industries
 - no historical comparison layer yet
 - no recurring monitoring yet
 - no CRM integration yet

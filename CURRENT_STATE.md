@@ -103,7 +103,24 @@ search phrase or spreadsheet
 - campaign folders with campaign.json and campaign-summary.md
 - generated demo paths for shortlisted or top opportunity leads
 - on-demand selected-lead demo generation from existing runs
+- downstream opportunity compression and commercial pressure scoring for operator triage
 - Git-tracked capability evolution
+
+## Current Calibration Phase
+
+The platform is in a human-aligned calibration phase. The technical pipeline works across discovery, audit, opportunity compression, commercial pressure scoring, review workspace, and CRM export. The current bottleneck is commercial realism: the system still over-promotes too many theoretical opportunities as high-priority calls.
+
+The latest cross-industry calibration batch across dentists, lawyers, electricians, plumbers, and restaurants produced:
+
+```text
+Total:  23
+High:   15
+Medium: 6
+Low:    1
+Verify: 1
+```
+
+This is too high-priority biased. The next work should tune `core/commercial-pressure` toward scarce operator attention, false-positive reduction, vertical-aware weighting, and stronger penalties for polished/mature/low-pain businesses. See `CALIBRATION_SUMMARY.md`.
 
 ## Lead Discovery Agent
 

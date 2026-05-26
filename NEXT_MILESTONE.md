@@ -1,47 +1,86 @@
 # Next Milestone
 
-The system now has taxonomy-backed discovery, Brave live provider support, Google Places provider support, and deterministic discovery target filtering. The next phase is operational validation of Google Places for call-ready Norwegian leads, not Brreg or multi-provider merge yet.
+The system now has working discovery, Google Places/Brave/manual source support, auditing, opportunity compression, commercial pressure scoring, review workspaces, and CRM export. The next phase is calibration realism, not more architecture.
 
-## Priority 1: Run A Google Places Call-Ready Lead Test
+## Priority 1: Human-Aligned Commercial Pressure Calibration
 
-Run:
+The current cross-industry calibration batch produced:
 
 ```text
-tannleger i Halden
+Total:  23
+High:   15
+Medium: 6
+Low:    1
+Verify: 1
+```
+
+This is too high-priority biased. The system is still more opportunity-biased than operator-time-biased.
+
+Target distribution:
+
+```text
+High:   10-25%
+Medium: 30-50%
+Low/Verify: remainder
 ```
 
 Success target:
 
-- Google Places returns businesses with real businessName values
-- candidates include phone and address when available
-- direct business websites enter the audit handoff
-- review workspace shows provider phone/address/rating/status metadata
-- CRM export contains call-ready phone/address fields for shortlisted leads
-- at least 1 to 3 leads are realistic enough to call manually
+- top 20% of leads feel clearly stronger than the rest
+- `technical_trust_risk` leads remain high when pain is obvious
+- polished or already mature sites are penalized unless pain is strong
+- lawyers and restaurants receive stricter pressure thresholds
+- no clear CTA does not create equal pressure across every vertical
+- outreach wording uses correct vertical language
 
-## Priority 2: Add callReadyScore
+## Priority 2: Add Pressure Penalty Rules
 
-Only after Google Places output is operationally useful, add a deterministic `callReadyScore` separate from website/audit score.
+Tune `core/commercial-pressure` with deterministic penalties for:
 
-Suggested inputs:
+- polished modern site
+- strong conversion structure
+- mature branding
+- likely vendor-built site
+- enterprise, chain, or public-sector patterns
+- weak Webconsult offer fit
+- indirect or weak contact path
 
-- phone exists
-- direct website exists
-- Google businessStatus is operational
-- correct industry/category
-- audit-worthy website issues exist
-- not directory/social
+These should reduce:
 
-## Priority 3: Brreg Enrichment
+- `painScore`
+- `buyingLikelihood`
+- `salesEase`
+- `callPriority`
 
-Add Brreg only after Google Places has proven it can produce call-ready local leads. Brreg should validate/enrich existing candidates, not replace discovery.
+## Priority 3: Vertical-Aware Pressure Weighting
+
+The same issue should not have the same commercial pressure in every industry.
+
+Example:
+
+- no clear CTA is high pressure for dentists, plumbers, electricians, HVAC, and clinics
+- no clear CTA is medium pressure for lawyers and accountants
+- no clear CTA is lower pressure for restaurants, cafes, and bars unless combined with stronger pain
+
+## Priority 4: Manual Ranking Loop
+
+For each calibration batch, manually label leads:
+
+```text
+YES = would call today
+MAYBE = possible later
+NO = not worth operator time now
+VERIFY = needs manual validation
+```
+
+Then compare human ranking against system ranking and tune false positives first.
 
 ## Paused Work
 
-- Brreg enrichment until Google Places is validated
-- Brave fallback merge until Google Places gaps are clear
-- live Google scraping
-- protected/private source scraping
+- Brreg enrichment
+- multi-provider merge
+- more ontology expansion
+- more AI agents
 - dashboard UI
 - database
 - AI outreach
@@ -53,4 +92,10 @@ Add Brreg only after Google Places has proven it can produce call-ready local le
 
 ## Operating Principle
 
-The current question is whether Google Places can produce leads that are directly callable, then whether the existing audit/review/export pipeline can turn them into 1 to 3 manual outreach candidates.
+The current question is not whether Webconsult can find opportunities. It can.
+
+The current question is:
+
+```text
+Can Webconsult reliably identify the few leads worth operator attention today?
+```
