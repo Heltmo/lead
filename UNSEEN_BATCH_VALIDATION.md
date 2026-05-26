@@ -15,6 +15,167 @@ Validate whether post-calibration HIGH/Medium/Low/Verify behavior generalizes to
 | regnskapsførere i Moss | unseen-regnskapsforere-moss-5-20260526 | 5 | 4 | 1 | 4 | 0 | 0 | 4 | 0 | 0 | core/orchestrator/runs/unseen-regnskapsforere-moss-5-20260526/review-workspace/index.html |
 | **Total** |  | **25** | **22** | **3** | **22** | **0** | **1** | **15** | **6** | **0** |  |
 
+## Human Review Focus
+
+We should manually review the only HIGH lead and the top 5 MEDIUM leads before tuning anything else.
+
+Current unseen distribution:
+
+```text
+High: 1
+Medium: 15
+Low: 6
+Verify: 0
+```
+
+This suggests HIGH is now very strict. The next question is whether top MEDIUM leads contain false negatives.
+
+For the HIGH lead:
+
+- KEEP means it is truly call-worthy.
+- DEMOTE means it should be MEDIUM.
+- VERIFY means manual check required.
+
+For MEDIUM leads:
+
+- PROMOTE means it should have been HIGH.
+- OK means correctly MEDIUM.
+- DEMOTE means too generous.
+
+### Focus Set
+
+### Odontia Varna Tannlegesenter
+
+- Batch / vertical: tannleger i Moss / dentist
+- URL: https://odontia.no/tannlege/varna/?od=pb16
+- callPriority: high
+- opportunityType: technical_trust_risk
+- leadClass: technical_redesign
+- recommendedOffer: Website trust and reliability cleanup
+- outreachMotion: direct_fix_call
+- painScore: 0.85
+- buyingLikelihood: 0.94
+- salesEase: high
+- commercialPressureReasons: strong_existing_conversion_flow | visible_technical_trust_pain | many_failed_requests | console_errors | accessibility_usability_pain | callable_phone_available | email_available | direct_business_site
+- primaryOpportunity: Technical issues may weaken trust even if the business itself appears contactable and operational.
+- topEvidence: Serious accessibility issues detected | Failed network requests detected | Console errors detected
+- contact/CTA profile summary: visible=true, strong=true, methods=phone | email | form | contact_link | booking_link | emergency_call, terms=akutt time | booking | bestill time | timebestilling, type=emergency_call, confidence=0.88
+
+Human decision: KEEP / DEMOTE / VERIFY
+Human reason:
+Correct angle:
+Rule adjustment needed:
+
+### Drammen Sportsklinikk
+
+- Batch / vertical: fysioterapeuter i Drammen / physiotherapist
+- URL: http://www.drammensportsklinikk.no
+- callPriority: medium
+- opportunityType: technical_trust_risk
+- leadClass: technical_redesign
+- recommendedOffer: Website trust and reliability cleanup
+- outreachMotion: direct_fix_call
+- painScore: 0.76
+- buyingLikelihood: 0.88
+- salesEase: high
+- commercialPressureReasons: polished_or_vendor_built_site | strong_existing_conversion_flow | visible_technical_trust_pain | many_failed_requests | console_errors | accessibility_usability_pain | search_clarity_issue | callable_phone_available
+- primaryOpportunity: Technical issues may weaken trust even if the business itself appears contactable and operational.
+- topEvidence: Expected exactly one h1, found 2 | Serious accessibility issues detected | Failed network requests detected
+- contact/CTA profile summary: visible=true, strong=true, methods=phone | email | contact_link | booking_link, terms=bestill time | bestill | kontakt oss | kontakt, type=booking, confidence=0.88
+
+Human decision: OK / PROMOTE / DEMOTE
+Human reason:
+Correct angle:
+Rule adjustment needed:
+
+### Regnskapssentralen AS
+
+- Batch / vertical: regnskapsførere i Moss / accountant
+- URL: http://rsmoss.no
+- callPriority: medium
+- opportunityType: technical_trust_risk
+- leadClass: technical_redesign
+- recommendedOffer: Website trust and reliability cleanup
+- outreachMotion: direct_fix_call
+- painScore: 0.75
+- buyingLikelihood: 0.82
+- salesEase: high
+- commercialPressureReasons: strong_existing_conversion_flow | visible_technical_trust_pain | many_failed_requests | accessibility_usability_pain | search_clarity_issue | callable_phone_available | email_available | direct_business_site
+- primaryOpportunity: Technical issues may weaken trust even if the business itself appears contactable and operational.
+- topEvidence: Expected exactly one h1, found 0 | Serious accessibility issues detected | Failed network requests detected
+- contact/CTA profile summary: visible=true, strong=true, methods=phone | email | form | contact_link, terms=kontakt oss | kontakt | epost | mail, type=general_contact, confidence=0.88
+
+Human decision: OK / PROMOTE / DEMOTE
+Human reason:
+Correct angle:
+Rule adjustment needed:
+
+### VB Engelsviken Rør
+
+- Batch / vertical: rørleggere i Fredrikstad / plumber
+- URL: https://www.engelsvikenror.no
+- callPriority: medium
+- opportunityType: technical_trust_risk
+- leadClass: technical_redesign
+- recommendedOffer: Website trust and reliability cleanup
+- outreachMotion: direct_fix_call
+- painScore: 0.68
+- buyingLikelihood: 0.84
+- salesEase: medium
+- commercialPressureReasons: strong_existing_conversion_flow | contact_maturity_requires_stronger_technical_pain | visible_technical_trust_pain | many_failed_requests | accessibility_usability_pain | search_clarity_issue | callable_phone_available | email_available
+- primaryOpportunity: Technical issues may weaken trust even if the business itself appears contactable and operational.
+- topEvidence: Missing meta description | Serious accessibility issues detected | Failed network requests detected
+- contact/CTA profile summary: visible=true, strong=true, methods=phone | email | contact_link | emergency_call, terms=vakttelefon | kontakt oss | kontakt | telefon, type=emergency_call, confidence=0.88
+
+Human decision: OK / PROMOTE / DEMOTE
+Human reason:
+Correct angle:
+Rule adjustment needed:
+
+### Arne Nilsen AS
+
+- Batch / vertical: rørleggere i Fredrikstad / plumber
+- URL: https://www.vvseksperten.no/rorlegger/fredrikstad/arne-nilsen-as
+- callPriority: medium
+- opportunityType: technical_trust_risk
+- leadClass: technical_redesign
+- recommendedOffer: Website trust and reliability cleanup
+- outreachMotion: direct_fix_call
+- painScore: 0.65
+- buyingLikelihood: 0.84
+- salesEase: medium
+- commercialPressureReasons: strong_existing_conversion_flow | contact_maturity_requires_stronger_technical_pain | visible_technical_trust_pain | many_failed_requests | accessibility_usability_pain | callable_phone_available | email_available | direct_business_site
+- primaryOpportunity: Technical issues may weaken trust even if the business itself appears contactable and operational.
+- topEvidence: Serious accessibility issues detected | Failed network requests detected | Elevated full page load time
+- contact/CTA profile summary: visible=true, strong=true, methods=phone | email | contact_link | booking_link | quote_request | emergency_call, terms=vakttelefon | avtal befaring | bestill | kontakt, type=emergency_call, confidence=0.88
+
+Human decision: OK / PROMOTE / DEMOTE
+Human reason:
+Correct angle:
+Rule adjustment needed:
+
+### Regnskapsførern AS
+
+- Batch / vertical: regnskapsførere i Moss / accountant
+- URL: https://regnskapsforern.no
+- callPriority: medium
+- opportunityType: technical_trust_risk
+- leadClass: technical_redesign
+- recommendedOffer: Website trust and reliability cleanup
+- outreachMotion: direct_fix_call
+- painScore: 0.69
+- buyingLikelihood: 0.74
+- salesEase: medium
+- commercialPressureReasons: strong_existing_conversion_flow | visible_technical_trust_pain | failed_requests | console_errors | search_clarity_issue | callable_phone_available | email_available | direct_business_site
+- primaryOpportunity: Technical issues may weaken trust even if the business itself appears contactable and operational.
+- topEvidence: Missing meta description | Expected exactly one h1, found 2 | No social links detected
+- contact/CTA profile summary: visible=true, strong=true, methods=phone | email | form | contact_link, terms=kontakt oss | kontakt | mail | 104 1599, type=general_contact, confidence=0.88
+
+Human decision: OK / PROMOTE / DEMOTE
+Human reason:
+Correct angle:
+Rule adjustment needed:
+
 ## HIGH Leads
 
 ### Odontia Varna Tannlegesenter
