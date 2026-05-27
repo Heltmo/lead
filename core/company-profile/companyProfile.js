@@ -3,7 +3,10 @@ const BRREG_BASE_URL = 'https://data.brreg.no/enhetsregisteret/api'
 const MATCH_STATUSES = new Set(['exact_match', 'strong_match', 'weak_match', 'manual_verify', 'no_match', 'error'])
 const COMPANY_SUFFIXES = new Set(['as', 'asa', 'da', 'ba', 'sa', 'ans', 'enk', 'nuf', 'hf', 'sf', 'iks', 'kf'])
 const MARKETING_WORDS = new Set(['avd', 'avdeling', 'klinikk', 'tannklinikk', 'tannlegesenter', 'legesenter', 'kontor', 'firmaet'])
-const CHAIN_WORDS = ['odontia', 'oris', 'vb', 'vvs eksperten', 'vvseksperten', 'kjede', 'franchise', 'gruppen', 'group']
+const CHAIN_WORDS = ['odontia', 'oris', 'vb', 'vvs eksperten', 'vvseksperten', 'kjede', 'franchise', 'gruppen', 'group', 'flow']
+const DEFAULT_TIMEOUT_MS = 8000
+const DEFAULT_RETRIES = 1
+const requestCache = new Map()
 
 async function enrichCompanyProfile(input = {}, options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch
@@ -34,15 +37,69 @@ async function searchBrregCandidates(input = {}, options = {}) {
     url.searchParams.set('navnMetodeForSoek', 'FORTLOEPENDE')
     url.searchParams.set('size', String(size))
     url.searchParams.set('page', '0')
-    const response = await fetchImpl(url.toString(), { headers: { accept: 'application/json' } })
-    if (!response || !response.ok) {
-      const status = response && response.status ? `status_${response.status}` : 'request_failed'
-      throw new Error(`brreg_${endpoint.slice(1)}_${status}`)
-    }
-    const json = await response.json()
+    const json = await fetchBrregJson(url.toString(), {
+      endpoint,
+      fetchImpl,
+      timeoutMs: options.timeoutMs,
+      retries: options.retries,
+      cache: options.cache,
+    })
     results.push(...extractEmbedded(json, endpoint === '/enheter' ? 'entity' : 'subunit'))
   }
   return dedupeCandidates(results)
+}
+
+async function fetchBrregJson(url, options = {}) {
+  const cache = options.cache === false ? null : (options.cache || requestCache)
+  if (cache && cache.has(url)) return cache.get(url)
+
+  const retries = Number.isFinite(Number(options.retries)) ? Number(options.retries) : DEFAULT_RETRIES
+  let lastError = null
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(options.fetchImpl, url, {
+        timeoutMs: options.timeoutMs || DEFAULT_TIMEOUT_MS,
+        headers: { accept: 'application/json' },
+      })
+      if (!response || !response.ok) {
+        const status = response && response.status ? `status_${response.status}` : 'request_failed'
+        throw new Error(`brreg_${options.endpoint.slice(1)}_${status}`)
+      }
+      let json
+      try {
+        json = await response.json()
+      } catch (error) {
+        throw new Error(`parse_error:${error && error.message ? error.message : 'invalid_json'}`)
+      }
+      if (cache) cache.set(url, json)
+      return json
+    } catch (error) {
+      lastError = error
+      if (classifyError(error && error.message) === 'timeout') break
+    }
+  }
+  throw lastError || new Error('unknown_error')
+}
+
+async function fetchWithTimeout(fetchImpl, url, options = {}) {
+  const timeoutMs = Number(options.timeoutMs || DEFAULT_TIMEOUT_MS)
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  let timeout
+  try {
+    const request = fetchImpl(url, { headers: options.headers, signal: controller ? controller.signal : undefined })
+    const timer = new Promise((_, reject) => {
+      timeout = setTimeout(() => {
+        if (controller) controller.abort()
+        reject(new Error('timeout'))
+      }, timeoutMs)
+    })
+    return await Promise.race([request, timer])
+  } catch (error) {
+    if (error && (error.name === 'AbortError' || String(error.message || '').toLowerCase().includes('abort'))) throw new Error('timeout')
+    throw error
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
 }
 
 function matchCompanyProfile(input = {}, candidates = [], options = {}) {
@@ -57,23 +114,31 @@ function matchCompanyProfile(input = {}, candidates = [], options = {}) {
   const best = scored[0]
   const plausible = scored.filter((candidate) => candidate.score >= 0.55)
   if (!best || best.score < 0.55) {
-    return emptyProfile('no_match', 0, ['no_candidate_above_weak_threshold'])
+    return emptyProfile('no_match', 0, ['no_candidate_above_weak_threshold'], scored.slice(0, 5))
   }
 
-  const closeAlternatives = plausible.filter((candidate) => candidate !== best && Math.abs(best.score - candidate.score) <= 0.08)
-  const multiplePlausible = closeAlternatives.length > 0
-  const chainAmbiguous = best.warnings.includes('chain_or_group_ambiguity') && best.score < 0.9
-  const branchAmbiguous = best.warnings.includes('branch_or_location_ambiguity') && best.score < 0.9
+  const closeAlternatives = plausible.filter((candidate) => candidate !== best && Math.abs(best.score - candidate.score) <= 0.12)
+  const multiplePlausible = closeAlternatives.length > 0 && !candidateClearlyDominates(best, closeAlternatives)
+  const unitSubunitAmbiguous = hasUnitSubunitAmbiguity(best, plausible)
+  const chainAmbiguous = best.warnings.includes('chain_ambiguity') && !hasStrongChainCorroboration(best)
+  const branchAmbiguous = (best.warnings.includes('branch_ambiguity') || best.warnings.includes('branch_location_uncertain')) && !hasStrongBranchCorroboration(best)
+  const brandMismatch = best.warnings.includes('brand_legal_name_mismatch') && best.score < 0.92
   const locationMismatch = best.warnings.includes('municipality_mismatch') || best.warnings.includes('address_mismatch')
   const lacksCorroboration = !hasCorroboratingEvidence(best)
+  const manualWarnings = [
+    multiplePlausible ? 'multiple_plausible_candidates' : null,
+    unitSubunitAmbiguous ? 'unit_subunit_ambiguity' : null,
+    unitSubunitAmbiguous ? 'branch_location_uncertain' : null,
+  ].filter(Boolean)
 
-  if (multiplePlausible || chainAmbiguous || branchAmbiguous || locationMismatch || lacksCorroboration) {
+  if (multiplePlausible || unitSubunitAmbiguous || chainAmbiguous || branchAmbiguous || brandMismatch || locationMismatch || lacksCorroboration) {
     return toProfile(best.candidate, {
       matchConfidence: roundConfidence(best.score),
       matchStatus: 'manual_verify',
       matchReasons: [...best.reasons, multiplePlausible ? 'multiple_plausible_matches' : null, lacksCorroboration ? 'name_match_without_supporting_evidence' : null].filter(Boolean),
-      warnings: [...best.warnings, ...closeAlternatives.map((item) => `alternative:${item.candidate.navn || item.candidate.organisasjonsnummer}`)],
+      warnings: unique([...best.warnings, ...manualWarnings, ...closeAlternatives.map((item) => `alternative:${item.candidate.navn || item.candidate.organisasjonsnummer}`)]),
       includeOrganizationNumber: false,
+      candidates: plausible.length ? plausible : scored.slice(0, 5),
     })
   }
 
@@ -84,6 +149,7 @@ function matchCompanyProfile(input = {}, candidates = [], options = {}) {
       matchReasons: best.reasons,
       warnings: best.warnings,
       includeOrganizationNumber: true,
+      candidates: [best],
     })
   }
 
@@ -94,6 +160,7 @@ function matchCompanyProfile(input = {}, candidates = [], options = {}) {
       matchReasons: best.reasons,
       warnings: best.warnings,
       includeOrganizationNumber: true,
+      candidates: [best],
     })
   }
 
@@ -103,6 +170,7 @@ function matchCompanyProfile(input = {}, candidates = [], options = {}) {
     matchReasons: best.reasons,
     warnings: best.warnings,
     includeOrganizationNumber: false,
+    candidates: plausible.length ? plausible : [best],
   })
 }
 
@@ -167,19 +235,27 @@ function scoreCandidate(input = {}, candidate = {}, options = {}) {
 
   if (candidate.type === 'subunit') {
     warnings.push('subunit_candidate')
-    if (!reasons.includes('address_overlap') && !reasons.includes('domain_match')) score -= 0.04
+    if (!hasAnyReason(reasons, ['city_match', 'address_contains_city', 'address_overlap', 'domain_match', 'phone_match'])) {
+      warnings.push('branch_location_uncertain')
+      score -= 0.04
+    }
   }
 
   const combinedText = normalizeText([input.companyName, input.website, candidate.navn, candidate.hjemmeside].filter(Boolean).join(' '))
   if (CHAIN_WORDS.some((word) => combinedText.includes(normalizeText(word)))) {
-    warnings.push('chain_or_group_ambiguity')
-    if (!reasons.includes('domain_match') && !reasons.includes('address_overlap') && !reasons.includes('phone_match')) score -= 0.12
+    warnings.push('chain_ambiguity')
+    if (!hasAnyReason(reasons, ['domain_match', 'address_overlap', 'phone_match', 'city_match'])) score -= 0.12
   }
 
   const discoveredExtra = [...discoveredTokens].filter((token) => !legalTokens.has(token) && !MARKETING_WORDS.has(token))
+  const legalExtra = [...legalTokens].filter((token) => !discoveredTokens.has(token) && !MARKETING_WORDS.has(token))
   if (discoveredExtra.length >= 2 && score < 0.9) {
-    warnings.push('branch_or_location_ambiguity')
+    warnings.push('branch_ambiguity')
     score -= 0.05
+  }
+  if (CHAIN_WORDS.some((word) => discovered.includes(normalizeText(word))) && legalExtra.length >= 1 && discoveredExtra.length >= 1) {
+    warnings.push('brand_legal_name_mismatch')
+    score -= 0.04
   }
 
   return { candidate, score: clamp(score), reasons: unique(reasons), warnings: unique(warnings) }
@@ -198,6 +274,7 @@ function toProfile(candidate = {}, match = {}) {
     organizationForm: valueOrNull(candidate.organisasjonsform && (candidate.organisasjonsform.beskrivelse || candidate.organisasjonsform.kode)),
     registeredAddress: formatAddress(address),
     municipality: valueOrNull(address && address.kommune),
+    unitType: unitType(candidate),
     naceCode: valueOrNull(nace && nace.kode),
     naceDescription: valueOrNull(nace && nace.beskrivelse),
     employees: typeof candidate.antallAnsatte === 'number' ? candidate.antallAnsatte : null,
@@ -210,10 +287,27 @@ function toProfile(candidate = {}, match = {}) {
     matchStatus: normalizeStatus(match.matchStatus),
     matchReasons: normalizeArray(match.matchReasons),
     warnings: normalizeArray(match.warnings),
+    candidates: (match.candidates || []).map(candidateSummary),
   }
 }
 
-function emptyProfile(status, confidence, reasons = []) {
+function candidateSummary(scored = {}) {
+  const candidate = scored.candidate || scored
+  const address = candidate.forretningsadresse || candidate.beliggenhetsadresse || candidate.postadresse || null
+  return {
+    candidateOrganizationNumber: valueOrNull(candidate.organisasjonsnummer),
+    candidateLegalName: valueOrNull(candidate.navn),
+    organizationForm: valueOrNull(candidate.organisasjonsform && (candidate.organisasjonsform.beskrivelse || candidate.organisasjonsform.kode)),
+    municipality: valueOrNull(address && address.kommune),
+    address: formatAddress(address),
+    unitType: unitType(candidate),
+    score: roundConfidence(scored.score || 0),
+    matchReasons: normalizeArray(scored.reasons),
+    warnings: normalizeArray(scored.warnings),
+  }
+}
+
+function emptyProfile(status, confidence, reasons = [], candidates = []) {
   return {
     organizationNumber: null,
     candidateOrganizationNumber: null,
@@ -222,6 +316,7 @@ function emptyProfile(status, confidence, reasons = []) {
     organizationForm: null,
     registeredAddress: null,
     municipality: null,
+    unitType: null,
     naceCode: null,
     naceDescription: null,
     employees: null,
@@ -234,6 +329,7 @@ function emptyProfile(status, confidence, reasons = []) {
     matchStatus: normalizeStatus(status),
     matchReasons: normalizeArray(reasons),
     warnings: [],
+    candidates: candidates.map(candidateSummary),
   }
 }
 
@@ -243,11 +339,11 @@ function errorProfile(input, reason) {
 
 function classifyError(reason) {
   const text = String(reason || '').toLowerCase()
-  if (text.includes('timeout')) return 'timeout'
-  if (text.includes('parse') || text.includes('json')) return 'parse'
-  if (text.includes('status_')) return 'api'
-  if (text.includes('fetch') || text.includes('network') || text.includes('request')) return 'network'
-  return 'unknown'
+  if (text.includes('timeout') || text.includes('abort')) return 'timeout'
+  if (text.includes('parse') || text.includes('json')) return 'parse_error'
+  if (text.includes('status_')) return 'api_error'
+  if (text.includes('fetch') || text.includes('network') || text.includes('request')) return 'network_error'
+  return 'unknown_error'
 }
 
 function extractEmbedded(json = {}, type) {
@@ -268,10 +364,44 @@ function dedupeCandidates(candidates = []) {
   return output
 }
 
-
 function hasCorroboratingEvidence(scored = {}) {
   const reasons = new Set(scored.reasons || [])
   return ['city_match', 'address_contains_city', 'address_overlap', 'domain_match', 'phone_match'].some((reason) => reasons.has(reason))
+}
+
+function hasStrongChainCorroboration(scored = {}) {
+  const reasons = new Set(scored.reasons || [])
+  return reasons.has('address_overlap') || reasons.has('phone_match') || (reasons.has('domain_match') && (reasons.has('address_overlap') || reasons.has('phone_match')))
+}
+
+function hasStrongBranchCorroboration(scored = {}) {
+  const reasons = new Set(scored.reasons || [])
+  return ['address_overlap', 'phone_match'].some((reason) => reasons.has(reason)) || (reasons.has('city_match') && reasons.has('domain_match'))
+}
+
+function candidateClearlyDominates(best, alternatives = []) {
+  if (!alternatives.length) return true
+  const second = alternatives[0]
+  if (!second) return true
+  return best.score - second.score > 0.12 && hasCorroboratingEvidence(best)
+}
+
+function hasUnitSubunitAmbiguity(best, plausible = []) {
+  const types = new Set(plausible.map((item) => unitType(item.candidate)))
+  if (!(types.has('enhet') && types.has('underenhet'))) return false
+  const alternatives = plausible.filter((item) => item !== best)
+  if (candidateClearlyDominates(best, alternatives) && hasStrongBranchCorroboration(best)) return false
+  return true
+}
+
+function unitType(candidate = {}) {
+  if (candidate.type === 'subunit') return 'underenhet'
+  if (candidate.type === 'entity') return 'enhet'
+  return 'unknown'
+}
+
+function hasAnyReason(reasons, wanted) {
+  return wanted.some((reason) => reasons.includes(reason))
 }
 
 function buildSearchQuery(name) {
@@ -384,4 +514,5 @@ module.exports = {
   scoreCandidate,
   normalizeName,
   normalizeText,
+  classifyError,
 }

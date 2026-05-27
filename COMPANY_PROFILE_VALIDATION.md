@@ -293,10 +293,64 @@ Updated safety conclusion:
 
 - Keep `core/company-profile` standalone for now. Do not integrate organization numbers into lead pack exports automatically yet.
 - Keep the safety rule requiring supporting evidence beyond normalized name for confirmed org.nr.
-- Improve duplicate handling so exact entity/subunit duplicates with the same legal name do not force `manual_verify` unnecessarily when org/address/phone/domain all agree.
-- Add brand-prefix and network handling for cases like `VB Engelsviken Rør`, while still preserving manual verification for chain/network ambiguity.
-- Add retry/backoff or partial endpoint tolerance for transient Brreg `fetch failed` errors.
-- Re-run validation after matching changes before wiring company-profile into review workspace, CRM export, or lead packs.
+- Duplicate and enhet/underenhet ambiguity are now exposed through `candidates[]`; continue validating live cases before using this automatically in lead packs.
+- Continue improving brand-prefix and network handling for cases like `VB Engelsviken Rør`, while preserving manual verification for chain/network ambiguity.
+- Retry/timeout classification is now deterministic; live Brreg behavior should still be re-checked before integration.
+- Re-run live validation before wiring company-profile into review workspace, CRM export, or lead packs.
+
+
+## V2 Branch / Chain Safety Update
+
+The standalone `core/company-profile` module now has a second safety pass focused on duplicate, branch, chain, and API reliability behavior.
+
+Implemented behavior:
+
+- Multiple plausible candidates return `manual_verify`.
+- `organizationNumber` stays `null` for `manual_verify` and weak/uncertain matches.
+- `candidateOrganizationNumber` remains available for the best plausible candidate.
+- `candidates[]` exposes plausible alternatives with:
+  - `candidateOrganizationNumber`
+  - `candidateLegalName`
+  - `organizationForm`
+  - `municipality`
+  - `address`
+  - `unitType`
+  - `score`
+  - `matchReasons`
+  - `warnings`
+- Enhet/underenhet ambiguity returns `manual_verify` unless a candidate clearly dominates with branch/location evidence.
+- Clear underenhet matches can be confirmed when city/address/phone/domain evidence is strong enough.
+- Chain/brand/network cases stay conservative and add warnings such as `chain_ambiguity`, `branch_ambiguity`, and `brand_legal_name_mismatch`.
+- Timeout/API/network/parse errors return `matchStatus: error` with no confirmed org.nr.
+- Identical lookup calls can use per-process/per-run in-memory cache; no persistent cache or database was added.
+
+Deterministic verifier coverage now includes:
+
+- multiple plausible candidates => `manual_verify` + `candidates[]` + no confirmed org.nr
+- enhet + underenhet ambiguity => `manual_verify`
+- clear subunit location evidence => underenhet can be selected
+- chain/brand ambiguity => `manual_verify`
+- clear local company + municipality support => exact/strong allowed
+- city mismatch => `manual_verify` + no confirmed org.nr
+- API timeout => `errorType: timeout`
+- API/network error => no crash + no confirmed org.nr
+- cache avoids duplicate identical endpoint calls
+
+V2 safety conclusion:
+
+```text
+0 risky confident org.nr matches in deterministic verifier
+ambiguous branch/chain cases return manual_verify
+candidates are exposed without confirming org.nr
+exact local matches can still confirm
+Flow remains manual_verify unless corroboration is strong
+```
+
+Integration recommendation remains conservative:
+
+- Keep `company-profile` standalone until a fresh live validation confirms 0 risky confident matches.
+- Do not run Proff enrichment until Brreg `organizationNumber` is confirmed.
+- When integrated later, lead packs should show confirmed org.nr, candidate org.nr, match status, confidence, candidates, and warnings explicitly.
 
 ## Integration Decision
 

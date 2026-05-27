@@ -76,6 +76,8 @@ Target lead object:
 - company match confidence
 - company match status
 - company match warnings
+- company candidate matches[] for manual verification
+- unitType: enhet / underenhet / unknown
 - rating
 - review count
 - contactability summary
@@ -190,6 +192,15 @@ Important matching risks:
 - Franchises and clinic groups require caution.
 - A website brand can represent multiple legal entities.
 - A legal entity can operate under a trading name that differs from public discovery data.
+
+Company-profile V2 policy:
+
+- `organizationNumber` means confirmed only.
+- `candidateOrganizationNumber` means plausible but not confirmed.
+- `candidates[]` should be visible when `matchStatus` is `manual_verify` or `weak_match`.
+- `unitType` should show whether the match is `enhet`, `underenhet`, or `unknown`.
+- Chain, branch, franchise, clinic group, and network ambiguity should produce visible warnings instead of silent attachment.
+- Proff/economy enrichment should only run after Brreg identity is confirmed.
 
 The output should expose uncertainty instead of hiding it.
 

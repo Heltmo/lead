@@ -28,6 +28,7 @@ The client searches with `navn`, `navnMetodeForSoek=FORTLOEPENDE`, `size`, and `
   organizationForm: string | null,
   registeredAddress: string | null,
   municipality: string | null,
+  unitType: 'enhet' | 'underenhet' | 'unknown' | null,
   naceCode: string | null,
   naceDescription: string | null,
   employees: number | null,
@@ -35,11 +36,22 @@ The client searches with `navn`, `navnMetodeForSoek=FORTLOEPENDE`, `size`, and `
   activeStatus: string | null,
   source: 'brreg',
   sourceUrl: string | null,
-  errorType: 'api' | 'network' | 'parse' | 'timeout' | 'unknown' | null,
+  errorType: 'api_error' | 'network_error' | 'parse_error' | 'timeout' | 'unknown_error' | null,
   matchConfidence: number,
   matchStatus: 'exact_match' | 'strong_match' | 'weak_match' | 'manual_verify' | 'no_match' | 'error',
   matchReasons: string[],
   warnings: string[],
+  candidates: Array<{
+    candidateOrganizationNumber: string | null,
+    candidateLegalName: string | null,
+    organizationForm: string | null,
+    municipality: string | null,
+    address: string | null,
+    unitType: 'enhet' | 'underenhet' | 'unknown',
+    score: number,
+    matchReasons: string[],
+    warnings: string[],
+  }>,
 }
 ```
 
@@ -53,6 +65,22 @@ The client searches with `navn`, `navnMetodeForSoek=FORTLOEPENDE`, `size`, and `
 - `error`: API/network/parse/timeout failure or unavailable fetch implementation.
 
 Chain, franchise, branch, and multi-location ambiguity should push matches toward `manual_verify` unless evidence is very strong. Name-only exact matches and municipality/address mismatches also require `manual_verify`; the module can expose `candidateOrganizationNumber` while keeping confirmed `organizationNumber` null.
+
+## V2 Branch/Chain Safety
+
+The module now exposes ambiguous Brreg results instead of hiding them:
+
+- `candidates[]` lists plausible alternatives for `manual_verify` and weak matches.
+- `unitType` identifies `enhet`, `underenhet`, or `unknown`.
+- Multiple plausible candidates add `multiple_plausible_candidates` and keep `organizationNumber: null`.
+- Enhet/underenhet ambiguity adds `unit_subunit_ambiguity` and `branch_location_uncertain` unless one candidate clearly dominates with location/branch evidence.
+- Chain, brand, franchise, clinic group, and network cases add warnings such as `chain_ambiguity`, `branch_ambiguity`, and `brand_legal_name_mismatch`.
+- Timeout, network, API, and parse errors return `matchStatus: error` without confirming org.nr.
+- Repeated identical lookup calls can use an in-memory cache for the current process/run; there is no database or persistent storage.
+
+Confirmed `organizationNumber` remains reserved for exact/strong matches with enough support. Uncertain matches should use `candidateOrganizationNumber` and `candidates[]` for manual verification.
+
+Proff enrichment must wait until `organizationNumber` is confirmed. Running Proff on weak/manual candidates risks attaching financial data to the wrong legal entity.
 
 ## CLI
 
