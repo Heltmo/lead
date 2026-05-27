@@ -17,3 +17,7 @@ Only promote something into core after it has proven useful in a real project.
 ## Browser Intelligence
 
 - website-audit-agent: deterministic URL audit primitive for screenshots, structured signal extraction, accessibility checks, and lead-quality reporting.
+
+## Lead Intelligence
+
+- company-profile: conservative Brreg/Enhetsregisteret enrichment for legal company identity, org.nr, official metadata, and match confidence.

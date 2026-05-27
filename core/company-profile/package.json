@@ -1,0 +1,12 @@
+{
+  "name": "company-profile",
+  "version": "1.0.0",
+  "description": "Official Norwegian company profile enrichment for Webconsult leads",
+  "main": "companyProfile.js",
+  "scripts": {
+    "test": "node tests/smoke.test.js",
+    "company-profile": "node cli/company-profile.js"
+  },
+  "license": "ISC",
+  "type": "commonjs"
+}

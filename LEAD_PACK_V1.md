@@ -126,14 +126,16 @@ caution notes:
   - Seller should verify technical findings before overstating them
   - Do not frame this as generic redesign without confirming buyer pain
 verify notes:
-  - Official legal entity and organization number not yet enriched
+  - Official legal entity and organization number not enriched in this example until company-profile is run
 seller notes: empty
 last checked at: unknown
 ```
 
 ## Company Enrichment Direction
 
-Planned module:
+Module status: standalone V1 implemented in `core/company-profile/`. It can enrich lead-pack data from Brreg/Enhetsregisteret, but it is not yet wired into discovery, review workspace, CRM export, or ranking.
+
+Implemented module:
 
 ```text
 core/company-profile/
