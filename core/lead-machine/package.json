@@ -1,0 +1,12 @@
+{
+  "name": "lead-machine",
+  "version": "1.0.0",
+  "description": "Single-command Lead Machine runner for Webconsult",
+  "main": "leadMachine.js",
+  "scripts": {
+    "lead-machine": "node cli/lead-machine.js",
+    "test": "node tests/smoke.test.js"
+  },
+  "license": "ISC",
+  "type": "commonjs"
+}

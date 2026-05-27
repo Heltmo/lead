@@ -276,3 +276,13 @@ Do not build:
 - dashboard
 - saved searches
 - new scoring
+
+## Lead Machine Runner V1 Status
+
+`core/lead-machine/` is now the internal single-command runner for the product flow:
+
+```text
+discovery -> orchestrator audit -> lead-pack-runner
+```
+
+It wraps existing modules and writes one run folder with discovery artifacts, lead-pack outputs, and `lead-machine-summary.json`. It does not add Proff, frontend, saved searches, outreach automation, sales scripts, or new scoring logic.

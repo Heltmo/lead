@@ -29,3 +29,7 @@ Only promote something into core after it has proven useful in a real project.
 ## Location Quality
 
 Location quality is now part of lead discovery and lead-pack output. User query location is treated as a first-class constraint, out-of-area candidates are excluded from handoff by default, and lead packs expose `sourceQuality` fields for seller trust.
+
+## Lead Machine Runner
+
+`core/lead-machine/` provides the first single-command product flow: discovery, orchestrator audit, and seller-ready lead-pack packaging. It preserves search scope/location quality metadata and keeps Proff/outreach/frontend out of V1.
