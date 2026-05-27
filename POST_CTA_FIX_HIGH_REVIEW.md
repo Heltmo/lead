@@ -681,6 +681,27 @@ Calibration conclusion:
 - Service-line or campaign opportunities with strong contact maturity now land mostly in MEDIUM/LOW.
 - Restaurants and mature law firms are less likely to receive HIGH from generic conversion or service-line opportunities.
 
+
+## Mature Chain Clinic Suppression Cross-Check
+
+After the targeted mature/chain clinic suppression fix, the original 23-lead calibration batch was regenerated.
+
+Distribution remained stable:
+
+```text
+High: 2
+Medium: 12
+Low: 8
+Verify: 1
+```
+
+Known-good HIGH leads retained:
+
+- Glomma Tannklinikk
+- Advokatfirmaet Bjornebekk og Martinsen AS
+
+This confirms the mature/chain clinic suppression did not make HIGH impossible for clear local technical trust pain.
+
 ## Manual Review Instructions
 
 For each HIGH lead, answer:

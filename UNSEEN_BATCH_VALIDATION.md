@@ -451,6 +451,39 @@ No LOW or VERIFY leads in this batch.
 
 No LOW or VERIFY leads in this batch.
 
+
+## Mature Chain Clinic Suppression Result
+
+A targeted commercial-pressure fix was applied after human review showed the only unseen HIGH lead, Odontia Varna Tannlegesenter, was mature/chain-like with visible booking/contact paths and not clearly call-worthy.
+
+Before this fix on the unseen batch:
+
+```text
+High: 1
+Medium: 15
+Low: 6
+Verify: 0
+```
+
+After this fix on the unseen batch:
+
+```text
+High: 0
+Medium: 14
+Low: 8
+Verify: 0
+```
+
+Key outcome:
+
+- Odontia Varna Tannlegesenter changed from HIGH to MEDIUM.
+- No unseen lead is forced into HIGH just to create a call-first candidate.
+- Top MEDIUM remains the shortlist layer for human review.
+
+Interpretation:
+
+The unseen batch does not currently contain an obvious call-first lead. That is acceptable: HIGH should mean clearly callable, not merely best available in a batch.
+
 ## Validation Questions
 
 1. Does HIGH feel truly callable?

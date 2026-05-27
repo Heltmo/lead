@@ -95,6 +95,7 @@ function buildCommercialPressure(item = {}) {
     hasStrongContactCta: resistance.hasStrongContactCta,
     hasVisibleContactPath: resistance.hasVisibleContactPath,
     hasContactability: resistance.hasContactability,
+    hasMatureChainClinic: resistance.hasMatureChainClinic,
   }
   const callPriority = priority(painScore, buyingLikelihood, context)
   return normalizeCommercialPressure({
@@ -130,9 +131,11 @@ function priority(pain, buying, context = {}) {
   const campaign = context.leadClass === 'campaign_optimization'
   const contactMature = Boolean(context.hasStrongContactCta || context.hasVisibleContactPath)
   const severeTechnical = hasSevereTechnicalPain(context)
+  const chainClinicResistance = Boolean(context.hasMatureChainClinic && contactMature)
 
   if (technical && context.directBusiness) {
-    if (tier === 'tier1' && ['dentist', 'clinic'].includes(context.industry) && severeTechnical && pain >= 0.82 && buying >= 0.68 && !veryStrongResistance(resistance)) return 'high'
+    if (tier === 'tier1' && ['dentist', 'clinic'].includes(context.industry) && severeTechnical && !chainClinicResistance && pain >= 0.82 && buying >= 0.68 && !veryStrongResistance(resistance)) return 'high'
+    if (tier === 'tier1' && ['dentist', 'clinic'].includes(context.industry) && chainClinicResistance && hasCriticalTechnicalPain(context) && pain >= 0.92 && buying >= 0.78 && !veryStrongResistance(resistance)) return 'high'
     if (tier === 'tier2' && context.industry === 'lawyer' && severeTechnical && pain >= 0.84 && buying >= 0.7 && !veryStrongResistance(resistance)) return 'high'
     if (['electrician', 'plumber', 'hvac'].includes(context.industry)) {
       if (!contactMature && severeTechnical && pain >= 0.84 && buying >= 0.7 && !veryStrongResistance(resistance)) return 'high'
@@ -165,6 +168,14 @@ function hasSevereTechnicalPain(context = {}) {
   if (failed >= 5) return true
   if (failed >= 2 && consoleErrors > 0) return true
   if (consoleErrors >= 3) return true
+  return false
+}
+
+function hasCriticalTechnicalPain(context = {}) {
+  const failed = Number(context.failedRequests || 0)
+  const consoleErrors = Number(context.consoleErrors || 0)
+  if (failed >= 8 && consoleErrors > 0) return true
+  if (failed >= 5 && consoleErrors >= 3) return true
   return false
 }
 
@@ -254,8 +265,11 @@ function resistanceProfile(item = {}, compressed = {}, industry = 'unknown') {
   const matureBrand = reviewCount >= 120 && rating >= 4.6 && hasContactability
   if (matureBrand && compressed.leadClass !== 'technical_redesign') { painPenalty += 0.08; buyingPenalty += 0.05; level += 1; reasons.push('mature_local_brand') }
 
-  const chainLike = includesAny(text, ['oris dental', 'europris', 'meny ', 'rema ', 'kiwi ', 'egon ', 'peppes', 'espresso house', 'baker hansen'])
+  const chainLike = includesAny(text, ['oris dental', 'odontia', 'oc norge', 'europris', 'meny ', 'rema ', 'kiwi ', 'egon ', 'peppes', 'espresso house', 'baker hansen'])
+  const groupClinicLike = ['dentist', 'clinic'].includes(industry) && includesAny(text, ['norge', 'klinikkene', 'klinikker', 'kjede', 'avdeling', 'tannlegesenter']) && reviewCount >= 75
+  const matureChainClinic = ['dentist', 'clinic'].includes(industry) && (chainLike || groupClinicLike) && (hasOnlineBooking || hasStrongContactCta || hasVisibleContactPath)
   if (chainLike) { painPenalty += 0.18; buyingPenalty += 0.16; level += 2; reasons.push('chain_or_enterprise_like_business') }
+  if (matureChainClinic) { painPenalty += 0.16; buyingPenalty += 0.08; level += 2; reasons.push('mature_chain_clinic_contact_ready') }
 
   const publicSector = includesAny(String(item.url || meta.website || ''), ['.kommune.no', 'ofk.no', 'fylkeskommune'])
   if (publicSector) { painPenalty += 0.22; buyingPenalty += 0.2; level += 3; reasons.push('public_sector_low_fit') }
@@ -294,7 +308,7 @@ function resistanceProfile(item = {}, compressed = {}, industry = 'unknown') {
     reasons.push('no_obvious_primary_pain')
   }
 
-  return { painPenalty, buyingPenalty, reasons, level, hasStrongContactCta, hasVisibleContactPath, hasContactability }
+  return { painPenalty, buyingPenalty, reasons, level, hasStrongContactCta, hasVisibleContactPath, hasContactability, hasMatureChainClinic: matureChainClinic }
 }
 
 function highTicketRestaurantSignal(text) {

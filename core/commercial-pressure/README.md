@@ -25,3 +25,9 @@ Current calibration principles:
 - Restaurants stay LOW/MEDIUM by default unless severe technical trust pain is present.
 
 The post-CTA calibration retune moved the 23-lead reviewed batch from `High: 8, Medium: 7, Low: 7, Verify: 1` to `High: 2, Medium: 12, Low: 8, Verify: 1`, retaining only the two clear KEEP HIGH examples.
+
+### Mature Chain Clinic Suppression
+
+Mature, chain-like, group-like, or multi-location clinics with visible booking/contact paths should not become `callPriority: high` unless technical trust pain is critical. Contactability improves sales ease, but it does not create HIGH on its own.
+
+The targeted retune preserved the original calibration HIGH examples, Glomma Tannklinikk and Advokatfirmaet Bjornebekk og Martinsen AS, while moving Odontia Varna Tannlegesenter from HIGH to MEDIUM in the unseen batch.

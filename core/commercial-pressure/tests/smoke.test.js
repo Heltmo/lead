@@ -110,6 +110,45 @@ const lawyerTechnicalTrust = buildCommercialPressure({
 })
 assert(lawyerTechnicalTrust.callPriority === 'high', 'lawyer with clear technical trust pain should remain high')
 
+
+
+const matureChainClinic = buildCommercialPressure({
+  status: 'completed',
+  name: 'Odontia Varna Tannlegesenter',
+  title: 'Tannlege i Moss - Varna Tannlegesenter | Odontia',
+  url: 'https://odontia.no/tannlege/varna/',
+  compressedOpportunity: { type: 'technical_trust_risk', leadClass: 'technical_redesign' },
+  sourceMetadata: { industry: 'dentist', phone: '69 26 49 00', sourceType: 'directBusiness', businessStatus: 'OPERATIONAL', rating: 4.8, reviewCount: 101 },
+  businessSignalProfile: { signals: strongContactPathSignals },
+  issueCategories: { accessibility: 1, technical: 2 },
+  performance: { failedRequestCount: 5, consoleErrorCount: 1 },
+})
+assert(matureChainClinic.callPriority !== 'high', 'mature chain clinic with visible booking/contact should not be high without critical technical pain')
+assert(matureChainClinic.commercialPressureReasons.includes('mature_chain_clinic_contact_ready'), 'mature chain clinic resistance should be recorded')
+
+const criticalLocalClinic = buildCommercialPressure({
+  status: 'completed',
+  name: 'Glomma Tannklinikk',
+  compressedOpportunity: { type: 'technical_trust_risk', leadClass: 'technical_redesign' },
+  sourceMetadata: { industry: 'dentist', phone: '69 16 90 90', sourceType: 'directBusiness', businessStatus: 'OPERATIONAL', rating: 4.8, reviewCount: 55 },
+  businessSignalProfile: { signals: strongContactPathSignals },
+  issueCategories: { accessibility: 1, conversion: 1, seo: 1, technical: 2 },
+  performance: { failedRequestCount: 8, consoleErrorCount: 1 },
+})
+assert(criticalLocalClinic.callPriority === 'high', 'local clinic with severe technical trust pain should remain eligible for high')
+
+const failedChainClinic = buildCommercialPressure({
+  status: 'failed',
+  name: 'Oris Dental Fredrikstad',
+  url: 'https://orisdental.no/klinikker/fredrikstad/',
+  compressedOpportunity: { type: 'trust_to_conversion_gap', leadClass: 'conversion_optimization' },
+  sourceMetadata: { industry: 'dentist', phone: '69 30 19 00', sourceType: 'directBusiness', businessStatus: 'OPERATIONAL', rating: 4.7, reviewCount: 200 },
+  businessSignalProfile: { signals: strongContactPathSignals },
+  issueCategories: { conversion: 1 },
+  performance: { failedRequestCount: 0, consoleErrorCount: 0 },
+})
+assert(failedChainClinic.callPriority === 'verify', 'failed chain clinic should remain verify instead of high')
+
 const normalized = normalizeCommercialPressure({ painScore: 2, buyingLikelihood: -1, commercialPressureReasons: 'a|b|c' })
 assert(normalized.painScore === 1, 'pain should clamp high')
 assert(normalized.buyingLikelihood === 0, 'buying likelihood should clamp low')
