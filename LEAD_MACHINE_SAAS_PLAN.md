@@ -286,3 +286,10 @@ discovery -> orchestrator audit -> lead-pack-runner
 ```
 
 It wraps existing modules and writes one run folder with discovery artifacts, lead-pack outputs, and `lead-machine-summary.json`. The summary now includes operator-facing counts, location exclusion counts, fallback status, and `nextRecommendedAction` so low-supply and fallback runs are easier to interpret. It does not add Proff, frontend, saved searches, outreach automation, sales scripts, or new scoring logic.
+
+
+## Demo V1 Status
+
+`demo/lead-machine-showcase/` is a static non-technical showcase for the Lead Machine core. It uses deterministic local JSON fixtures to demonstrate strict location trust, explicit regional fallback, ranked lead cards, company-profile uncertainty, caution notes, and CSV/export preview.
+
+It is not a production SaaS frontend and does not add Proff, backend services, auth, database, saved searches, outreach automation, or scoring changes.

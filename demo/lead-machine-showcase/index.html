@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lead Machine Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Webconsult showcase</p>
+      <h1>Lead Machine Demo</h1>
+      <p class="lede">Location-aware lead discovery, ranked seller-ready lead packs, evidence, caution, and export.</p>
+    </div>
+    <div class="header-panel" aria-label="Product boundary">
+      <div>
+        <span class="label">Machine provides</span>
+        <strong>discovery · enrichment · ranking · evidence · caution · export</strong>
+      </div>
+      <div>
+        <span class="label">Seller owns</span>
+        <strong>angle · wording · outreach · timing · relationship · close</strong>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="scenario-panel" aria-label="Demo scenarios">
+      <div class="section-title">Scenarios</div>
+      <div id="scenarioTabs" class="scenario-tabs"></div>
+      <div class="boundary-box">
+        <div class="section-title">What this proves</div>
+        <p>A user can search a niche and place, see whether supply is local or expanded, review ranked lead packs, and export the result.</p>
+      </div>
+    </aside>
+
+    <section class="content-area">
+      <section id="summaryPanel" class="summary-panel" aria-live="polite"></section>
+      <section class="split-view">
+        <div>
+          <div class="toolbar-row">
+            <div>
+              <div class="section-title">Ranked leads</div>
+              <p id="leadCountText" class="muted"></p>
+            </div>
+            <button id="exportButton" class="export-button" type="button">CSV preview</button>
+          </div>
+          <div id="leadCards" class="lead-grid"></div>
+        </div>
+        <aside id="detailPanel" class="detail-panel" aria-label="Lead details"></aside>
+      </section>
+      <section id="exportPreview" class="export-preview" hidden></section>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

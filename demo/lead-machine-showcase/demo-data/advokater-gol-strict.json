@@ -1,0 +1,21 @@
+{
+  "id": "gol-strict",
+  "name": "Advokater i Gol - strict",
+  "purpose": "Location trust",
+  "message": "Strict mode does not silently include wrong-location leads.",
+  "query": "advokater i Gol",
+  "provider": "Google Places",
+  "searchScope": "strict",
+  "includedLeadCount": 0,
+  "totalDiscovered": 4,
+  "totalExcludedByLocation": 4,
+  "lowSupply": true,
+  "fallbackAvailable": true,
+  "fallbackUsed": false,
+  "recommendedExpansion": "nearby",
+  "locationQualityCounts": {
+    "out_of_area": 4
+  },
+  "nextRecommendedAction": "Run again with --search-scope nearby or regional.",
+  "leads": []
+}

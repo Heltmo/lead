@@ -33,3 +33,8 @@ node ~/webconsult/core/campaign-runner/cli/run-campaign.js --query "tannleger i 
 ~~~
 
 Campaign outputs are written under `~/webconsult/generated/campaigns/<campaign-id>/`.
+
+
+## Lead Machine Demo
+
+A static showcase lives in `demo/lead-machine-showcase/`. It can be opened directly or served locally and demonstrates location-aware lead discovery, controlled fallback, ranked seller-ready lead packs, caution notes, and export preview without live API calls.

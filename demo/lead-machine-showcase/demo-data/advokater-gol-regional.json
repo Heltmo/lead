@@ -1,0 +1,222 @@
+{
+  "id": "gol-regional",
+  "name": "Advokater i Gol - regional",
+  "purpose": "Controlled fallback",
+  "message": "Expansion is possible, but non-local leads are visibly marked.",
+  "query": "advokater i Gol",
+  "provider": "Google Places",
+  "searchScope": "regional",
+  "includedLeadCount": 4,
+  "totalDiscovered": 4,
+  "totalExcludedByLocation": 0,
+  "lowSupply": false,
+  "fallbackAvailable": false,
+  "fallbackUsed": true,
+  "recommendedExpansion": null,
+  "locationQualityCounts": {
+    "regional_fallback": 4
+  },
+  "nextRecommendedAction": "Review fallback location warnings before treating these as local leads.",
+  "leads": [
+    {
+      "rank": 1,
+      "companyName": "Advokatfirmaet SGB Storløkken",
+      "priority": "MEDIUM",
+      "vertical": "lawyer",
+      "website": "https://sgb.no",
+      "phone": "unknown",
+      "email": "unknown",
+      "address": "Oslo area",
+      "city": "Oslo",
+      "rating": null,
+      "reviewCount": null,
+      "leadClass": "trust_modernization",
+      "opportunityType": "service_enquiry_clarity",
+      "whyRanked": [
+        "Relevant legal-service result from expanded scope",
+        "Contact path and website can be reviewed",
+        "Useful only as explicit regional fallback"
+      ],
+      "evidence": [
+        "Returned by provider for regional expansion",
+        "Not exact Gol location",
+        "Should not be treated as local without review"
+      ],
+      "caution": [
+        "Regional fallback, not exact location",
+        "Verify local relevance before using"
+      ],
+      "sourceQuality": {
+        "requestedLocation": "Gol",
+        "candidateLocation": "Oslo",
+        "locationMatchStatus": "regional_fallback",
+        "locationConfidence": 0.35,
+        "distanceKm": null,
+        "fallbackUsed": true,
+        "locationWarnings": [
+          "candidate_appears_outside_requested_location",
+          "included_as_explicit_location_fallback"
+        ]
+      },
+      "companyProfile": {
+        "organizationNumber": null,
+        "candidateOrganizationNumber": null,
+        "matchStatus": "not_run",
+        "matchConfidence": null,
+        "warnings": []
+      },
+      "economy": {
+        "status": "not_enabled"
+      }
+    },
+    {
+      "rank": 2,
+      "companyName": "Elden Advokatfirma AS",
+      "priority": "LOW",
+      "vertical": "lawyer",
+      "website": "https://www.elden.no",
+      "phone": "unknown",
+      "email": "unknown",
+      "address": "Oslo area",
+      "city": "Oslo",
+      "rating": null,
+      "reviewCount": null,
+      "leadClass": "mature_firm_review",
+      "opportunityType": "regional_fallback_only",
+      "whyRanked": [
+        "Recognizable legal-service result",
+        "Included only to demonstrate controlled fallback"
+      ],
+      "evidence": [
+        "Regional fallback marker applied",
+        "Likely mature firm",
+        "Not exact requested location"
+      ],
+      "caution": [
+        "Large/mature firm",
+        "Fallback result requires manual relevance check"
+      ],
+      "sourceQuality": {
+        "requestedLocation": "Gol",
+        "candidateLocation": "Oslo",
+        "locationMatchStatus": "regional_fallback",
+        "locationConfidence": 0.3,
+        "distanceKm": null,
+        "fallbackUsed": true,
+        "locationWarnings": [
+          "candidate_appears_outside_requested_location",
+          "included_as_explicit_location_fallback"
+        ]
+      },
+      "companyProfile": {
+        "organizationNumber": null,
+        "candidateOrganizationNumber": null,
+        "matchStatus": "not_run",
+        "matchConfidence": null,
+        "warnings": []
+      },
+      "economy": {
+        "status": "not_enabled"
+      }
+    },
+    {
+      "rank": 3,
+      "companyName": "Advokatguiden.no",
+      "priority": "LOW",
+      "vertical": "directory",
+      "website": "https://www.advokatguiden.no",
+      "phone": "unknown",
+      "email": "unknown",
+      "address": "Norway",
+      "city": "unknown",
+      "rating": null,
+      "reviewCount": null,
+      "leadClass": "source_quality_review",
+      "opportunityType": "directory_result",
+      "whyRanked": [
+        "Shows source classification risk",
+        "Not a direct local business lead"
+      ],
+      "evidence": [
+        "Directory-like source",
+        "Fallback result",
+        "Requires filtering before seller use"
+      ],
+      "caution": [
+        "Not a direct target",
+        "Use as discovery clue only"
+      ],
+      "sourceQuality": {
+        "requestedLocation": "Gol",
+        "candidateLocation": "unknown",
+        "locationMatchStatus": "regional_fallback",
+        "locationConfidence": 0.2,
+        "distanceKm": null,
+        "fallbackUsed": true,
+        "locationWarnings": [
+          "included_as_explicit_location_fallback",
+          "directory_like_result"
+        ]
+      },
+      "companyProfile": {
+        "organizationNumber": null,
+        "candidateOrganizationNumber": null,
+        "matchStatus": "not_run",
+        "matchConfidence": null,
+        "warnings": []
+      },
+      "economy": {
+        "status": "not_enabled"
+      }
+    },
+    {
+      "rank": 4,
+      "companyName": "Advokat Asle Hesla",
+      "priority": "LOW",
+      "vertical": "lawyer",
+      "website": "unknown",
+      "phone": "unknown",
+      "email": "unknown",
+      "address": "regional result",
+      "city": "unknown",
+      "rating": null,
+      "reviewCount": null,
+      "leadClass": "manual_verify",
+      "opportunityType": "regional_fallback_only",
+      "whyRanked": [
+        "Possible legal-service result",
+        "Insufficient local/contact evidence"
+      ],
+      "evidence": [
+        "Provider returned candidate",
+        "Fallback marker applied"
+      ],
+      "caution": [
+        "Verify website and locality",
+        "Not ready as local Gol lead"
+      ],
+      "sourceQuality": {
+        "requestedLocation": "Gol",
+        "candidateLocation": "unknown",
+        "locationMatchStatus": "regional_fallback",
+        "locationConfidence": 0.25,
+        "distanceKm": null,
+        "fallbackUsed": true,
+        "locationWarnings": [
+          "included_as_explicit_location_fallback",
+          "location_uncertain"
+        ]
+      },
+      "companyProfile": {
+        "organizationNumber": null,
+        "candidateOrganizationNumber": null,
+        "matchStatus": "not_run",
+        "matchConfidence": null,
+        "warnings": []
+      },
+      "economy": {
+        "status": "not_enabled"
+      }
+    }
+  ]
+}
