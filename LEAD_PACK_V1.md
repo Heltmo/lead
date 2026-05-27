@@ -57,6 +57,7 @@ Target lead object:
 - companyName
 - legalName
 - organizationNumber
+- candidateOrganizationNumber
 - organizationForm
 - website
 - phone
@@ -73,6 +74,8 @@ Target lead object:
 - source provider
 - source confidence
 - company match confidence
+- company match status
+- company match warnings
 - rating
 - review count
 - contactability summary
@@ -97,6 +100,7 @@ recommendedOfferCategory: website trust and reliability cleanup
 companyName: Glomma Tannklinikk
 legalName: unknown
 organizationNumber: unknown
+candidateOrganizationNumber: unknown
 organizationForm: unknown
 website: http://glommatannklinikk.no
 phone: 69 16 90 90
@@ -234,6 +238,30 @@ Future exports should include:
 - sourceConfidence
 - matchConfidence
 - sellerNotes
+
+## Future Proff Enrichment
+
+Brreg is the official identity source for V1. Proff is a future optional premium enrichment layer.
+
+Proff should only enrich records with confirmed identity:
+
+- `matchStatus`: `exact_match` or `strong_match`
+- `matchConfidence`: above configured threshold
+- `organizationNumber`: confirmed, not only candidate
+
+Proff configuration should use environment variables only:
+
+```text
+PROFF_API_KEY
+```
+
+Proff API requests require an API key and should use the documented token authorization style:
+
+```text
+Authorization: Token <API_KEY>
+```
+
+V1 rule: Proff data should not affect scoring, `callPriority`, commercial-pressure, or opportunity-compressor. It should be displayed as seller context only after Brreg identity matching is safe.
 
 ## Relationship To OUTREACH_PILOT_001
 

@@ -247,25 +247,52 @@ Live source: Brønnøysundregistrene / Enhetsregisteret through `core/company-pr
 - humanVerdict: needs_manual_verify
 - notes: Candidate appears highly plausible with exact name/address evidence, but module returned manual_verify due multiple plausible matches. Safe behavior; duplicate handling should be improved.
 
+
+## Safety Pass Update
+
+After this validation, `core/company-profile` was tightened so confirmed `organizationNumber` requires supporting evidence beyond name-only matching. The module now separates:
+
+- `organizationNumber`: confirmed org.nr only
+- `candidateOrganizationNumber`: plausible candidate org.nr for `manual_verify` / uncertain cases
+
+A targeted live re-check of the previously risky `Flow Tannhelse` case now returns:
+
+```text
+matchStatus: manual_verify
+organizationNumber: null
+candidateOrganizationNumber: 926112104
+matchConfidence: 0.70
+matchReasons: normalized_name_exact | name_match_without_supporting_evidence
+warnings: municipality_mismatch | address_mismatch
+```
+
+This fixes the main risky confident match found in the first validation pass. A full live rerun was attempted, but Brreg returned transient `fetch failed` errors for most cases during that run. The deterministic verifier now covers the safety rule directly.
+
+Updated safety conclusion:
+
+- The previous risky `strong_match` no longer confirms org.nr.
+- Candidate org.nr is preserved for manual verification.
+- Automatic export integration is still not recommended until duplicate/alternative handling and live API retry behavior are improved.
+
 ## Findings
 
 - The module is conservative enough to avoid attaching org.nr in most ambiguous cases.
 - Several highly plausible candidates returned `manual_verify` because the API produced multiple plausible matches, often with the same legal name as an alternative. This is safe, but too conservative for clean exact cases.
-- `Flow Tannhelse` is the main risk: it returned `strong_match` and attached org.nr with only `normalized_name_exact` as the match reason, while the registered address is Sarpsborg and the discovered lead is Fredrikstad. This may still be the correct legal entity, but it should not be auto-attached without supporting city/address/domain/phone evidence.
+- `Flow Tannhelse` was the main risk in the first pass: it returned `strong_match` and attached org.nr with only `normalized_name_exact` as the match reason, while the registered address is Sarpsborg and the discovered lead is Fredrikstad. The safety pass now downgrades this to `manual_verify` with `candidateOrganizationNumber` only.
 - Chain/location brands such as Odontia, Oris Dental, VB, and possibly branch-style law firm names remain hard cases. This is expected and should stay manual until matching logic is stronger.
 - Transient `fetch failed` errors occurred in live CLI use. The module returns `error` without crashing, which is correct for V1.
 
 ## Success Criteria Check
 
-- 0 confident wrong org.nr matches: not fully proven. No confirmed wrong org.nr was found, but Flow Tannhelse is a risky confident match and should be treated as a blocker for automatic integration.
+- 0 confident wrong org.nr matches: improved after safety pass. The one risky confident match found in the first pass now returns `manual_verify` with no confirmed org.nr.
 - Chain/group/branch cases prefer manual_verify unless clearly matched: mostly yes. Oris/VB returned no_match, Odontia errored, and no org.nr was attached.
-- Strong matches explainable with matchReasons: partially. Flow's `normalized_name_exact` reason alone is not enough for safe auto-attachment.
+- Strong matches explainable with matchReasons: improved by requiring supporting evidence beyond name-only matching before confirmed org.nr is attached.
 - no_match acceptable when uncertain: yes.
 
 ## Recommendations
 
 - Keep `core/company-profile` standalone for now. Do not integrate organization numbers into lead pack exports automatically yet.
-- Before integration, require a strong match to include at least one supporting signal beyond normalized name: city, address, phone, or domain.
+- Keep the safety rule requiring supporting evidence beyond normalized name for confirmed org.nr.
 - Improve duplicate handling so exact entity/subunit duplicates with the same legal name do not force `manual_verify` unnecessarily when org/address/phone/domain all agree.
 - Add brand-prefix and network handling for cases like `VB Engelsviken Rør`, while still preserving manual verification for chain/network ambiguity.
 - Add retry/backoff or partial endpoint tolerance for transient Brreg `fetch failed` errors.
@@ -273,7 +300,7 @@ Live source: Brønnøysundregistrene / Enhetsregisteret through `core/company-pr
 
 ## Integration Decision
 
-Current status: not ready for automatic lead pack export integration.
+Current status: safer after the match safety pass, but still not ready for automatic lead pack export integration.
 
 Safe current use:
 

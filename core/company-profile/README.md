@@ -22,7 +22,9 @@ The client searches with `navn`, `navnMetodeForSoek=FORTLOEPENDE`, `size`, and `
 ```js
 {
   organizationNumber: string | null,
+  candidateOrganizationNumber: string | null,
   legalName: string | null,
+  candidateLegalName: string | null,
   organizationForm: string | null,
   registeredAddress: string | null,
   municipality: string | null,
@@ -33,6 +35,7 @@ The client searches with `navn`, `navnMetodeForSoek=FORTLOEPENDE`, `size`, and `
   activeStatus: string | null,
   source: 'brreg',
   sourceUrl: string | null,
+  errorType: 'api' | 'network' | 'parse' | 'timeout' | 'unknown' | null,
   matchConfidence: number,
   matchStatus: 'exact_match' | 'strong_match' | 'weak_match' | 'manual_verify' | 'no_match' | 'error',
   matchReasons: string[],
@@ -43,13 +46,13 @@ The client searches with `navn`, `navnMetodeForSoek=FORTLOEPENDE`, `size`, and `
 ## Match Policy
 
 - `exact_match`: confidence `0.95+`; organization number is included.
-- `strong_match`: confidence `0.80+`; organization number is included.
-- `weak_match`: confidence `0.55+`; organization number is not included.
+- `strong_match`: confidence `0.80+` with supporting evidence beyond name; organization number is included.
+- `weak_match`: confidence `0.55+`; organization number is not included, but candidate organization number may be shown separately.
 - `manual_verify`: plausible but ambiguous; organization number is not included.
 - `no_match`: no plausible candidate.
-- `error`: API/network failure or unavailable fetch implementation.
+- `error`: API/network/parse/timeout failure or unavailable fetch implementation.
 
-Chain, franchise, branch, and multi-location ambiguity should push matches toward `manual_verify` unless evidence is very strong.
+Chain, franchise, branch, and multi-location ambiguity should push matches toward `manual_verify` unless evidence is very strong. Name-only exact matches and municipality/address mismatches also require `manual_verify`; the module can expose `candidateOrganizationNumber` while keeping confirmed `organizationNumber` null.
 
 ## CLI
 

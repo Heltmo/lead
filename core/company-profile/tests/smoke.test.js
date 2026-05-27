@@ -32,6 +32,23 @@ const multi = matchCompanyProfile({ companyName: 'Sentrum Rør', city: 'Moss' },
 ])
 assert(multi.matchStatus === 'manual_verify', 'multiple plausible matches should require manual verify')
 assert(multi.organizationNumber === null, 'manual verify multiple matches should not attach org number')
+assert(multi.candidateOrganizationNumber === '111111111', 'manual verify should preserve candidate org number separately')
+
+const mismatch = matchCompanyProfile({ companyName: 'Flow Tannhelse', city: 'Fredrikstad', address: 'Dampskipsbrygga 10, 1607 Fredrikstad' }, [
+  entity({ organisasjonsnummer: '926112104', navn: 'FLOW TANNHELSE AS', poststed: 'SARPSBORG', kommune: 'Sarpsborg' }),
+])
+assert(mismatch.matchStatus === 'manual_verify', 'exact name with municipality/address mismatch should require manual verify')
+assert(mismatch.organizationNumber === null, 'municipality mismatch should not confirm org number')
+assert(mismatch.candidateOrganizationNumber === '926112104', 'municipality mismatch should keep candidate org number')
+assert(mismatch.warnings.includes('municipality_mismatch'), 'municipality mismatch should be warned')
+
+const nameOnly = matchCompanyProfile({ companyName: 'FLOW TANNHELSE AS' }, [
+  entity({ organisasjonsnummer: '926112104', navn: 'FLOW TANNHELSE AS', poststed: 'SARPSBORG', kommune: 'Sarpsborg' }),
+])
+assert(nameOnly.matchStatus === 'manual_verify', 'name-only exact match should require manual verify')
+assert(nameOnly.organizationNumber === null, 'name-only exact match should not confirm org number')
+assert(nameOnly.candidateOrganizationNumber === '926112104', 'name-only exact match should keep candidate org number')
+assert(nameOnly.matchReasons.includes('name_match_without_supporting_evidence'), 'name-only match should explain missing supporting evidence')
 
 const none = matchCompanyProfile({ companyName: 'No Such Local Business', city: 'Bergen' }, [])
 assert(none.matchStatus === 'no_match', 'empty candidates should return no_match')
@@ -40,6 +57,7 @@ assert(none.organizationNumber === null, 'no_match should not include org number
 const failed = enrichCompanyProfile({ companyName: 'Glomma Tannklinikk' }, { fetchImpl: async () => { throw new Error('network down') } })
 failed.then((profile) => {
   assert(profile.matchStatus === 'error', 'network failure should return error')
+  assert(profile.errorType === 'network', 'network failure should include errorType')
   assert(profile.organizationNumber === null, 'error should not include org number')
 
   return enrichCompanyProfile({ companyName: 'Glomma Tannklinikk', city: 'Fredrikstad' }, { fetchImpl: mockFetch({ enheter: [glomma], underenheter: [] }) })

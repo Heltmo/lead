@@ -64,12 +64,14 @@ function matchCompanyProfile(input = {}, candidates = [], options = {}) {
   const multiplePlausible = closeAlternatives.length > 0
   const chainAmbiguous = best.warnings.includes('chain_or_group_ambiguity') && best.score < 0.9
   const branchAmbiguous = best.warnings.includes('branch_or_location_ambiguity') && best.score < 0.9
+  const locationMismatch = best.warnings.includes('municipality_mismatch') || best.warnings.includes('address_mismatch')
+  const lacksCorroboration = !hasCorroboratingEvidence(best)
 
-  if (multiplePlausible || chainAmbiguous || branchAmbiguous) {
+  if (multiplePlausible || chainAmbiguous || branchAmbiguous || locationMismatch || lacksCorroboration) {
     return toProfile(best.candidate, {
       matchConfidence: roundConfidence(best.score),
       matchStatus: 'manual_verify',
-      matchReasons: [...best.reasons, multiplePlausible ? 'multiple_plausible_matches' : null].filter(Boolean),
+      matchReasons: [...best.reasons, multiplePlausible ? 'multiple_plausible_matches' : null, lacksCorroboration ? 'name_match_without_supporting_evidence' : null].filter(Boolean),
       warnings: [...best.warnings, ...closeAlternatives.map((item) => `alternative:${item.candidate.navn || item.candidate.organisasjonsnummer}`)],
       includeOrganizationNumber: false,
     })
@@ -138,10 +140,15 @@ function scoreCandidate(input = {}, candidate = {}, options = {}) {
   } else if (inputCity && candidateAddress.includes(inputCity)) {
     score += 0.08
     reasons.push('address_contains_city')
+  } else if (inputCity && candidateCity) {
+    score -= 0.12
+    warnings.push('municipality_mismatch')
   }
   if (inputAddress && candidateAddress && addressOverlap(inputAddress, candidateAddress)) {
     score += 0.08
     reasons.push('address_overlap')
+  } else if (inputAddress && candidateAddress && inputCity && candidateCity && inputCity !== candidateCity) {
+    warnings.push('address_mismatch')
   }
 
   const domain = normalizeDomain(input.website || '')
@@ -181,10 +188,13 @@ function scoreCandidate(input = {}, candidate = {}, options = {}) {
 function toProfile(candidate = {}, match = {}) {
   const address = candidate.forretningsadresse || candidate.beliggenhetsadresse || candidate.postadresse || null
   const nace = Array.isArray(candidate.naeringskode1) ? candidate.naeringskode1[0] : candidate.naeringskode1
-  const orgNumber = match.includeOrganizationNumber ? valueOrNull(candidate.organisasjonsnummer) : null
+  const candidateOrgNumber = valueOrNull(candidate.organisasjonsnummer)
+  const orgNumber = match.includeOrganizationNumber ? candidateOrgNumber : null
   return {
     organizationNumber: orgNumber,
+    candidateOrganizationNumber: candidateOrgNumber,
     legalName: valueOrNull(candidate.navn),
+    candidateLegalName: valueOrNull(candidate.navn),
     organizationForm: valueOrNull(candidate.organisasjonsform && (candidate.organisasjonsform.beskrivelse || candidate.organisasjonsform.kode)),
     registeredAddress: formatAddress(address),
     municipality: valueOrNull(address && address.kommune),
@@ -195,6 +205,7 @@ function toProfile(candidate = {}, match = {}) {
     activeStatus: activeStatus(candidate),
     source: 'brreg',
     sourceUrl: valueOrNull(candidate._links && candidate._links.self && candidate._links.self.href),
+    errorType: null,
     matchConfidence: roundConfidence(match.matchConfidence || 0),
     matchStatus: normalizeStatus(match.matchStatus),
     matchReasons: normalizeArray(match.matchReasons),
@@ -205,7 +216,9 @@ function toProfile(candidate = {}, match = {}) {
 function emptyProfile(status, confidence, reasons = []) {
   return {
     organizationNumber: null,
+    candidateOrganizationNumber: null,
     legalName: null,
+    candidateLegalName: null,
     organizationForm: null,
     registeredAddress: null,
     municipality: null,
@@ -216,6 +229,7 @@ function emptyProfile(status, confidence, reasons = []) {
     activeStatus: null,
     source: 'brreg',
     sourceUrl: null,
+    errorType: null,
     matchConfidence: roundConfidence(confidence),
     matchStatus: normalizeStatus(status),
     matchReasons: normalizeArray(reasons),
@@ -224,7 +238,16 @@ function emptyProfile(status, confidence, reasons = []) {
 }
 
 function errorProfile(input, reason) {
-  return { ...emptyProfile('error', 0, ['brreg_error']), warnings: [String(reason || 'unknown_error')] }
+  return { ...emptyProfile('error', 0, ['brreg_error']), errorType: classifyError(reason), warnings: [String(reason || 'unknown_error')] }
+}
+
+function classifyError(reason) {
+  const text = String(reason || '').toLowerCase()
+  if (text.includes('timeout')) return 'timeout'
+  if (text.includes('parse') || text.includes('json')) return 'parse'
+  if (text.includes('status_')) return 'api'
+  if (text.includes('fetch') || text.includes('network') || text.includes('request')) return 'network'
+  return 'unknown'
 }
 
 function extractEmbedded(json = {}, type) {
@@ -243,6 +266,12 @@ function dedupeCandidates(candidates = []) {
     output.push(candidate)
   }
   return output
+}
+
+
+function hasCorroboratingEvidence(scored = {}) {
+  const reasons = new Set(scored.reasons || [])
+  return ['city_match', 'address_contains_city', 'address_overlap', 'domain_match', 'phone_match'].some((reason) => reasons.has(reason))
 }
 
 function buildSearchQuery(name) {
