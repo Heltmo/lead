@@ -61,10 +61,10 @@ For MEDIUM leads:
 - topEvidence: Serious accessibility issues detected | Failed network requests detected | Console errors detected
 - contact/CTA profile summary: visible=true, strong=true, methods=phone | email | form | contact_link | booking_link | emergency_call, terms=akutt time | booking | bestill time | timebestilling, type=emergency_call, confidence=0.88
 
-Human decision: KEEP / DEMOTE / VERIFY
-Human reason:
-Correct angle:
-Rule adjustment needed:
+Human decision: DEMOTE / VERIFY
+Human reason: Mature/chain-like dental clinic with visible booking/contact paths, specialist/clinic structure, and low obvious Webconsult pain. Not enough evidence from public review to justify clear HIGH unless workspace shows severe technical_trust_risk.
+Correct angle: Manual fit verification or campaign/service-line optimization, not direct conversion cleanup.
+Rule adjustment needed: Chain/mature dental clinics with visible booking/contact should not become HIGH unless technical_trust_risk is severe.
 
 ### Drammen Sportsklinikk
 
@@ -83,10 +83,10 @@ Rule adjustment needed:
 - topEvidence: Expected exactly one h1, found 2 | Serious accessibility issues detected | Failed network requests detected
 - contact/CTA profile summary: visible=true, strong=true, methods=phone | email | contact_link | booking_link, terms=bestill time | bestill | kontakt oss | kontakt, type=booking, confidence=0.88
 
-Human decision: OK / PROMOTE / DEMOTE
-Human reason:
-Correct angle:
-Rule adjustment needed:
+Human decision: OK
+Human reason: Strong clinic vertical with high-value services, but booking/contact path is already clear. Opportunity exists, but not enough pain for HIGH.
+Correct angle: Treatment/service-line campaign optimization or patient journey refinement.
+Rule adjustment needed: None. Keep MEDIUM.
 
 ### Regnskapssentralen AS
 
@@ -105,10 +105,10 @@ Rule adjustment needed:
 - topEvidence: Expected exactly one h1, found 0 | Serious accessibility issues detected | Failed network requests detected
 - contact/CTA profile summary: visible=true, strong=true, methods=phone | email | form | contact_link, terms=kontakt oss | kontakt | epost | mail, type=general_contact, confidence=0.88
 
-Human decision: OK / PROMOTE / DEMOTE
-Human reason:
-Correct angle:
-Rule adjustment needed:
+Human decision: OK / DEMOTE
+Human reason: Established accounting firm with visible service structure and contact path. Opportunity may exist, but pain and buying urgency are not strong.
+Correct angle: Service positioning / client enquiry clarity, not urgent conversion cleanup.
+Rule adjustment needed: Accounting firms with visible contact and broad service structure should usually stay MEDIUM/LOW unless technical_trust_risk is severe.
 
 ### VB Engelsviken Rør
 
@@ -127,10 +127,10 @@ Rule adjustment needed:
 - topEvidence: Missing meta description | Serious accessibility issues detected | Failed network requests detected
 - contact/CTA profile summary: visible=true, strong=true, methods=phone | email | contact_link | emergency_call, terms=vakttelefon | kontakt oss | kontakt | telefon, type=emergency_call, confidence=0.88
 
-Human decision: OK / PROMOTE / DEMOTE
-Human reason:
-Correct angle:
-Rule adjustment needed:
+Human decision: OK
+Human reason: Strong local service vertical, but mature VB/network structure and clear contact paths reduce urgency. Good shortlist lead, not call-first.
+Correct angle: Service-line/campaign optimization for bad, varme, varmepumpe or local service enquiries.
+Rule adjustment needed: None if kept MEDIUM. VB/network affiliation should prevent easy HIGH unless severe technical pain exists.
 
 ### Arne Nilsen AS
 
@@ -149,10 +149,10 @@ Rule adjustment needed:
 - topEvidence: Serious accessibility issues detected | Failed network requests detected | Elevated full page load time
 - contact/CTA profile summary: visible=true, strong=true, methods=phone | email | contact_link | booking_link | quote_request | emergency_call, terms=vakttelefon | avtal befaring | bestill | kontakt, type=emergency_call, confidence=0.88
 
-Human decision: OK / PROMOTE / DEMOTE
-Human reason:
-Correct angle:
-Rule adjustment needed:
+Human decision: OK / possible PROMOTE-borderline
+Human reason: Very good vertical and strong high-value services, but contact paths and trust markers are already strong. MEDIUM is right unless technical pain is severe.
+Correct angle: Service-line campaign optimization for bad/varme/rehabilitering, or technical trust cleanup if audit evidence is strong.
+Rule adjustment needed: If technical pain is severe, allow PROMOTE. Otherwise keep high-value plumber with strong contact maturity as MEDIUM.
 
 ### Regnskapsførern AS
 
@@ -171,10 +171,14 @@ Rule adjustment needed:
 - topEvidence: Missing meta description | Expected exactly one h1, found 2 | No social links detected
 - contact/CTA profile summary: visible=true, strong=true, methods=phone | email | form | contact_link, terms=kontakt oss | kontakt | mail | 104 1599, type=general_contact, confidence=0.88
 
-Human decision: OK / PROMOTE / DEMOTE
-Human reason:
-Correct angle:
-Rule adjustment needed:
+Human decision: OK
+Human reason: Simpler accounting site with visible contact and services. Possible modernization/client-enquiry opportunity, but not call-first.
+Correct angle: Trust modernization and client enquiry clarity.
+Rule adjustment needed: None. Keep MEDIUM.
+
+## Human Review Outcome
+
+The unseen validation does not show many obvious false negatives in MEDIUM. The main issue is that the single HIGH lead, Odontia Varna, may not be clearly call-worthy because it appears mature/chain-like with visible booking/contact paths. Before outreach pilot, either verify Odontia manually or add a small rule: mature/chain dental clinics with visible booking/contact should not become HIGH unless technical_trust_risk is severe.
 
 ## HIGH Leads
 
