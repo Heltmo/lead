@@ -21,3 +21,7 @@ Only promote something into core after it has proven useful in a real project.
 ## Lead Intelligence
 
 - company-profile: conservative Brreg/Enhetsregisteret enrichment for legal company identity, org.nr, official metadata, and match confidence.
+
+## Lead Pack Packaging
+
+- lead-pack-runner: V1 packaging layer that converts existing orchestrator run outputs into seller-ready lead-packs JSON/CSV/summary without running new discovery, outreach automation, or sales scripts.

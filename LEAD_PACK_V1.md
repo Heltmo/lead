@@ -239,6 +239,22 @@ Future exports should include:
 - matchConfidence
 - sellerNotes
 
+## Lead Pack Runner V1 Status
+
+`core/lead-pack-runner/` is the first packaging layer for this format.
+
+Current behavior:
+
+- reads existing orchestrator run outputs
+- regenerates existing business signal, opportunity, and commercial pressure views from source artifacts
+- writes `lead-packs.json`, `lead-packs.csv`, and `summary.json`
+- optionally attaches conservative `company-profile` data
+- leaves economy data as `not_enabled`
+- does not run live discovery or audits
+- does not generate outreach scripts
+
+Live end-to-end query execution, saved searches, Proff enrichment, and SaaS UI come later.
+
 ## Future Proff Enrichment
 
 Brreg is the official identity source for V1. Proff is a future optional premium enrichment layer.
