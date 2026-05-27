@@ -62,6 +62,8 @@ Summary:
 
 - totalDiscovered: 4
 - totalIncluded: 0
+- includedLeadCount: 0
+- totalExcludedByLocation: 4
 - searchScope: strict
 - locationQualityCounts:
   - out_of_area: 4
@@ -69,6 +71,7 @@ Summary:
 - fallbackAvailable: true
 - fallbackUsed: false
 - recommendedExpansion: nearby
+- nextRecommendedAction: Run again with --search-scope nearby or regional.
 - sourceRunPath: null
 - economyStatus: not_enabled
 
@@ -98,6 +101,8 @@ Summary:
 
 - totalDiscovered: 4
 - totalIncluded: 4
+- includedLeadCount: 4
+- totalExcludedByLocation: 0
 - searchScope: regional
 - locationQualityCounts:
   - regional_fallback: 4
@@ -107,6 +112,7 @@ Summary:
 - lowSupply: false
 - fallbackAvailable: false
 - fallbackUsed: true
+- nextRecommendedAction: Review fallback location warnings before treating these as local leads.
 - economyStatus: not_enabled
 
 Regional fallback leads:
@@ -158,7 +164,7 @@ No. This is a CLI/control-flow layer around existing discovery, orchestrator, an
 
 7. Is the output folder usable?
 
-Yes. The output folders contain the expected discovery artifacts, lead-pack files, and lead-machine summary.
+Yes. The output folders contain the expected discovery artifacts, lead-pack files, and lead-machine summary. The terminal summary also states included leads, low-supply/fallback status, and next recommended action.
 
 ## Product Verdict
 

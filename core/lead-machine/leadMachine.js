@@ -91,10 +91,28 @@ async function runLeadMachine(options = {}) {
   })
   const summaryPath = path.join(outputDir, 'lead-machine-summary.json')
   fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`)
-  return { outputDir, summaryPath, leadPackOutputPath: leadPackOutputDir, sourceRunPath: summary.sourceRunPath, totalLeads: summary.totalIncluded }
+  return { outputDir, summaryPath, leadPackOutputPath: leadPackOutputDir, sourceRunPath: summary.sourceRunPath, totalLeads: summary.totalIncluded, summary }
 }
 
 function buildLeadMachineSummary({ runId, query, provider, maxResults, searchScope, enrichCompanyProfile, outputDir, discovery, discoveryOutputs, auditResult, leadPackResult, leadPackSummary, leadPacks }) {
+  const locationQualityCounts = leadPackSummary.locationQualityCounts || discovery.locationQuality?.counts || {}
+  const callPriorityCounts = leadPackSummary.priorityCounts || {}
+  const includedLeadCount = leadPackSummary.totalLeads || 0
+  const totalExcludedByLocation = countLocationExcluded(discovery)
+  const lowSupply = Boolean(discovery.searchSupply?.lowSupply || leadPackSummary.lowSupply)
+  const fallbackAvailable = Boolean(discovery.searchSupply?.fallbackAvailable || leadPackSummary.fallbackAvailable)
+  const fallbackUsed = Boolean(discovery.searchSupply?.fallbackUsed || leadPackSummary.fallbackUsed)
+  const recommendedExpansion = discovery.searchSupply?.recommendedExpansion || leadPackSummary.recommendedExpansion || null
+  const nextRecommendedAction = buildNextRecommendedAction({
+    searchScope,
+    includedLeadCount,
+    lowSupply,
+    fallbackAvailable,
+    fallbackUsed,
+    recommendedExpansion,
+    callPriorityCounts,
+  })
+
   return {
     runId,
     query,
@@ -107,16 +125,19 @@ function buildLeadMachineSummary({ runId, query, provider, maxResults, searchSco
     sourceRunPath: auditResult ? path.dirname(auditResult.summaryPath) : null,
     leadPackOutputPath: leadPackResult.outputDir,
     totalDiscovered: discovery.totalCandidates,
-    totalIncluded: leadPackSummary.totalLeads || 0,
-    locationQualityCounts: leadPackSummary.locationQualityCounts || discovery.locationQuality?.counts || {},
-    callPriorityCounts: leadPackSummary.priorityCounts || {},
-    lowSupply: Boolean(discovery.searchSupply?.lowSupply || leadPackSummary.lowSupply),
-    fallbackAvailable: Boolean(discovery.searchSupply?.fallbackAvailable || leadPackSummary.fallbackAvailable),
-    fallbackUsed: Boolean(discovery.searchSupply?.fallbackUsed || leadPackSummary.fallbackUsed),
-    recommendedExpansion: discovery.searchSupply?.recommendedExpansion || leadPackSummary.recommendedExpansion || null,
+    totalIncluded: includedLeadCount,
+    includedLeadCount,
+    totalExcludedByLocation,
+    locationQualityCounts,
+    callPriorityCounts,
+    lowSupply,
+    fallbackAvailable,
+    fallbackUsed,
+    recommendedExpansion,
     companyProfileEnabled: Boolean(enrichCompanyProfile),
     companyProfileCounts: countCompanyProfileStatuses(leadPacks),
     economyStatus: 'not_enabled',
+    nextRecommendedAction,
     productBoundary: 'machine_generates_ranked_lead_packs_seller_owns_angle_wording_outreach_timing_relationship_close',
   }
 }
@@ -153,6 +174,60 @@ function countCompanyProfileStatuses(leadPacks) {
     acc[key] = (acc[key] || 0) + 1
     return acc
   }, {})
+}
+
+function countLocationExcluded(discovery) {
+  return (discovery.candidates || []).filter((candidate) => {
+    if (candidate.auditEligible !== false) return false
+    const reason = String(candidate.auditExclusionReason || '')
+    return candidate.locationMatchStatus === 'out_of_area' || reason.startsWith('out_of_area:')
+  }).length
+}
+
+function buildNextRecommendedAction({ searchScope, includedLeadCount, lowSupply, fallbackAvailable, fallbackUsed, recommendedExpansion, callPriorityCounts }) {
+  const highCount = Number(callPriorityCounts.high || callPriorityCounts.HIGH || 0)
+  const mediumCount = Number(callPriorityCounts.medium || callPriorityCounts.MEDIUM || 0)
+
+  if (searchScope === 'strict' && includedLeadCount === 0 && fallbackAvailable) {
+    return `Run again with --search-scope ${recommendedExpansion || 'nearby'} or regional.`
+  }
+  if (searchScope === 'regional' && fallbackUsed) {
+    return 'Review fallback location warnings before treating these as local leads.'
+  }
+  if (searchScope === 'strict' && lowSupply) {
+    return 'Review exact leads, or expand to nearby if more volume is needed.'
+  }
+  if (includedLeadCount > 0 && highCount > 0) {
+    return 'Review HIGH leads first.'
+  }
+  if (includedLeadCount > 0 && highCount === 0 && mediumCount > 0) {
+    return 'Review top MEDIUM leads as shortlist.'
+  }
+  if (includedLeadCount > 0) {
+    return 'Review generated lead packs.'
+  }
+  return 'No leads included; review discovery source quality or broaden the search.'
+}
+
+function formatTerminalSummary(summary) {
+  const lines = [
+    'Lead Machine Run Complete',
+    `Query: ${summary.query}`,
+    `Provider: ${summary.provider}`,
+    `Scope: ${summary.searchScope}`,
+    `Max results: ${summary.maxResults}`,
+    `Discovered candidates: ${summary.totalDiscovered}`,
+    `Included leads: ${summary.includedLeadCount}`,
+    `Excluded by location: ${summary.totalExcludedByLocation}`,
+    `Low supply: ${summary.lowSupply}`,
+    `Fallback available: ${summary.fallbackAvailable}`,
+    `Fallback used: ${summary.fallbackUsed}`,
+  ]
+  if (summary.recommendedExpansion) lines.push(`Recommended expansion: ${summary.recommendedExpansion}`)
+  if (summary.searchScope === 'regional' && summary.fallbackUsed) lines.push('Warning: regional fallback leads included; review location warnings.')
+  lines.push(`Next action: ${summary.nextRecommendedAction}`)
+  lines.push(`Output: ${summary.outputDir}`)
+  return lines.join('\n')
 }
 
 function createLeadMachineRunId(query) {
@@ -197,4 +272,4 @@ function parseArgs(argv) {
   return out
 }
 
-module.exports = { runLeadMachine, buildLeadMachineSummary, createLeadMachineRunId, parseArgs, slugify }
+module.exports = { runLeadMachine, buildLeadMachineSummary, buildNextRecommendedAction, formatTerminalSummary, createLeadMachineRunId, parseArgs, slugify }

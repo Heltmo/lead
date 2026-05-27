@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { runLeadMachine, parseArgs } = require('../leadMachine')
+const { runLeadMachine, parseArgs, formatTerminalSummary } = require('../leadMachine')
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
@@ -19,7 +19,7 @@ async function main() {
     mockResultsPath: args.mockResultsPath || args['mock-results'],
     validate: args.validate,
   })
-  console.log(JSON.stringify(result, null, 2))
+  console.log(formatTerminalSummary(result.summary))
 }
 
 main().catch((error) => {

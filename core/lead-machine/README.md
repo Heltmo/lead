@@ -43,16 +43,18 @@ core/lead-machine/runs/<run-id>/
   lead-machine-summary.json
 ```
 
-The summary includes:
+The terminal output and `lead-machine-summary.json` are meant to be operator-readable. They include:
 
 - query
 - provider
 - searchScope
 - maxResults
+- outputDir
 - sourceRunPath
 - leadPackOutputPath
 - totalDiscovered
-- totalIncluded
+- includedLeadCount
+- totalExcludedByLocation
 - locationQualityCounts
 - callPriorityCounts
 - lowSupply
@@ -62,6 +64,16 @@ The summary includes:
 - companyProfileEnabled
 - companyProfileCounts
 - economyStatus
+- nextRecommendedAction
+
+
+## Interpreting Results
+
+- `strict` with `includedLeadCount=0` and `fallbackAvailable=true`: run again with `--search-scope nearby` or `regional`.
+- `strict` with `lowSupply=true`: exact-location supply is limited; review exact leads first or expand if volume matters.
+- `regional` with `fallbackUsed=true`: fallback leads are not local leads. Review location warnings before using them.
+- Results with HIGH leads: review HIGH first.
+- Results with no HIGH but MEDIUM leads: use MEDIUM as the shortlist layer.
 
 ## Product Boundary
 

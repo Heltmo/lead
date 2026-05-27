@@ -285,4 +285,4 @@ Do not build:
 discovery -> orchestrator audit -> lead-pack-runner
 ```
 
-It wraps existing modules and writes one run folder with discovery artifacts, lead-pack outputs, and `lead-machine-summary.json`. It does not add Proff, frontend, saved searches, outreach automation, sales scripts, or new scoring logic.
+It wraps existing modules and writes one run folder with discovery artifacts, lead-pack outputs, and `lead-machine-summary.json`. The summary now includes operator-facing counts, location exclusion counts, fallback status, and `nextRecommendedAction` so low-supply and fallback runs are easier to interpret. It does not add Proff, frontend, saved searches, outreach automation, sales scripts, or new scoring logic.
