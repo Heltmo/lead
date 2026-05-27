@@ -14,6 +14,7 @@ async function main() {
     sourceName: args['source-name'],
     provider: args.provider,
     maxResults: args['max-results'] ? Number(args['max-results']) : undefined,
+    searchScope: args['search-scope'] || args.searchScope,
     maxProviderQueries: args['max-provider-queries'] ? Number(args['max-provider-queries']) : undefined,
     dryRun: args['dry-run'] === 'true' || args['dry-run'] === true,
     mockResultsPath: args['mock-results'],

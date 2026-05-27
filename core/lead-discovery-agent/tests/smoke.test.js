@@ -184,7 +184,12 @@ async function main() {
     validate: false,
   })
   assert(googleReport.provider.provider === 'google-places', 'Google Places provider should be recorded in report')
+  assert(googleReport.searchScope === 'strict', 'default search scope should be strict')
   assert(googleReport.totalRawCandidates === 4, 'Google Places fixture should count raw place results')
+  assert(googleReport.searchSupply.lowSupply === true, 'strict mode should mark lowSupply when included leads are below maxResults')
+  assert(googleReport.searchSupply.fallbackAvailable === true, 'strict mode should expose fallbackAvailable when out-of-area candidates exist')
+  assert(googleReport.searchSupply.fallbackUsed === false, 'strict mode should not use fallback')
+  assert(googleReport.searchSupply.recommendedExpansion === 'nearby', 'strict low supply should recommend nearby expansion')
   assert(googleReport.invalidCandidates === 1, 'Google Places fixture without website should be invalid for audit handoff')
   assert(googleReport.candidates.length === 2, 'Google Places candidates should include exact and out-of-area candidates')
   const googleCandidate = googleReport.candidates.find((candidate) => candidate.normalizedDomain === 'norfloss.no')
@@ -215,9 +220,11 @@ async function main() {
     mockResultsPath: googlePlacesFixture,
     maxResults: 4,
     validate: false,
-    includeOutOfArea: true,
+    searchScope: 'regional',
   })
   const fallbackCandidate = fallbackReport.candidates.find((candidate) => candidate.normalizedDomain === 'oslo-advokat.example')
+  assert(fallbackReport.searchScope === 'regional', 'regional fallback report should record search scope')
+  assert(fallbackReport.searchSupply.fallbackUsed === true, 'regional fallback report should mark fallbackUsed')
   assert(fallbackCandidate.locationMatchStatus === 'regional_fallback', 'explicit fallback should mark out-of-area candidate as regional_fallback')
   assert(fallbackCandidate.fallbackUsed === true, 'explicit fallback should set fallbackUsed')
   assert(fallbackCandidate.locationWarnings.includes('included_as_explicit_location_fallback'), 'explicit fallback should warn on fallback inclusion')

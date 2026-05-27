@@ -172,3 +172,7 @@ Correct local leads first.
 Explicit fallback later.
 No silent location drift.
 ```
+
+## Search Scope
+
+See `SEARCH_SCOPE_V1.md` for strict/nearby/regional fallback behavior and low-supply metadata.

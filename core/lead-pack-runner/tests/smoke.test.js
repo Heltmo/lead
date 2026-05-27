@@ -51,6 +51,9 @@ async function main() {
   assert(packs.length === 1, 'one lead pack should be generated')
   assert(packs[0].company.displayName === 'Test Tannklinikk', 'displayName should come from run output')
   assert(packs[0].economy.status === 'not_enabled', 'economy should remain not_enabled')
+  assert(packs[0].sourceQuality.searchScope === 'strict', 'lead pack should include search scope')
+  assert(packs[0].sourceQuality.lowSupply === true, 'lead pack should include low supply')
+  assert(packs[0].sourceQuality.fallbackAvailable === true, 'lead pack should include fallback available')
   assert(packs[0].sourceQuality.requestedLocation === 'Testby', 'lead pack should include requested location')
   assert(packs[0].sourceQuality.locationMatchStatus === 'exact_location', 'lead pack should include location match status')
   assert(packs[0].company.organizationNumber === null, 'company profile disabled should not set organizationNumber')
@@ -59,6 +62,7 @@ async function main() {
   const csv = fs.readFileSync(result.csvPath, 'utf8')
   assert(csv.includes('economyStatus'), 'CSV should include economy status')
   assert(csv.includes('not_enabled'), 'CSV should write economy not_enabled')
+  assert(csv.includes('searchScope'), 'CSV should include search scope')
   assert(csv.includes('locationMatchStatus'), 'CSV should include location match status')
   assert(csv.includes('exact_location'), 'CSV should write location match status')
 
@@ -102,7 +106,19 @@ function summaryFixture(reportPath) {
           rating: '4.8',
           reviewCount: '44',
           businessStatus: 'OPERATIONAL',
-          requestedLocation: 'Testby',
+          searchScope: 'strict',
+          requestedMaxResults: 5,
+          includedLeadCount: 1,
+          lowSupply: true,
+          fallbackAvailable: true,
+          recommendedExpansion: 'nearby',
+          searchScope: 'strict',
+      requestedMaxResults: 5,
+      includedLeadCount: 1,
+      lowSupply: true,
+      fallbackAvailable: true,
+      recommendedExpansion: 'nearby',
+      requestedLocation: 'Testby',
           candidateLocation: 'Testgata 1, 1600 Testby',
           candidateCity: 'Testby',
           locationMatchStatus: 'exact_location',

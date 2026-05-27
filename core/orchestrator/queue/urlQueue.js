@@ -22,6 +22,12 @@ function createQueue(urls, options = {}) {
       reviewCount: item.reviewCount,
       businessStatus: item.businessStatus,
       providerTypes: item.providerTypes,
+      searchScope: item.searchScope,
+      requestedMaxResults: item.requestedMaxResults,
+      includedLeadCount: item.includedLeadCount,
+      lowSupply: item.lowSupply,
+      fallbackAvailable: item.fallbackAvailable,
+      recommendedExpansion: item.recommendedExpansion,
       requestedLocation: item.requestedLocation,
       candidateLocation: item.candidateLocation,
       candidateCity: item.candidateCity,
@@ -77,6 +83,12 @@ function normalizeQueueInput(input) {
   const reviewCount = clean(raw.reviewCount || raw.userRatingCount || raw.user_ratings_total)
   const businessStatus = clean(raw.businessStatus || raw.business_status)
   const providerTypes = Array.isArray(raw.providerTypes) ? raw.providerTypes : []
+  const searchScope = clean(raw.searchScope || 'strict')
+  const requestedMaxResults = normalizeOptionalNumber(raw.requestedMaxResults)
+  const includedLeadCount = normalizeOptionalNumber(raw.includedLeadCount)
+  const lowSupply = normalizeOptionalBoolean(raw.lowSupply) === true
+  const fallbackAvailable = normalizeOptionalBoolean(raw.fallbackAvailable) === true
+  const recommendedExpansion = clean(raw.recommendedExpansion)
   const requestedLocation = clean(raw.requestedLocation)
   const candidateLocation = clean(raw.candidateLocation)
   const candidateCity = clean(raw.candidateCity)
@@ -104,6 +116,12 @@ function normalizeQueueInput(input) {
     reviewCount,
     businessStatus,
     providerTypes,
+    searchScope,
+    requestedMaxResults,
+    includedLeadCount,
+    lowSupply,
+    fallbackAvailable,
+    recommendedExpansion,
     requestedLocation,
     candidateLocation,
     candidateCity,
@@ -114,7 +132,7 @@ function normalizeQueueInput(input) {
     fallbackUsed,
     locationQuality,
   }
-  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, phone, address, placeId, rating, reviewCount, businessStatus, providerTypes, requestedLocation, candidateLocation, candidateCity, locationMatchStatus, locationConfidence, distanceKm, locationWarnings, fallbackUsed, locationQuality, sourceMetadata }
+  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, phone, address, placeId, rating, reviewCount, businessStatus, providerTypes, searchScope, requestedMaxResults, includedLeadCount, lowSupply, fallbackAvailable, recommendedExpansion, requestedLocation, candidateLocation, candidateCity, locationMatchStatus, locationConfidence, distanceKm, locationWarnings, fallbackUsed, locationQuality, sourceMetadata }
 }
 
 function clean(value) {

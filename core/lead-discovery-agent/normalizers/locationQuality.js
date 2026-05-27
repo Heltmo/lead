@@ -68,22 +68,33 @@ function buildLocationQuality(candidate = {}, requestedLocation = '') {
   }
 }
 
+function normalizeSearchScope(value = 'strict') {
+  const scope = clean(value).toLowerCase().replace(/_/g, '-')
+  if (scope === 'regional') return 'regional'
+  if (scope === 'nearby') return 'nearby'
+  return 'strict'
+}
+
 function shouldExcludeForLocation(candidate = {}, options = {}) {
   const quality = candidate.locationQuality || {}
+  const searchScope = normalizeSearchScope(options.searchScope)
   if (!quality.requestedLocation) return false
-  if (options.includeOutOfArea) return false
-  return quality.locationMatchStatus === 'out_of_area'
+  if (quality.locationMatchStatus !== 'out_of_area') return false
+  return searchScope !== 'regional' && options.includeOutOfArea !== true
 }
 
 function applyLocationQuality(candidate = {}, options = {}) {
-  if (candidate.locationQuality?.locationMatchStatus === 'out_of_area' && options.includeOutOfArea) {
+  const searchScope = normalizeSearchScope(options.searchScope)
+  if (candidate.locationQuality?.locationMatchStatus === 'out_of_area' && (searchScope === 'regional' || options.includeOutOfArea)) {
     return {
       ...candidate,
+      searchScope,
       fallbackUsed: true,
       locationMatchStatus: 'regional_fallback',
       locationWarnings: unique([...(candidate.locationWarnings || []), 'included_as_explicit_location_fallback']),
       locationQuality: {
         ...candidate.locationQuality,
+        searchScope,
         locationMatchStatus: 'regional_fallback',
         locationWarnings: unique([...(candidate.locationQuality.locationWarnings || []), 'included_as_explicit_location_fallback']),
         fallbackUsed: true,
@@ -94,11 +105,13 @@ function applyLocationQuality(candidate = {}, options = {}) {
   const reason = 'out_of_area:' + [candidate.locationQuality?.candidateLocation, candidate.locationQuality?.requestedLocation].filter(Boolean).join(' != ')
   return {
     ...candidate,
+    searchScope,
     auditEligible: false,
     auditExclusionReason: candidate.auditExclusionReason || reason,
     locationWarnings: unique([...(candidate.locationWarnings || []), 'excluded_from_handoff_out_of_area']),
     locationQuality: {
       ...candidate.locationQuality,
+      searchScope,
       locationWarnings: unique([...(candidate.locationQuality?.locationWarnings || []), 'excluded_from_handoff_out_of_area']),
     },
   }
@@ -139,6 +152,7 @@ function unique(values) {
 module.exports = {
   parseLocationIntent,
   buildLocationQuality,
+  normalizeSearchScope,
   shouldExcludeForLocation,
   applyLocationQuality,
   extractCity,

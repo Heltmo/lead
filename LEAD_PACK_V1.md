@@ -310,3 +310,7 @@ V1 rule: Proff data should not affect scoring, `callPriority`, commercial-pressu
 The pilot tests whether ranked leads produce response. The lead pack defines what the machine should produce for sellers.
 
 The pilot should remain small, manual, and honest. The lead pack should become the repeatable seller-facing artifact once company enrichment, evidence summaries, caution notes, and exports are formalized.
+
+## Search Scope
+
+See `SEARCH_SCOPE_V1.md` for strict/nearby/regional fallback behavior and low-supply metadata.

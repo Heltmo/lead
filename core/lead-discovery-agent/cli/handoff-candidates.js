@@ -12,7 +12,7 @@ function main() {
   const lines = report.candidates
     .filter((candidate) => includeUnreachable || candidate.websiteReachable !== false)
     .filter((candidate) => includeNonAuditTargets || candidate.auditEligible !== false)
-    .map(formatHandoffCandidate)
+    .map((candidate) => formatHandoffCandidate(candidate, report))
     .filter(Boolean)
   const outPath = path.resolve(args.out || 'reports/orchestrator-urls.txt')
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
@@ -20,7 +20,7 @@ function main() {
   console.log(JSON.stringify({ handoffPath: outPath, totalUrls: lines.length }, null, 2))
 }
 
-function formatHandoffCandidate(candidate) {
+function formatHandoffCandidate(candidate, report = {}) {
   if (!candidate.website) return ''
   return JSON.stringify({
     url: candidate.website,
@@ -41,6 +41,12 @@ function formatHandoffCandidate(candidate) {
     reviewCount: candidate.reviewCount || '',
     businessStatus: candidate.businessStatus || '',
     providerTypes: candidate.providerTypes || [],
+    searchScope: candidate.searchScope || report.searchScope || 'strict',
+    requestedMaxResults: report.searchSupply?.requestedMaxResults ?? '',
+    includedLeadCount: report.searchSupply?.includedLeadCount ?? '',
+    lowSupply: Boolean(report.searchSupply?.lowSupply),
+    fallbackAvailable: Boolean(report.searchSupply?.fallbackAvailable),
+    recommendedExpansion: report.searchSupply?.recommendedExpansion || '',
     requestedLocation: candidate.requestedLocation || '',
     candidateLocation: candidate.candidateLocation || '',
     candidateCity: candidate.candidateCity || '',

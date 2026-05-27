@@ -1,4 +1,4 @@
-function createDiscoveryReport({ query, industry, canonicalIndustry, industryTerm, expandedQueries = [], location, locationIntent, sourceFile, sourceFiles, provider, startedAt, rawResults = [], normalizedCandidates = [], candidates }) {
+function createDiscoveryReport({ query, industry, canonicalIndustry, industryTerm, expandedQueries = [], location, locationIntent, searchScope = 'strict', requestedMaxResults = null, sourceFile, sourceFiles, provider, startedAt, rawResults = [], normalizedCandidates = [], candidates }) {
   const sources = sourceFiles || (sourceFile ? [sourceFile] : [])
   return {
     query,
@@ -9,6 +9,8 @@ function createDiscoveryReport({ query, industry, canonicalIndustry, industryTer
     location,
     locationIntent: locationIntent || null,
     locationQuality: summarizeLocationQuality(candidates),
+    searchScope,
+    searchSupply: summarizeSearchSupply(candidates, requestedMaxResults, searchScope),
     sourceFile: sourceFile || sources[0] || '',
     sourceFiles: sources,
     provider: provider || null,
@@ -38,6 +40,22 @@ function summarizeLocationQuality(candidates) {
     if (candidate.fallbackUsed || candidate.locationQuality?.fallbackUsed) fallbackUsed = true
   }
   return { counts, fallbackUsed }
+}
+
+function summarizeSearchSupply(candidates, requestedMaxResults, searchScope = 'strict') {
+  const maxResults = Number(requestedMaxResults || 0)
+  const includedLeadCount = candidates.filter((candidate) => candidate.auditEligible !== false).length
+  const fallbackUsed = candidates.some((candidate) => candidate.fallbackUsed || candidate.locationQuality?.fallbackUsed)
+  const fallbackAvailable = candidates.some((candidate) => candidate.locationMatchStatus === 'out_of_area' || String(candidate.auditExclusionReason || '').startsWith('out_of_area:'))
+  const lowSupply = searchScope === 'strict' && maxResults > 0 && includedLeadCount < maxResults
+  return {
+    requestedMaxResults: maxResults || null,
+    includedLeadCount,
+    lowSupply,
+    fallbackAvailable,
+    fallbackUsed,
+    recommendedExpansion: lowSupply && fallbackAvailable ? 'nearby' : null,
+  }
 }
 
 function countBySourceType(candidates) {
@@ -73,4 +91,4 @@ function countBySource(candidates) {
   return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)))
 }
 
-module.exports = { createDiscoveryReport, summarizeLocationQuality, countBySource, countBySourceType, excludedTargets }
+module.exports = { createDiscoveryReport, summarizeLocationQuality, summarizeSearchSupply, countBySource, countBySourceType, excludedTargets }

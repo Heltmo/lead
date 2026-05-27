@@ -1,6 +1,6 @@
 const { parseIndustryQuery } = require('../taxonomy/industryTaxonomy')
 const { classifyDiscoveryTarget } = require('./sourceType')
-const { buildLocationQuality } = require('./locationQuality')
+const { buildLocationQuality, normalizeSearchScope } = require('./locationQuality')
 
 function parseDiscoveryQuery(query = '') {
   return parseIndustryQuery(query)
@@ -29,7 +29,8 @@ function normalizeLeadCandidate(raw, defaults = {}) {
   const address = firstClean(raw.address, raw.formattedAddress, raw.formatted_address)
   const hasExplicitLocation = Boolean(firstClean(raw.location) || address)
   const location = normalizeLocation(raw.location || address, raw.provider && !hasExplicitLocation ? '' : defaults.location)
-  const locationQuality = buildLocationQuality({ ...raw, address, location }, defaults.location)
+  const searchScope = normalizeSearchScope(defaults.searchScope)
+  const locationQuality = { ...buildLocationQuality({ ...raw, address, location }, defaults.location), searchScope }
   return {
     businessName: normalizeBusinessName(raw.businessName || raw.name || raw.title || '', website),
     website,
@@ -50,6 +51,7 @@ function normalizeLeadCandidate(raw, defaults = {}) {
     sourceType,
     auditEligible,
     auditExclusionReason: auditEligible ? '' : cleanString(raw.auditExclusionReason || target.auditExclusionReason),
+    searchScope,
     requestedLocation: locationQuality.requestedLocation,
     candidateLocation: locationQuality.candidateLocation,
     candidateCity: locationQuality.candidateCity,
@@ -86,6 +88,7 @@ function deduplicateCandidates(candidates) {
     existing.candidateLocation = existing.candidateLocation || candidate.candidateLocation || ''
     existing.candidateCity = existing.candidateCity || candidate.candidateCity || ''
     if (betterLocationQuality(candidate.locationQuality, existing.locationQuality)) {
+      existing.searchScope = candidate.searchScope
       existing.requestedLocation = candidate.requestedLocation
       existing.locationMatchStatus = candidate.locationMatchStatus
       existing.locationConfidence = candidate.locationConfidence

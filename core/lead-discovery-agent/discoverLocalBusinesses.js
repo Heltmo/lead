@@ -5,11 +5,13 @@ const { loadLiveSearchResults } = require('./providers/liveSearchProvider')
 const { createDiscoveryReport } = require('./reports/discoveryReport')
 const { deduplicateCandidates, normalizeLeadCandidate, parseDiscoveryQuery } = require('./normalizers/leadCandidate')
 const { validateWebsiteReachability } = require('./normalizers/websiteReachability')
-const { parseLocationIntent, applyLocationQuality } = require('./normalizers/locationQuality')
+const { parseLocationIntent, applyLocationQuality, normalizeSearchScope } = require('./normalizers/locationQuality')
 
 async function discoverLocalBusinesses(options) {
   if (!options || (!options.sourceFile && !options.sourceFiles && !options.provider)) throw new Error('sourceFile, sourceFiles, or provider is required for discovery')
   const locationIntent = parseLocationIntent(options.query || [options.industry, options.location].filter(Boolean).join(' in '))
+  const searchScope = normalizeSearchScope(options.searchScope || options['search-scope'])
+  const requestedMaxResults = options.maxResults ? Number(options.maxResults) : null
   const parsed = parseDiscoveryQuery(options.query || [options.industry, options.location].filter(Boolean).join(' in '))
   const industry = options.industry ? parseDiscoveryQuery(options.industry).industry : parsed.industry
   const canonicalIndustry = options.canonicalIndustry || parsed.canonicalIndustry || industry
@@ -21,7 +23,7 @@ async function discoverLocalBusinesses(options) {
   const startedAt = new Date().toISOString()
   const sourceFiles = normalizeSourceFiles(options.sourceFiles || options.sourceFile)
   const resolvedSourceFiles = sourceFiles.map((sourceFile) => path.resolve(sourceFile))
-  const sourceResults = resolvedSourceFiles.length ? loadDiscoverySources(resolvedSourceFiles, { industry, canonicalIndustry, industryTerms, location }) : []
+  const sourceResults = resolvedSourceFiles.length ? loadDiscoverySources(resolvedSourceFiles, { industry, canonicalIndustry, industryTerms, location, searchScope }) : []
   const providerResult = await loadLiveSearchResults({
     provider: options.provider,
     query,
@@ -43,9 +45,9 @@ async function discoverLocalBusinesses(options) {
   })
   const rawResults = [...sourceResults, ...providerResult.rows]
   const normalized = rawResults
-    .map((row) => normalizeLeadCandidate(row, { industry, canonicalIndustry, location, source: row.source || options.sourceName || 'fixed-sample', sourceFile: row.sourceFile, sourceFormat: row.sourceFormat }))
+    .map((row) => normalizeLeadCandidate(row, { industry, canonicalIndustry, location, searchScope, source: row.source || options.sourceName || 'fixed-sample', sourceFile: row.sourceFile, sourceFormat: row.sourceFormat }))
     .filter(Boolean)
-  const candidates = deduplicateCandidates(normalized).map((candidate) => applyLocationQuality(candidate, { includeOutOfArea: options.includeOutOfArea === true || options.includeOutOfArea === 'true' }))
+  const candidates = deduplicateCandidates(normalized).map((candidate) => applyLocationQuality(candidate, { searchScope, includeOutOfArea: options.includeOutOfArea === true || options.includeOutOfArea === 'true' }))
   if (options.validate !== false && !options.dryRun) {
     for (const candidate of candidates) {
       candidate.reachability = await validateWebsiteReachability(candidate.website, { timeoutMs: options.timeoutMs })
@@ -60,6 +62,8 @@ async function discoverLocalBusinesses(options) {
     expandedQueries,
     location,
     locationIntent: { ...locationIntent, requestedLocation: location || locationIntent.requestedLocation },
+    searchScope,
+    requestedMaxResults,
     sourceFiles: resolvedSourceFiles,
     provider: providerResult.plan,
     startedAt,
@@ -79,11 +83,11 @@ function writeDiscoveryOutputs(report, options = {}) {
   fs.mkdirSync(path.dirname(handoffPath), { recursive: true })
   fs.writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`)
   fs.writeFileSync(summaryPath, `${JSON.stringify(toSummary(report), null, 2)}\n`)
-  fs.writeFileSync(handoffPath, `${report.candidates.filter((candidate) => shouldIncludeInHandoff(candidate, options)).map(formatHandoffCandidate).join('\n')}\n`)
+  fs.writeFileSync(handoffPath, `${report.candidates.filter((candidate) => shouldIncludeInHandoff(candidate, options)).map((candidate) => formatHandoffCandidate(candidate, report)).join('\n')}\n`)
   return { candidatesPath: outPath, summaryPath, handoffPath }
 }
 
-function formatHandoffCandidate(candidate) {
+function formatHandoffCandidate(candidate, report = {}) {
   return JSON.stringify({
     url: candidate.website,
     businessName: candidate.businessName || '',
@@ -103,6 +107,12 @@ function formatHandoffCandidate(candidate) {
     reviewCount: candidate.reviewCount || '',
     businessStatus: candidate.businessStatus || '',
     providerTypes: candidate.providerTypes || [],
+    searchScope: candidate.searchScope || report.searchScope || 'strict',
+    requestedMaxResults: report.searchSupply?.requestedMaxResults ?? '',
+    includedLeadCount: report.searchSupply?.includedLeadCount ?? '',
+    lowSupply: Boolean(report.searchSupply?.lowSupply),
+    fallbackAvailable: Boolean(report.searchSupply?.fallbackAvailable),
+    recommendedExpansion: report.searchSupply?.recommendedExpansion || '',
     requestedLocation: candidate.requestedLocation || '',
     candidateLocation: candidate.candidateLocation || '',
     candidateCity: candidate.candidateCity || '',
@@ -131,6 +141,14 @@ function toSummary(report) {
     location: report.location,
     locationIntent: report.locationIntent,
     locationQuality: report.locationQuality,
+    searchScope: report.searchScope,
+    searchSupply: report.searchSupply,
+    requestedMaxResults: report.searchSupply?.requestedMaxResults ?? null,
+    includedLeadCount: report.searchSupply?.includedLeadCount ?? 0,
+    lowSupply: Boolean(report.searchSupply?.lowSupply),
+    fallbackAvailable: Boolean(report.searchSupply?.fallbackAvailable),
+    fallbackUsed: Boolean(report.searchSupply?.fallbackUsed),
+    recommendedExpansion: report.searchSupply?.recommendedExpansion || null,
     sourceFile: report.sourceFile,
     sourceFiles: report.sourceFiles,
     provider: report.provider,
