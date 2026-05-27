@@ -73,3 +73,7 @@ Each lead pack includes:
 ```bash
 npm test
 ```
+
+## Location Quality
+
+Lead packs include a `sourceQuality` object copied from discovery/orchestrator source metadata when available. This records requested location, candidate location, match status, confidence, warnings, distance placeholder, and fallback state. Out-of-area candidates should not appear as ordinary leads unless explicit fallback is used upstream.

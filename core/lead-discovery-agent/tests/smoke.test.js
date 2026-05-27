@@ -4,12 +4,16 @@ const path = require('path')
 const { spawnSync } = require('child_process')
 const { discoverLocalBusinesses, writeDiscoveryOutputs } = require('../discoverLocalBusinesses')
 const { parseDiscoveryQuery } = require('../normalizers/leadCandidate')
+const { parseLocationIntent } = require('../normalizers/locationQuality')
 const { classifyDiscoveryTarget } = require('../normalizers/sourceType')
 
 async function main() {
   assertQuery('dentists in Halden', 'dentist', 'Halden', 'tannlege Halden')
   assertQuery('tannlege Halden', 'dentist', 'Halden', 'dentists Halden')
   assertQuery('advokater i Oslo', 'lawyer', 'Oslo', 'advokatfirma Oslo')
+  const golIntent = parseLocationIntent('advokater i Gol')
+  assert(golIntent.vertical === 'advokater', 'location intent should preserve vertical term')
+  assert(golIntent.requestedLocation === 'Gol', 'location intent should parse Norwegian i location')
   assertQuery('regnskapsfører Sarpsborg', 'accountant', 'Sarpsborg', 'accounting firm Sarpsborg')
   assertTarget('https://haldentannlegene.no', 'directBusiness', true)
   assertTarget('https://www.legelisten.no/tannleger/Viken/Halden', 'directory', false)
@@ -120,6 +124,17 @@ async function main() {
         formattedAddress: 'Storgata 1, 1767 Halden, Norway',
       },
       {
+        id: 'places/out-of-area',
+        displayName: { text: 'Oslo Advokatfirma' },
+        websiteUri: 'https://oslo-advokat.example',
+        nationalPhoneNumber: '+47 69 00 00 00',
+        formattedAddress: 'Stortingsgata 1, 0161 Oslo, Norway',
+        businessStatus: 'OPERATIONAL',
+        rating: 4.2,
+        userRatingCount: 5,
+        types: ['lawyer'],
+      },
+      {
         id: 'places/no-website',
         displayName: { text: 'No Website Dental' },
         nationalPhoneNumber: '+47 00 00 00 00',
@@ -169,10 +184,10 @@ async function main() {
     validate: false,
   })
   assert(googleReport.provider.provider === 'google-places', 'Google Places provider should be recorded in report')
-  assert(googleReport.totalRawCandidates === 3, 'Google Places fixture should count raw place results')
+  assert(googleReport.totalRawCandidates === 4, 'Google Places fixture should count raw place results')
   assert(googleReport.invalidCandidates === 1, 'Google Places fixture without website should be invalid for audit handoff')
-  assert(googleReport.candidates.length === 1, 'Google Places candidates should dedupe by business domain')
-  const googleCandidate = googleReport.candidates[0]
+  assert(googleReport.candidates.length === 2, 'Google Places candidates should include exact and out-of-area candidates')
+  const googleCandidate = googleReport.candidates.find((candidate) => candidate.normalizedDomain === 'norfloss.no')
   assert(googleCandidate.businessName === 'Norfloss Tannklinikk', 'Google Places displayName should become businessName')
   assert(googleCandidate.phone === '+47 69 18 00 00', 'Google Places phone should be preserved')
   assert(googleCandidate.address.includes('Halden'), 'Google Places address should be preserved')
@@ -181,13 +196,31 @@ async function main() {
   assert(googleCandidate.reviewCount === 23, 'Google Places review count should be preserved')
   assert(googleCandidate.businessStatus === 'OPERATIONAL', 'Google Places business status should be preserved')
   assert(googleCandidate.providerTypes.includes('dentist'), 'Google Places types should be preserved')
+  assert(googleCandidate.locationMatchStatus === 'exact_location', 'Google Places exact city should be marked exact_location')
+  const outOfArea = googleReport.candidates.find((candidate) => candidate.normalizedDomain === 'oslo-advokat.example')
+  assert(outOfArea.locationMatchStatus === 'out_of_area', 'Oslo candidate for Halden request should be out_of_area')
+  assert(outOfArea.auditEligible === false, 'out_of_area candidate should not be audit eligible by default')
   const googleHandoff = path.join(root, 'google-handoff.jsonl')
   writeDiscoveryOutputs(googleReport, { outPath: path.join(root, 'google-candidates.json'), summaryPath: path.join(root, 'google-summary.json'), handoffPath: googleHandoff })
   const googleRows = fs.readFileSync(googleHandoff, 'utf8').trim().split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line))
-  assert(googleRows.length === 1, 'Google Places handoff should include audit-eligible website candidate')
+  assert(googleRows.length === 1, 'Google Places handoff should exclude out-of-area candidate by default')
   assert(googleRows[0].phone === '+47 69 18 00 00', 'Google Places handoff should preserve phone')
   assert(googleRows[0].address.includes('Halden'), 'Google Places handoff should preserve address')
   assert(googleRows[0].placeId === 'places/norfloss', 'Google Places handoff should preserve place id')
+  assert(googleRows[0].locationMatchStatus === 'exact_location', 'Google Places handoff should preserve location match status')
+
+  const fallbackReport = await discoverLocalBusinesses({
+    query: 'tannleger i Halden',
+    provider: 'google-places',
+    mockResultsPath: googlePlacesFixture,
+    maxResults: 4,
+    validate: false,
+    includeOutOfArea: true,
+  })
+  const fallbackCandidate = fallbackReport.candidates.find((candidate) => candidate.normalizedDomain === 'oslo-advokat.example')
+  assert(fallbackCandidate.locationMatchStatus === 'regional_fallback', 'explicit fallback should mark out-of-area candidate as regional_fallback')
+  assert(fallbackCandidate.fallbackUsed === true, 'explicit fallback should set fallbackUsed')
+  assert(fallbackCandidate.locationWarnings.includes('included_as_explicit_location_fallback'), 'explicit fallback should warn on fallback inclusion')
 
   const reportPayload = await discoverLocalBusinesses({ query: 'dentists in Halden', sourceFile: jsonFixture, timeoutMs: 3000 })
   writeDiscoveryOutputs(reportPayload, { outPath: out, summaryPath: summary, handoffPath: handoff })

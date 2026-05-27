@@ -34,6 +34,22 @@ function formatHandoffCandidate(candidate) {
     sourceType: candidate.sourceType || 'unknown',
     auditEligible: candidate.auditEligible !== false,
     auditExclusionReason: candidate.auditExclusionReason || '',
+    phone: candidate.phone || '',
+    address: candidate.address || '',
+    placeId: candidate.placeId || '',
+    rating: candidate.rating || '',
+    reviewCount: candidate.reviewCount || '',
+    businessStatus: candidate.businessStatus || '',
+    providerTypes: candidate.providerTypes || [],
+    requestedLocation: candidate.requestedLocation || '',
+    candidateLocation: candidate.candidateLocation || '',
+    candidateCity: candidate.candidateCity || '',
+    locationMatchStatus: candidate.locationMatchStatus || 'unknown',
+    locationConfidence: candidate.locationConfidence ?? '',
+    distanceKm: candidate.distanceKm ?? '',
+    locationWarnings: candidate.locationWarnings || [],
+    fallbackUsed: Boolean(candidate.fallbackUsed),
+    locationQuality: candidate.locationQuality || null,
   })
 }
 

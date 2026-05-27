@@ -51,12 +51,16 @@ async function main() {
   assert(packs.length === 1, 'one lead pack should be generated')
   assert(packs[0].company.displayName === 'Test Tannklinikk', 'displayName should come from run output')
   assert(packs[0].economy.status === 'not_enabled', 'economy should remain not_enabled')
+  assert(packs[0].sourceQuality.requestedLocation === 'Testby', 'lead pack should include requested location')
+  assert(packs[0].sourceQuality.locationMatchStatus === 'exact_location', 'lead pack should include location match status')
   assert(packs[0].company.organizationNumber === null, 'company profile disabled should not set organizationNumber')
   assert(packs[0].ranking.caution.some((note) => note.includes('Seller owns angle')), 'seller-owned angle rule should be present')
   assert(!JSON.stringify(packs[0]).toLowerCase().includes('call opener'), 'lead pack should not generate sales scripts')
   const csv = fs.readFileSync(result.csvPath, 'utf8')
   assert(csv.includes('economyStatus'), 'CSV should include economy status')
   assert(csv.includes('not_enabled'), 'CSV should write economy not_enabled')
+  assert(csv.includes('locationMatchStatus'), 'CSV should include location match status')
+  assert(csv.includes('exact_location'), 'CSV should write location match status')
 
   const manualOutput = path.join(tmp, 'lead-pack-manual')
   const manual = await runLeadPack({ runDir, outputDir: manualOutput, enrichCompanyProfile: true })
@@ -98,6 +102,14 @@ function summaryFixture(reportPath) {
           rating: '4.8',
           reviewCount: '44',
           businessStatus: 'OPERATIONAL',
+          requestedLocation: 'Testby',
+          candidateLocation: 'Testgata 1, 1600 Testby',
+          candidateCity: 'Testby',
+          locationMatchStatus: 'exact_location',
+          locationConfidence: 0.95,
+          locationWarnings: [],
+          fallbackUsed: false,
+          locationQuality: { requestedLocation: 'Testby', candidateLocation: 'Testgata 1, 1600 Testby', candidateCity: 'Testby', locationMatchStatus: 'exact_location', locationConfidence: 0.95, distanceKm: null, locationWarnings: [], fallbackUsed: false },
           sourceType: 'directBusiness',
           provenance: { provider: 'google-places', searchQuery: 'tannleger i Testby' },
         },
@@ -155,6 +167,14 @@ function reportFixture() {
       industry: 'dentist',
       sourceType: 'directBusiness',
       businessStatus: 'OPERATIONAL',
+      requestedLocation: 'Testby',
+      candidateLocation: 'Testgata 1, 1600 Testby',
+      candidateCity: 'Testby',
+      locationMatchStatus: 'exact_location',
+      locationConfidence: 0.95,
+      locationWarnings: [],
+      fallbackUsed: false,
+      locationQuality: { requestedLocation: 'Testby', candidateLocation: 'Testgata 1, 1600 Testby', candidateCity: 'Testby', locationMatchStatus: 'exact_location', locationConfidence: 0.95, distanceKm: null, locationWarnings: [], fallbackUsed: false },
       rating: '4.8',
       reviewCount: '44',
       placeId: 'place-123',

@@ -239,6 +239,28 @@ Future exports should include:
 - matchConfidence
 - sellerNotes
 
+## Location Quality
+
+Lead packs now expose source/location quality so local SaaS searches do not silently drift into the wrong city.
+
+Target field group:
+
+- sourceQuality.requestedLocation
+- sourceQuality.candidateLocation
+- sourceQuality.locationMatchStatus
+- sourceQuality.locationConfidence
+- sourceQuality.distanceKm
+- sourceQuality.locationWarnings
+- sourceQuality.fallbackUsed
+
+Product rule:
+
+```text
+Correct local leads first. Explicit fallback later. No silent location drift.
+```
+
+See `LOCATION_QUALITY_V1.md` for the discovery/location policy.
+
 ## Lead Pack Runner V1 Status
 
 `core/lead-pack-runner/` is the first packaging layer for this format.

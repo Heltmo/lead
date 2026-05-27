@@ -5,14 +5,16 @@ const { loadLiveSearchResults } = require('./providers/liveSearchProvider')
 const { createDiscoveryReport } = require('./reports/discoveryReport')
 const { deduplicateCandidates, normalizeLeadCandidate, parseDiscoveryQuery } = require('./normalizers/leadCandidate')
 const { validateWebsiteReachability } = require('./normalizers/websiteReachability')
+const { parseLocationIntent, applyLocationQuality } = require('./normalizers/locationQuality')
 
 async function discoverLocalBusinesses(options) {
   if (!options || (!options.sourceFile && !options.sourceFiles && !options.provider)) throw new Error('sourceFile, sourceFiles, or provider is required for discovery')
+  const locationIntent = parseLocationIntent(options.query || [options.industry, options.location].filter(Boolean).join(' in '))
   const parsed = parseDiscoveryQuery(options.query || [options.industry, options.location].filter(Boolean).join(' in '))
   const industry = options.industry ? parseDiscoveryQuery(options.industry).industry : parsed.industry
   const canonicalIndustry = options.canonicalIndustry || parsed.canonicalIndustry || industry
   const industryTerm = options.industry || parsed.industryTerm || industry
-  const location = options.location || parsed.location
+  const location = options.location || parsed.location || locationIntent.requestedLocation
   const query = options.query || [industryTerm, location].filter(Boolean).join(' in ')
   const expandedQueries = parsed.expandedQueries || []
   const industryTerms = parsed.industryTerms || [industryTerm, canonicalIndustry].filter(Boolean)
@@ -43,7 +45,7 @@ async function discoverLocalBusinesses(options) {
   const normalized = rawResults
     .map((row) => normalizeLeadCandidate(row, { industry, canonicalIndustry, location, source: row.source || options.sourceName || 'fixed-sample', sourceFile: row.sourceFile, sourceFormat: row.sourceFormat }))
     .filter(Boolean)
-  const candidates = deduplicateCandidates(normalized)
+  const candidates = deduplicateCandidates(normalized).map((candidate) => applyLocationQuality(candidate, { includeOutOfArea: options.includeOutOfArea === true || options.includeOutOfArea === 'true' }))
   if (options.validate !== false && !options.dryRun) {
     for (const candidate of candidates) {
       candidate.reachability = await validateWebsiteReachability(candidate.website, { timeoutMs: options.timeoutMs })
@@ -57,6 +59,7 @@ async function discoverLocalBusinesses(options) {
     industryTerm,
     expandedQueries,
     location,
+    locationIntent: { ...locationIntent, requestedLocation: location || locationIntent.requestedLocation },
     sourceFiles: resolvedSourceFiles,
     provider: providerResult.plan,
     startedAt,
@@ -100,6 +103,15 @@ function formatHandoffCandidate(candidate) {
     reviewCount: candidate.reviewCount || '',
     businessStatus: candidate.businessStatus || '',
     providerTypes: candidate.providerTypes || [],
+    requestedLocation: candidate.requestedLocation || '',
+    candidateLocation: candidate.candidateLocation || '',
+    candidateCity: candidate.candidateCity || '',
+    locationMatchStatus: candidate.locationMatchStatus || 'unknown',
+    locationConfidence: candidate.locationConfidence ?? '',
+    distanceKm: candidate.distanceKm ?? '',
+    locationWarnings: candidate.locationWarnings || [],
+    fallbackUsed: Boolean(candidate.fallbackUsed),
+    locationQuality: candidate.locationQuality || null,
   })
 }
 
@@ -117,6 +129,8 @@ function toSummary(report) {
     industryTerm: report.industryTerm,
     expandedQueries: report.expandedQueries,
     location: report.location,
+    locationIntent: report.locationIntent,
+    locationQuality: report.locationQuality,
     sourceFile: report.sourceFile,
     sourceFiles: report.sourceFiles,
     provider: report.provider,

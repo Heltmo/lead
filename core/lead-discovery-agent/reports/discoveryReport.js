@@ -1,4 +1,4 @@
-function createDiscoveryReport({ query, industry, canonicalIndustry, industryTerm, expandedQueries = [], location, sourceFile, sourceFiles, provider, startedAt, rawResults = [], normalizedCandidates = [], candidates }) {
+function createDiscoveryReport({ query, industry, canonicalIndustry, industryTerm, expandedQueries = [], location, locationIntent, sourceFile, sourceFiles, provider, startedAt, rawResults = [], normalizedCandidates = [], candidates }) {
   const sources = sourceFiles || (sourceFile ? [sourceFile] : [])
   return {
     query,
@@ -7,6 +7,8 @@ function createDiscoveryReport({ query, industry, canonicalIndustry, industryTer
     industryTerm: industryTerm || industry || '',
     expandedQueries,
     location,
+    locationIntent: locationIntent || null,
+    locationQuality: summarizeLocationQuality(candidates),
     sourceFile: sourceFile || sources[0] || '',
     sourceFiles: sources,
     provider: provider || null,
@@ -25,6 +27,17 @@ function createDiscoveryReport({ query, industry, canonicalIndustry, industryTer
     excludedTargets: excludedTargets(candidates),
     candidates,
   }
+}
+
+function summarizeLocationQuality(candidates) {
+  const counts = {}
+  let fallbackUsed = false
+  for (const candidate of candidates) {
+    const key = candidate.locationMatchStatus || candidate.locationQuality?.locationMatchStatus || 'unknown'
+    counts[key] = (counts[key] || 0) + 1
+    if (candidate.fallbackUsed || candidate.locationQuality?.fallbackUsed) fallbackUsed = true
+  }
+  return { counts, fallbackUsed }
 }
 
 function countBySourceType(candidates) {
@@ -60,4 +73,4 @@ function countBySource(candidates) {
   return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)))
 }
 
-module.exports = { createDiscoveryReport, countBySource, countBySourceType, excludedTargets }
+module.exports = { createDiscoveryReport, summarizeLocationQuality, countBySource, countBySourceType, excludedTargets }

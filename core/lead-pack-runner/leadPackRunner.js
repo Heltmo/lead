@@ -15,7 +15,7 @@ const LEAD_PACK_COLUMNS = [
   'placeId', 'rating', 'reviewCount',
   'auditStatus', 'topEvidence', 'contactability',
   'whyRanked', 'caution', 'painScore', 'buyingLikelihood', 'salesEase',
-  'economyStatus', 'sourceQuery', 'sourceRun', 'lastCheckedAt',
+  'economyStatus', 'requestedLocation', 'candidateLocation', 'locationMatchStatus', 'locationConfidence', 'distanceKm', 'locationWarnings', 'fallbackUsed', 'sourceQuery', 'sourceRun', 'lastCheckedAt',
 ]
 
 async function runLeadPack(options = {}) {
@@ -108,6 +108,7 @@ function buildLeadPack({ item, leadInsight, compressedOpportunity, commercialPre
       profit: null,
       employees: null,
     },
+    sourceQuality: sourceQuality(item),
     meta: {
       sourceQuery: sourceQuery || null,
       sourceRun,
@@ -188,11 +189,32 @@ function buildLeadPacksCsv(leadPacks) {
     buyingLikelihood: pack.ranking.buyingLikelihood,
     salesEase: pack.ranking.salesEase,
     economyStatus: pack.economy.status,
+    requestedLocation: pack.sourceQuality.requestedLocation,
+    candidateLocation: pack.sourceQuality.candidateLocation,
+    locationMatchStatus: pack.sourceQuality.locationMatchStatus,
+    locationConfidence: pack.sourceQuality.locationConfidence,
+    distanceKm: pack.sourceQuality.distanceKm,
+    locationWarnings: pack.sourceQuality.locationWarnings.join('|'),
+    fallbackUsed: pack.sourceQuality.fallbackUsed,
     sourceQuery: pack.meta.sourceQuery,
     sourceRun: pack.meta.sourceRun,
     lastCheckedAt: pack.meta.lastCheckedAt,
   }))
   return renderCsv(rows, LEAD_PACK_COLUMNS)
+}
+
+function sourceQuality(item) {
+  const quality = item.sourceMetadata?.locationQuality || {}
+  const warnings = normalizeArray(item.sourceMetadata?.locationWarnings || quality.locationWarnings)
+  return {
+    requestedLocation: item.sourceMetadata?.requestedLocation || quality.requestedLocation || null,
+    candidateLocation: item.sourceMetadata?.candidateLocation || quality.candidateLocation || item.sourceMetadata?.address || item.location || null,
+    locationMatchStatus: item.sourceMetadata?.locationMatchStatus || quality.locationMatchStatus || 'unknown',
+    locationConfidence: numberOrNull(item.sourceMetadata?.locationConfidence ?? quality.locationConfidence),
+    distanceKm: numberOrNull(item.sourceMetadata?.distanceKm ?? quality.distanceKm),
+    locationWarnings: warnings,
+    fallbackUsed: Boolean(item.sourceMetadata?.fallbackUsed || quality.fallbackUsed),
+  }
 }
 
 function buildSummary({ leadPacks, artifacts, outputDir, sourceQuery, lastCheckedAt, enrichCompanyProfile }) {
@@ -210,6 +232,7 @@ function buildSummary({ leadPacks, artifacts, outputDir, sourceQuery, lastChecke
     priorityCounts,
     enrichCompanyProfile: Boolean(enrichCompanyProfile),
     economyStatus: 'not_enabled',
+    locationQualityCounts: leadPacks.reduce((acc, lead) => { const key = lead.sourceQuality.locationMatchStatus || 'unknown'; acc[key] = (acc[key] || 0) + 1; return acc }, {}),
     productBoundary: 'machine_generates_ranked_lead_packs_seller_owns_angle_wording_outreach_timing_relationship_close',
   }
 }

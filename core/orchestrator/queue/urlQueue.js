@@ -22,6 +22,15 @@ function createQueue(urls, options = {}) {
       reviewCount: item.reviewCount,
       businessStatus: item.businessStatus,
       providerTypes: item.providerTypes,
+      requestedLocation: item.requestedLocation,
+      candidateLocation: item.candidateLocation,
+      candidateCity: item.candidateCity,
+      locationMatchStatus: item.locationMatchStatus,
+      locationConfidence: item.locationConfidence,
+      distanceKm: item.distanceKm,
+      locationWarnings: item.locationWarnings,
+      fallbackUsed: item.fallbackUsed,
+      locationQuality: item.locationQuality,
       sourceMetadata: item.sourceMetadata,
       status: 'pending',
       attempts: 0,
@@ -68,6 +77,15 @@ function normalizeQueueInput(input) {
   const reviewCount = clean(raw.reviewCount || raw.userRatingCount || raw.user_ratings_total)
   const businessStatus = clean(raw.businessStatus || raw.business_status)
   const providerTypes = Array.isArray(raw.providerTypes) ? raw.providerTypes : []
+  const requestedLocation = clean(raw.requestedLocation)
+  const candidateLocation = clean(raw.candidateLocation)
+  const candidateCity = clean(raw.candidateCity)
+  const locationMatchStatus = clean(raw.locationMatchStatus || 'unknown')
+  const locationConfidence = normalizeOptionalNumber(raw.locationConfidence)
+  const distanceKm = normalizeOptionalNumber(raw.distanceKm)
+  const locationWarnings = Array.isArray(raw.locationWarnings) ? raw.locationWarnings.map(clean).filter(Boolean) : []
+  const fallbackUsed = normalizeOptionalBoolean(raw.fallbackUsed) === true
+  const locationQuality = raw.locationQuality && typeof raw.locationQuality === 'object' && !Array.isArray(raw.locationQuality) ? raw.locationQuality : null
   const sourceMetadata = {
     businessName,
     source,
@@ -86,12 +104,27 @@ function normalizeQueueInput(input) {
     reviewCount,
     businessStatus,
     providerTypes,
+    requestedLocation,
+    candidateLocation,
+    candidateCity,
+    locationMatchStatus,
+    locationConfidence,
+    distanceKm,
+    locationWarnings,
+    fallbackUsed,
+    locationQuality,
   }
-  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, phone, address, placeId, rating, reviewCount, businessStatus, providerTypes, sourceMetadata }
+  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, phone, address, placeId, rating, reviewCount, businessStatus, providerTypes, requestedLocation, candidateLocation, candidateCity, locationMatchStatus, locationConfidence, distanceKm, locationWarnings, fallbackUsed, locationQuality, sourceMetadata }
 }
 
 function clean(value) {
   return String(value || '').trim()
+}
+
+function normalizeOptionalNumber(value) {
+  if (value === '' || value == null) return ''
+  const number = Number(value)
+  return Number.isFinite(number) ? number : ''
 }
 
 function normalizeOptionalBoolean(value) {

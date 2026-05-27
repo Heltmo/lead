@@ -1,5 +1,6 @@
 const { parseIndustryQuery } = require('../taxonomy/industryTaxonomy')
 const { classifyDiscoveryTarget } = require('./sourceType')
+const { buildLocationQuality } = require('./locationQuality')
 
 function parseDiscoveryQuery(query = '') {
   return parseIndustryQuery(query)
@@ -25,17 +26,21 @@ function normalizeLeadCandidate(raw, defaults = {}) {
   const target = classifyDiscoveryTarget(website)
   const sourceType = firstClean(raw.sourceType) || target.sourceType
   const auditEligible = normalizeBoolean(raw.auditEligible, target.auditEligible)
+  const address = firstClean(raw.address, raw.formattedAddress, raw.formatted_address)
+  const hasExplicitLocation = Boolean(firstClean(raw.location) || address)
+  const location = normalizeLocation(raw.location || address, raw.provider && !hasExplicitLocation ? '' : defaults.location)
+  const locationQuality = buildLocationQuality({ ...raw, address, location }, defaults.location)
   return {
     businessName: normalizeBusinessName(raw.businessName || raw.name || raw.title || '', website),
     website,
     source,
     sources,
     provenance: createProvenance({ source, sourceFile, sourceFormat, provider: raw.provider || defaults.provider, searchQuery: raw.searchQuery || defaults.searchQuery, rank: raw.rank || defaults.rank }, sources),
-    location: normalizeLocation(raw.location, defaults.location),
+    location,
     industry: firstClean(raw.industry, defaults.canonicalIndustry, defaults.industry),
     confidence: normalizeConfidence(raw.confidence),
     phone: firstClean(raw.phone, raw.nationalPhoneNumber, raw.internationalPhoneNumber),
-    address: firstClean(raw.address, raw.formattedAddress, raw.formatted_address),
+    address,
     placeId: firstClean(raw.placeId, raw.place_id),
     rating: normalizeNumber(raw.rating),
     reviewCount: normalizeNumber(raw.reviewCount, raw.userRatingCount, raw.user_ratings_total),
@@ -45,6 +50,15 @@ function normalizeLeadCandidate(raw, defaults = {}) {
     sourceType,
     auditEligible,
     auditExclusionReason: auditEligible ? '' : cleanString(raw.auditExclusionReason || target.auditExclusionReason),
+    requestedLocation: locationQuality.requestedLocation,
+    candidateLocation: locationQuality.candidateLocation,
+    candidateCity: locationQuality.candidateCity,
+    locationMatchStatus: locationQuality.locationMatchStatus,
+    locationConfidence: locationQuality.locationConfidence,
+    distanceKm: locationQuality.distanceKm,
+    locationWarnings: locationQuality.locationWarnings,
+    fallbackUsed: locationQuality.fallbackUsed,
+    locationQuality,
     websiteReachable: null,
     reachability: null,
   }
@@ -69,6 +83,17 @@ function deduplicateCandidates(candidates) {
     existing.confidence = bestConfidence(existing.confidence, candidate.confidence)
     existing.phone = existing.phone || candidate.phone || ''
     existing.address = existing.address || candidate.address || ''
+    existing.candidateLocation = existing.candidateLocation || candidate.candidateLocation || ''
+    existing.candidateCity = existing.candidateCity || candidate.candidateCity || ''
+    if (betterLocationQuality(candidate.locationQuality, existing.locationQuality)) {
+      existing.requestedLocation = candidate.requestedLocation
+      existing.locationMatchStatus = candidate.locationMatchStatus
+      existing.locationConfidence = candidate.locationConfidence
+      existing.distanceKm = candidate.distanceKm
+      existing.locationWarnings = candidate.locationWarnings || []
+      existing.fallbackUsed = candidate.fallbackUsed
+      existing.locationQuality = candidate.locationQuality
+    }
     existing.placeId = existing.placeId || candidate.placeId || ''
     existing.rating = existing.rating || candidate.rating || ''
     existing.reviewCount = existing.reviewCount || candidate.reviewCount || ''
@@ -79,6 +104,11 @@ function deduplicateCandidates(candidates) {
     existing.auditExclusionReason = existing.auditEligible ? '' : (existing.auditExclusionReason || candidate.auditExclusionReason || '')
   }
   return [...byDomain.values()]
+}
+
+function betterLocationQuality(incoming, current) {
+  const order = { exact_location: 5, nearby: 4, regional_fallback: 3, unknown: 2, out_of_area: 1 }
+  return (order[incoming?.locationMatchStatus] || 0) > (order[current?.locationMatchStatus] || 0)
 }
 
 function normalizeWebsiteUrl(value) {

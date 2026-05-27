@@ -110,6 +110,7 @@ function googlePlacesFieldMask() {
     'places.types',
     'places.primaryType',
     'places.primaryTypeDisplayName',
+    'places.location',
   ].join(',')
 }
 
@@ -155,7 +156,7 @@ function normalizeProviderResult(result, defaults = {}) {
   const provider = cleanText(defaults.provider) || 'provider'
   const query = cleanText(defaults.query)
   const source = query ? provider + ':' + query : provider
-  const location = normalizeLocation(result.location || result.formattedAddress || result.formatted_address, defaults.location)
+  const location = normalizeLocation(result.location || result.formattedAddress || result.formatted_address, '')
   return {
     businessName,
     website,
