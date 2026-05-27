@@ -20,6 +20,7 @@ Success is not closing a deal yet. Success is learning:
 - No automation.
 - No mass email.
 - No AI-generated bulk sending.
+- No prepared scripts or recommended wording.
 - Contact only a small number of leads.
 - Track outcome honestly.
 - Do not tune scoring until results are recorded.
@@ -59,7 +60,7 @@ Success is not closing a deal yet. Success is learning:
 - source run: core/orchestrator/runs/tannleger-fredrikstad-places-5
 - why selected: Retained `HIGH`; clear technical trust pain, many failed requests, contactable local clinic, and easy direct-fix Webconsult offer.
 - correct angle from calibration: Website trust and reliability cleanup.
-- suggested outreach approach: Lead with a short, specific offer to show the concrete site reliability and trust issues found in the audit. Keep the angle focused on confidence and technical cleanup, not generic redesign.
+- operator context: The useful information is the technical trust/reliability finding. Avoid treating this as a generic redesign lead.
 
 - contacted: yes/no
 - date contacted:
@@ -95,7 +96,7 @@ Success is not closing a deal yet. Success is learning:
 - source run: core/orchestrator/runs/advokater-fredrikstad-places-5
 - why selected: Retained `HIGH`; clear technical trust pain, contactable local law firm, and a believable direct-fix offer in a stricter vertical.
 - correct angle from calibration: Website trust and reliability cleanup.
-- suggested outreach approach: Use legal trust language. Position the issue as credibility and client enquiry confidence, not booking. Offer to show the concrete trust/readability issues from the audit.
+- operator context: The useful information is legal trust and credibility. Avoid booking or patient framing.
 
 - contacted: yes/no
 - date contacted:
@@ -131,7 +132,7 @@ Success is not closing a deal yet. Success is learning:
 - source run: core/orchestrator/runs/unseen-rorleggere-fredrikstad-5-20260526
 - why selected: Strong `MEDIUM`; very good VVS vertical and service-line fit, but strong contact paths and trust markers keep it below `HIGH` unless technical pain proves severe.
 - correct angle from calibration: Service-line campaign optimization for bad/varme/rehabilitering, or technical trust cleanup if audit evidence is strong.
-- suggested outreach approach: Treat this as a measured VVS service-line test. Focus on better visibility for bad, varme, rehabilitering and enquiry flow, with technical cleanup only if the audit evidence is useful in conversation.
+- operator context: The useful information is VVS service-line strength plus moderate technical trust evidence. Do not treat this as urgent redesign unless the technical evidence feels strong enough.
 
 - contacted: yes/no
 - date contacted:
@@ -167,7 +168,7 @@ Success is not closing a deal yet. Success is learning:
 - source run: core/orchestrator/runs/unseen-fysioterapeuter-drammen-5-20260526
 - why selected: Strong clinic `MEDIUM`; good high-value service vertical, but booking/contact path is already clear and pain is not strong enough for `HIGH`.
 - correct angle from calibration: Treatment/service-line campaign optimization or patient journey refinement.
-- suggested outreach approach: Use clinic language. Frame this as improving treatment-path clarity and patient journey polish around existing booking, not as a broken-site pitch.
+- operator context: The useful information is treatment/service-line journey quality. Booking/contact already exists, so this is not a broken-site lead.
 
 - contacted: yes/no
 - date contacted:
@@ -203,7 +204,7 @@ Success is not closing a deal yet. Success is learning:
 - source run: core/orchestrator/runs/unseen-rorleggere-fredrikstad-5-20260526
 - why selected: Strong `MEDIUM`; relevant trade/service-line lead with VB/network maturity and clear contact paths, useful for testing mature trade outreach.
 - correct angle from calibration: Service-line/campaign optimization for bad, varme, varmepumpe or local service enquiries.
-- suggested outreach approach: Keep urgency moderate. Focus on local service enquiries and service-line/campaign polish for bad, varme and varmepumpe rather than claiming basic contact or booking problems.
+- operator context: The useful information is service-line/campaign potential for bad, varme and varmepumpe. VB/network maturity and contact paths reduce urgency.
 
 - contacted: yes/no
 - date contacted:
@@ -216,29 +217,39 @@ Success is not closing a deal yet. Success is learning:
 - outcome:
 - learning:
 
-## Suggested Outreach Angles
+## Lead Context Notes
 
-Do not write full automated email campaigns. These are short human-use angles only.
+These notes are not scripts. They are the key context the operator should understand before making contact.
 
 ### Glomma Tannklinikk
 
-Focus on website trust and reliability cleanup. Do not overfocus on generic CTA cleanup. The angle is that a strong local clinic may lose patient confidence if the site feels technically unreliable or harder to use than expected.
+- Context: website trust and reliability cleanup.
+- Evidence theme: technical reliability, accessibility/usability and failed request findings.
+- Caution: do not overfocus on generic CTA cleanup.
 
 ### Advokatfirmaet Bjørnebekk og Martinsen AS
 
-Focus on legal trust and website credibility. Use lawyer language: client enquiry, trust, credibility, case intake. Do not use booking or patient language.
+- Context: legal trust and website credibility.
+- Evidence theme: technical trust and readability/usability issues.
+- Caution: use legal/client language, not booking or patient language.
 
 ### Arne Nilsen AS
 
-Focus on service-line campaign optimization or technical trust cleanup if the audit evidence supports it. Mention bad, varme, rehabilitering and VVS service demand only as supported by the source data. Do not treat it as urgent redesign unless technical pain is strong.
+- Context: VVS service-line visibility and possible technical trust cleanup.
+- Evidence theme: bad, varme, rehabilitering/VVS services plus accessibility/performance issues.
+- Caution: do not treat it as urgent redesign unless technical pain is strong.
 
 ### Drammen Sportsklinikk
 
-Focus on treatment/service-line patient journey refinement. Use clinic language: patients, treatment path, booking journey. Do not overstate pain because booking/contact already exists.
+- Context: treatment/service-line patient journey refinement.
+- Evidence theme: strong booking/contact and broad treatment offer, with technical/usability findings.
+- Caution: do not overstate pain because booking/contact already exists.
 
 ### VB Engelsviken Rør
 
-Focus on service-line/campaign optimization for bad, varme, varmepumpe or local service enquiries. Do not overstate urgency because VB/network maturity and contact paths reduce pain.
+- Context: service-line/campaign optimization for bad, varme, varmepumpe or local service enquiries.
+- Evidence theme: mature VB/network trade lead with technical/usability findings.
+- Caution: do not overstate urgency because VB/network maturity and contact paths reduce pain.
 
 ## Pilot Success Criteria
 
