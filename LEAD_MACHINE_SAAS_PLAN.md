@@ -293,3 +293,10 @@ It wraps existing modules and writes one run folder with discovery artifacts, le
 `demo/lead-machine-showcase/` is a static non-technical showcase for the Lead Machine core. It uses deterministic local JSON fixtures to demonstrate strict location trust, explicit regional fallback, ranked lead cards, company-profile uncertainty, caution notes, and CSV/export preview.
 
 It is not a production SaaS frontend and does not add Proff, backend services, auth, database, saved searches, outreach automation, or scoring changes.
+
+
+## Interactive Local Demo
+
+`apps/lead-machine-demo/` is the first browser-driven local app where a user can type a query such as `Kristiansand rørlegger` and run the existing Lead Machine flow. The local backend calls `core/lead-machine` directly instead of shelling out, then returns run summary, lead packs, CSV/JSON download links, and output paths to the browser.
+
+This is not full SaaS. It does not add auth, database, Proff, saved searches, CRM, scoring changes, or outreach automation. Its purpose is to demonstrate the live product loop: user query -> lead-machine run -> ranked lead packs.

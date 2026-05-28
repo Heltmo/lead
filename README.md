@@ -38,3 +38,8 @@ Campaign outputs are written under `~/webconsult/generated/campaigns/<campaign-i
 ## Lead Machine Demo
 
 A static showcase lives in `demo/lead-machine-showcase/`. It can be opened directly or served locally and demonstrates location-aware lead discovery, controlled fallback, ranked seller-ready lead packs, caution notes, and export preview without live API calls.
+
+
+## Lead Machine Live Demo
+
+A local interactive demo app lives in `apps/lead-machine-demo/`. It lets a user enter queries like `Kristiansand rørlegger`, runs the existing Lead Machine backend locally, and displays ranked lead packs with summary, evidence, caution, CSV and JSON links.

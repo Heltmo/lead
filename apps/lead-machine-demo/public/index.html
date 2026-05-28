@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lead Machine Live Demo</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Local demo</p>
+      <h1>Lead Machine</h1>
+      <p>Skriv bransje + sted. Maskinen kjører discovery, audit og lead-pack-runner lokalt.</p>
+    </div>
+    <div class="boundary">
+      <div><span>Machine provides</span><strong>discovery · enrichment · ranking · evidence · caution · export</strong></div>
+      <div><span>Seller owns</span><strong>angle · wording · outreach · timing · relationship · close</strong></div>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="search-panel">
+      <label class="query-label">
+        <span>Query</span>
+        <input id="queryInput" value="Kristiansand rørlegger" autocomplete="off">
+      </label>
+      <label><span>Provider</span><select id="provider"><option value="google-places">Google Places</option></select></label>
+      <label><span>Max</span><select id="maxResults"><option>5</option><option>10</option></select></label>
+      <label><span>Scope</span><select id="searchScope"><option value="strict">strict</option><option value="nearby">nearby</option><option value="regional">regional</option></select></label>
+      <label class="toggle"><input id="companyProfile" type="checkbox"> Company profile</label>
+      <button id="runButton" type="button">Kjør søk</button>
+    </section>
+
+    <section id="statusPanel" class="status-panel">Ready.</section>
+    <section id="summaryPanel" class="summary-panel"></section>
+
+    <section class="desk-grid">
+      <aside class="lead-list">
+        <div class="panel-title">Lead packs</div>
+        <div id="leadCards"></div>
+      </aside>
+      <section class="lead-detail">
+        <div id="leadDetail" class="empty-state">Run a search to see ranked lead packs.</div>
+      </section>
+    </section>
+
+    <section id="exportPanel" class="export-panel"></section>
+  </main>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>

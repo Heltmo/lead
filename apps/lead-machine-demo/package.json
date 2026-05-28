@@ -1,0 +1,12 @@
+{
+  "name": "lead-machine-demo",
+  "version": "1.0.0",
+  "description": "Local interactive Lead Machine demo app",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "test": "node tests/smoke.test.js"
+  },
+  "license": "ISC",
+  "type": "commonjs"
+}
