@@ -245,31 +245,62 @@ function sellerSignals(lead) {
   const website = lead.website || {}
   const company = lead.company || {}
   const contact = lead.contact || {}
+  const places = lead.places || {}
   const raw = [lead.opportunityType, lead.leadClass, ...(ranking.whyRanked || []), ...(website.topEvidence || [])].filter(Boolean)
   const signals = []
-  if (contact.phone || contact.email) signals.push('Contact path is available, so the seller can qualify the lead directly.')
-  if (company.organizationNumber) signals.push('Official company identity is confirmed through Brreg.')
-  else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Possible company identity exists, but org.nr should be verified before export.')
+
+  if (contact.phone) signals.push(`Phone is available: ${contact.phone}. This is contactable, not just a website lead.`)
+  else if (contact.email) signals.push(`Email is available: ${contact.email}. Direct qualification is possible.`)
+
+  if (places.rating) signals.push(`Google proof: ${formatRating(places)}. Use this to judge market presence before prioritizing.`)
+
+  if (company.organizationNumber) signals.push(`Brreg confirmed: org.nr ${company.organizationNumber}. Legal identity is ready for export.`)
+  else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Brreg candidate exists, but legal identity should be verified before export.')
+  else signals.push('Legal identity is not verified yet. Turn on Brreg firmaprofil when org.nr matters.')
+
+  if (isLawLead(lead)) signals.push('Law-firm context: credibility, trust and client enquiry quality matter more than generic booking language.')
+
   for (const item of raw) {
     const mapped = leverageLabel(item)
     if (mapped && !signals.includes(mapped)) signals.push(mapped)
   }
+
   if (!signals.length) signals.push('Lead has enough contact and source context to review manually.')
-  return signals.slice(0, 6)
+  return signals.filter(Boolean).slice(0, 7)
 }
 
 function leverageLabel(value) {
   const text = String(value || '').toLowerCase()
+  if (isInternalLabel(text)) return null
+  if (text.includes('brand_identity_confusion') || text.includes('brand identity confusion')) return 'Brand/domain alignment may be unclear. Verify that the company name, website and legal entity point to the same business.'
+  if (text === 'brand_identity' || text.includes('leadclass:brand_identity')) return 'Identity signal: verify whether the public brand and legal firm name are aligned.'
   if (text.includes('technical_trust_risk') || text.includes('technical trust')) return 'Website trust or reliability signals may be weaker than the business itself.'
   if (text.includes('many_failed_requests') || text.includes('failed network')) return 'Website reliability evidence exists; verify before using it as a sales point.'
   if (text.includes('accessibility') || text.includes('usability')) return 'Usability/accessibility friction may affect customer confidence.'
   if (text.includes('high_value_service') || text.includes('service_line')) return 'High-value services are present and may deserve clearer lead paths.'
+  if (text.includes('local_visibility')) return 'Local visibility lead: contact and location are clear, but urgency may be lower without stronger pain.'
   if (text.includes('strong_existing_conversion_flow')) return 'Contact flow already looks strong, so urgency should not be overstated.'
   if (text.includes('contact_maturity_requires_stronger_technical_pain')) return 'Contact maturity is high; treat this as shortlist unless technical pain is clear.'
   if (text.includes('visible_technical_trust_pain')) return 'Visible technical trust evidence supports a deeper review.'
   if (text.includes('no social links')) return 'Social proof links were not detected in the website audit.'
+  if (text.includes('no recognized technology stack')) return 'Technology stack was not recognized; this can be a manual review signal for site age or custom setup.'
   if (text.includes('contactable')) return 'Business appears reachable from available contact data.'
-  return humanize(value)
+  return null
+}
+
+function isInternalLabel(text) {
+  return /^callpriority[:\s]/.test(text)
+    || /^leadclass[:\s]/.test(text)
+    || /^opportunitytype[:\s]/.test(text)
+    || text === 'medium'
+    || text === 'low'
+    || text === 'high'
+    || text === 'verify'
+}
+
+function isLawLead(lead) {
+  const haystack = [lead.company?.displayName, lead.leadClass, lead.opportunityType, lead.contact?.website].filter(Boolean).join(' ').toLowerCase()
+  return haystack.includes('advokat') || haystack.includes('law')
 }
 
 function nextSellerStep(lead) {
