@@ -58,16 +58,36 @@
       },
       "companyProfile": {
         "organizationNumber": null,
-        "candidateOrganizationNumber": "manual verify",
+        "candidateOrganizationNumber": "candidate available; manual verify",
         "matchStatus": "manual_verify",
         "matchConfidence": 1,
         "warnings": [
           "duplicate_candidate_review"
-        ]
+        ],
+        "legalName": "GLOMMA TANNKLINIKK AS",
+        "organizationForm": "Aksjeselskap",
+        "employees": 9,
+        "registrationDate": "2010-01-01",
+        "activeStatus": "active",
+        "registeredAddress": "Glemmengata 8, 1608 Fredrikstad"
       },
       "economy": {
         "status": "not_enabled"
-      }
+      },
+      "mobile": null,
+      "sourceBadges": [
+        "Google Places",
+        "Website audit",
+        "Brreg/company-profile",
+        "Proff later"
+      ],
+      "workflow": {
+        "status": "New lead",
+        "owner": "unassigned",
+        "nextAction": "Review technical evidence",
+        "notes": ""
+      },
+      "contactability": "phone and email found; visible contact path"
     },
     {
       "rank": 2,
@@ -110,11 +130,31 @@
         "candidateOrganizationNumber": null,
         "matchStatus": "not_run",
         "matchConfidence": null,
-        "warnings": []
+        "warnings": [],
+        "legalName": "unknown",
+        "organizationForm": "unknown",
+        "employees": null,
+        "registrationDate": null,
+        "activeStatus": "unknown",
+        "registeredAddress": "Traraveien 7, 1605 Fredrikstad"
       },
       "economy": {
         "status": "not_enabled"
-      }
+      },
+      "mobile": null,
+      "sourceBadges": [
+        "Google Places",
+        "Website audit",
+        "Brreg/company-profile",
+        "Proff later"
+      ],
+      "workflow": {
+        "status": "New lead",
+        "owner": "unassigned",
+        "nextAction": "Review legal trust evidence",
+        "notes": ""
+      },
+      "contactability": "phone and website found"
     },
     {
       "rank": 3,
@@ -155,16 +195,36 @@
       },
       "companyProfile": {
         "organizationNumber": null,
-        "candidateOrganizationNumber": "manual verify",
+        "candidateOrganizationNumber": "candidate available; manual verify",
         "matchStatus": "manual_verify",
         "matchConfidence": 1,
         "warnings": [
           "chain_ambiguity"
-        ]
+        ],
+        "legalName": "ARNE NILSEN AS",
+        "organizationForm": "Aksjeselskap",
+        "employees": 16,
+        "registrationDate": "unknown",
+        "activeStatus": "active",
+        "registeredAddress": "Gelertsens gate 7, 1608 Fredrikstad"
       },
       "economy": {
         "status": "not_enabled"
-      }
+      },
+      "mobile": null,
+      "sourceBadges": [
+        "Google Places",
+        "Website audit",
+        "Brreg/company-profile",
+        "Proff later"
+      ],
+      "workflow": {
+        "status": "New lead",
+        "owner": "unassigned",
+        "nextAction": "Review service-line opportunity",
+        "notes": ""
+      },
+      "contactability": "phone and website found; clear service pages"
     },
     {
       "rank": 4,
@@ -205,16 +265,36 @@
       },
       "companyProfile": {
         "organizationNumber": null,
-        "candidateOrganizationNumber": "manual verify",
+        "candidateOrganizationNumber": "candidate available; manual verify",
         "matchStatus": "manual_verify",
         "matchConfidence": 1,
         "warnings": [
           "multiple_plausible_candidates"
-        ]
+        ],
+        "legalName": "DRAMMEN SPORTSKLINIKK AS",
+        "organizationForm": "Aksjeselskap",
+        "employees": null,
+        "registrationDate": "unknown",
+        "activeStatus": "active",
+        "registeredAddress": "Schwartz gate 6, 3043 Drammen"
       },
       "economy": {
         "status": "not_enabled"
-      }
+      },
+      "mobile": null,
+      "sourceBadges": [
+        "Google Places",
+        "Website audit",
+        "Brreg/company-profile",
+        "Proff later"
+      ],
+      "workflow": {
+        "status": "New lead",
+        "owner": "unassigned",
+        "nextAction": "Review treatment journey",
+        "notes": ""
+      },
+      "contactability": "booking and website found"
     },
     {
       "rank": 5,
@@ -260,11 +340,31 @@
         "matchConfidence": 0,
         "warnings": [
           "brand_legal_name_mismatch_possible"
-        ]
+        ],
+        "legalName": "unknown",
+        "organizationForm": "unknown",
+        "employees": null,
+        "registrationDate": null,
+        "activeStatus": "unknown",
+        "registeredAddress": "Seljeveien 3, 1661 Rolvsøy"
       },
       "economy": {
         "status": "not_enabled"
-      }
+      },
+      "mobile": null,
+      "sourceBadges": [
+        "Google Places",
+        "Website audit",
+        "Brreg/company-profile",
+        "Proff later"
+      ],
+      "workflow": {
+        "status": "New lead",
+        "owner": "unassigned",
+        "nextAction": "Verify company identity",
+        "notes": ""
+      },
+      "contactability": "phone, email and website found"
     }
   ]
 }

@@ -1,6 +1,6 @@
 const fallbackData = {
   "meta": {
-    "title": "Lead Machine Demo",
+    "title": "Lead Machine",
     "version": "v1",
     "generatedFrom": "deterministic showcase fixtures",
     "productBoundary": {
@@ -20,9 +20,380 @@ const fallbackData = {
         "relationship",
         "close"
       ]
-    }
+    },
+    "defaultScenario": "pilot-leads"
   },
   "scenarios": [
+    {
+      "id": "pilot-leads",
+      "name": "Pilot lead packs",
+      "purpose": "Seller-ready lead cards",
+      "message": "Ranked lead packs show context, evidence, caution, contactability, and export fields.",
+      "query": "calibrated pilot leads",
+      "provider": "Generated lead packs",
+      "searchScope": "mixed",
+      "includedLeadCount": 5,
+      "totalDiscovered": 5,
+      "totalExcludedByLocation": 0,
+      "lowSupply": false,
+      "fallbackAvailable": false,
+      "fallbackUsed": false,
+      "recommendedExpansion": null,
+      "locationQualityCounts": {
+        "exact_location": 5
+      },
+      "nextRecommendedAction": "Review HIGH leads first, then compare strongest MEDIUM shortlist leads.",
+      "leads": [
+        {
+          "rank": 1,
+          "companyName": "Glomma Tannklinikk",
+          "priority": "HIGH",
+          "vertical": "dentist",
+          "website": "http://glommatannklinikk.no",
+          "phone": "69 16 90 90",
+          "email": "post@glommatannklinikk.no",
+          "address": "Glemmengata 8",
+          "city": "Fredrikstad",
+          "rating": 4.8,
+          "reviewCount": 55,
+          "leadClass": "technical_redesign",
+          "opportunityType": "technical_trust_risk",
+          "whyRanked": [
+            "Clear technical trust/reliability evidence",
+            "Contactable local clinic",
+            "Direct Webconsult fit",
+            "Retained as HIGH after human calibration"
+          ],
+          "evidence": [
+            "Failed request and technical reliability signals",
+            "Visible contact path",
+            "Trust-sensitive clinic vertical"
+          ],
+          "caution": [
+            "Verify technical findings before presenting them",
+            "Do not frame as generic redesign"
+          ],
+          "sourceQuality": {
+            "requestedLocation": "Fredrikstad",
+            "candidateLocation": "Fredrikstad",
+            "locationMatchStatus": "exact_location",
+            "locationConfidence": 0.95,
+            "distanceKm": 0,
+            "fallbackUsed": false,
+            "locationWarnings": []
+          },
+          "companyProfile": {
+            "organizationNumber": null,
+            "candidateOrganizationNumber": "candidate available; manual verify",
+            "matchStatus": "manual_verify",
+            "matchConfidence": 1,
+            "warnings": [
+              "duplicate_candidate_review"
+            ],
+            "legalName": "GLOMMA TANNKLINIKK AS",
+            "organizationForm": "Aksjeselskap",
+            "employees": 9,
+            "registrationDate": "2010-01-01",
+            "activeStatus": "active",
+            "registeredAddress": "Glemmengata 8, 1608 Fredrikstad"
+          },
+          "economy": {
+            "status": "not_enabled"
+          },
+          "mobile": null,
+          "sourceBadges": [
+            "Google Places",
+            "Website audit",
+            "Brreg/company-profile",
+            "Proff later"
+          ],
+          "workflow": {
+            "status": "New lead",
+            "owner": "unassigned",
+            "nextAction": "Review technical evidence",
+            "notes": ""
+          },
+          "contactability": "phone and email found; visible contact path"
+        },
+        {
+          "rank": 2,
+          "companyName": "Advokatfirmaet Bjørnebekk og Martinsen AS",
+          "priority": "HIGH",
+          "vertical": "lawyer",
+          "website": "http://www.advokat-bm.no",
+          "phone": "69 36 74 40",
+          "email": "unknown",
+          "address": "Traraveien 7",
+          "city": "Fredrikstad",
+          "rating": null,
+          "reviewCount": null,
+          "leadClass": "technical_redesign",
+          "opportunityType": "technical_trust_risk",
+          "whyRanked": [
+            "Technical trust risk in a credibility-sensitive lawyer vertical",
+            "Local and contactable",
+            "Retained as HIGH after calibration"
+          ],
+          "evidence": [
+            "Website credibility matters for legal client enquiries",
+            "Technical/reliability evidence stronger than polished law-firm cases"
+          ],
+          "caution": [
+            "Use legal client-intake language",
+            "Do not use booking or patient terminology"
+          ],
+          "sourceQuality": {
+            "requestedLocation": "Fredrikstad",
+            "candidateLocation": "Fredrikstad",
+            "locationMatchStatus": "exact_location",
+            "locationConfidence": 0.94,
+            "distanceKm": 0,
+            "fallbackUsed": false,
+            "locationWarnings": []
+          },
+          "companyProfile": {
+            "organizationNumber": null,
+            "candidateOrganizationNumber": null,
+            "matchStatus": "not_run",
+            "matchConfidence": null,
+            "warnings": [],
+            "legalName": "unknown",
+            "organizationForm": "unknown",
+            "employees": null,
+            "registrationDate": null,
+            "activeStatus": "unknown",
+            "registeredAddress": "Traraveien 7, 1605 Fredrikstad"
+          },
+          "economy": {
+            "status": "not_enabled"
+          },
+          "mobile": null,
+          "sourceBadges": [
+            "Google Places",
+            "Website audit",
+            "Brreg/company-profile",
+            "Proff later"
+          ],
+          "workflow": {
+            "status": "New lead",
+            "owner": "unassigned",
+            "nextAction": "Review legal trust evidence",
+            "notes": ""
+          },
+          "contactability": "phone and website found"
+        },
+        {
+          "rank": 3,
+          "companyName": "Arne Nilsen AS",
+          "priority": "MEDIUM",
+          "vertical": "plumber / VVS",
+          "website": "https://www.vvseksperten.no/rorlegger/fredrikstad/arne-nilsen-as",
+          "phone": "69 31 02 03",
+          "email": "unknown",
+          "address": "Gelertsens gate 7",
+          "city": "Fredrikstad",
+          "rating": null,
+          "reviewCount": null,
+          "leadClass": "service_line_optimization",
+          "opportunityType": "high_value_service_conversion",
+          "whyRanked": [
+            "Strong VVS vertical",
+            "High-value services such as bad, varme and rehabilitering",
+            "Interesting MEDIUM/borderline shortlist lead"
+          ],
+          "evidence": [
+            "Clear service demand categories",
+            "Contact paths and trust markers already present",
+            "MEDIUM because pain is not severe enough for HIGH"
+          ],
+          "caution": [
+            "Do not promote to HIGH unless technical trust pain is severe",
+            "Network affiliation and trust markers reduce urgency"
+          ],
+          "sourceQuality": {
+            "requestedLocation": "Fredrikstad",
+            "candidateLocation": "Fredrikstad",
+            "locationMatchStatus": "exact_location",
+            "locationConfidence": 0.93,
+            "distanceKm": 0,
+            "fallbackUsed": false,
+            "locationWarnings": []
+          },
+          "companyProfile": {
+            "organizationNumber": null,
+            "candidateOrganizationNumber": "candidate available; manual verify",
+            "matchStatus": "manual_verify",
+            "matchConfidence": 1,
+            "warnings": [
+              "chain_ambiguity"
+            ],
+            "legalName": "ARNE NILSEN AS",
+            "organizationForm": "Aksjeselskap",
+            "employees": 16,
+            "registrationDate": "unknown",
+            "activeStatus": "active",
+            "registeredAddress": "Gelertsens gate 7, 1608 Fredrikstad"
+          },
+          "economy": {
+            "status": "not_enabled"
+          },
+          "mobile": null,
+          "sourceBadges": [
+            "Google Places",
+            "Website audit",
+            "Brreg/company-profile",
+            "Proff later"
+          ],
+          "workflow": {
+            "status": "New lead",
+            "owner": "unassigned",
+            "nextAction": "Review service-line opportunity",
+            "notes": ""
+          },
+          "contactability": "phone and website found; clear service pages"
+        },
+        {
+          "rank": 4,
+          "companyName": "Drammen Sportsklinikk",
+          "priority": "MEDIUM",
+          "vertical": "clinic",
+          "website": "https://www.drammensportsklinikk.no",
+          "phone": "91 19 53 00",
+          "email": "unknown",
+          "address": "Schwartz gate 6",
+          "city": "Drammen",
+          "rating": null,
+          "reviewCount": null,
+          "leadClass": "campaign_optimization",
+          "opportunityType": "service_line_conversion",
+          "whyRanked": [
+            "Strong clinic vertical",
+            "Multiple treatment/service lines",
+            "Booking path exists, so MEDIUM is appropriate"
+          ],
+          "evidence": [
+            "Treatment pages and booking journey can be reviewed",
+            "High-value patient services",
+            "No obvious call-first pain"
+          ],
+          "caution": [
+            "Booking/contact already exists",
+            "Do not overstate basic conversion pain"
+          ],
+          "sourceQuality": {
+            "requestedLocation": "Drammen",
+            "candidateLocation": "Drammen",
+            "locationMatchStatus": "exact_location",
+            "locationConfidence": 0.96,
+            "distanceKm": 0,
+            "fallbackUsed": false,
+            "locationWarnings": []
+          },
+          "companyProfile": {
+            "organizationNumber": null,
+            "candidateOrganizationNumber": "candidate available; manual verify",
+            "matchStatus": "manual_verify",
+            "matchConfidence": 1,
+            "warnings": [
+              "multiple_plausible_candidates"
+            ],
+            "legalName": "DRAMMEN SPORTSKLINIKK AS",
+            "organizationForm": "Aksjeselskap",
+            "employees": null,
+            "registrationDate": "unknown",
+            "activeStatus": "active",
+            "registeredAddress": "Schwartz gate 6, 3043 Drammen"
+          },
+          "economy": {
+            "status": "not_enabled"
+          },
+          "mobile": null,
+          "sourceBadges": [
+            "Google Places",
+            "Website audit",
+            "Brreg/company-profile",
+            "Proff later"
+          ],
+          "workflow": {
+            "status": "New lead",
+            "owner": "unassigned",
+            "nextAction": "Review treatment journey",
+            "notes": ""
+          },
+          "contactability": "booking and website found"
+        },
+        {
+          "rank": 5,
+          "companyName": "VB Engelsviken Rør",
+          "priority": "MEDIUM",
+          "vertical": "plumber / VVS",
+          "website": "https://www.engelsvikenror.no",
+          "phone": "69 36 77 77",
+          "email": "post@engelsvikenror.no",
+          "address": "Seljeveien 3",
+          "city": "Rolvsøy",
+          "rating": null,
+          "reviewCount": null,
+          "leadClass": "service_line_optimization",
+          "opportunityType": "high_value_service_conversion",
+          "whyRanked": [
+            "Relevant trade vertical",
+            "Mature but useful shortlist lead",
+            "Good service-line/campaign test case"
+          ],
+          "evidence": [
+            "Bad, varme, varmepumpe and local VVS services",
+            "Clear contact path",
+            "VB/network maturity reduces urgency"
+          ],
+          "caution": [
+            "Network affiliation should prevent easy HIGH",
+            "Verify legal entity before attaching org.nr"
+          ],
+          "sourceQuality": {
+            "requestedLocation": "Fredrikstad",
+            "candidateLocation": "Rolvsøy",
+            "locationMatchStatus": "exact_location",
+            "locationConfidence": 0.88,
+            "distanceKm": null,
+            "fallbackUsed": false,
+            "locationWarnings": []
+          },
+          "companyProfile": {
+            "organizationNumber": null,
+            "candidateOrganizationNumber": null,
+            "matchStatus": "no_match",
+            "matchConfidence": 0,
+            "warnings": [
+              "brand_legal_name_mismatch_possible"
+            ],
+            "legalName": "unknown",
+            "organizationForm": "unknown",
+            "employees": null,
+            "registrationDate": null,
+            "activeStatus": "unknown",
+            "registeredAddress": "Seljeveien 3, 1661 Rolvsøy"
+          },
+          "economy": {
+            "status": "not_enabled"
+          },
+          "mobile": null,
+          "sourceBadges": [
+            "Google Places",
+            "Website audit",
+            "Brreg/company-profile",
+            "Proff later"
+          ],
+          "workflow": {
+            "status": "New lead",
+            "owner": "unassigned",
+            "nextAction": "Verify company identity",
+            "notes": ""
+          },
+          "contactability": "phone, email and website found"
+        }
+      ]
+    },
     {
       "id": "gol-strict",
       "name": "Advokater i Gol - strict",
@@ -109,11 +480,31 @@ const fallbackData = {
             "candidateOrganizationNumber": null,
             "matchStatus": "not_run",
             "matchConfidence": null,
-            "warnings": []
+            "warnings": [],
+            "legalName": null,
+            "organizationForm": null,
+            "employees": null,
+            "registrationDate": null,
+            "activeStatus": "unknown",
+            "registeredAddress": null
           },
           "economy": {
             "status": "not_enabled"
-          }
+          },
+          "mobile": null,
+          "sourceBadges": [
+            "Google Places",
+            "Website audit",
+            "Brreg/company-profile",
+            "Proff later"
+          ],
+          "workflow": {
+            "status": "New lead",
+            "owner": "unassigned",
+            "nextAction": "Review",
+            "notes": ""
+          },
+          "contactability": "available"
         },
         {
           "rank": 2,
@@ -159,11 +550,31 @@ const fallbackData = {
             "candidateOrganizationNumber": null,
             "matchStatus": "not_run",
             "matchConfidence": null,
-            "warnings": []
+            "warnings": [],
+            "legalName": null,
+            "organizationForm": null,
+            "employees": null,
+            "registrationDate": null,
+            "activeStatus": "unknown",
+            "registeredAddress": null
           },
           "economy": {
             "status": "not_enabled"
-          }
+          },
+          "mobile": null,
+          "sourceBadges": [
+            "Google Places",
+            "Website audit",
+            "Brreg/company-profile",
+            "Proff later"
+          ],
+          "workflow": {
+            "status": "New lead",
+            "owner": "unassigned",
+            "nextAction": "Review",
+            "notes": ""
+          },
+          "contactability": "available"
         },
         {
           "rank": 3,
@@ -209,11 +620,31 @@ const fallbackData = {
             "candidateOrganizationNumber": null,
             "matchStatus": "not_run",
             "matchConfidence": null,
-            "warnings": []
+            "warnings": [],
+            "legalName": null,
+            "organizationForm": null,
+            "employees": null,
+            "registrationDate": null,
+            "activeStatus": "unknown",
+            "registeredAddress": null
           },
           "economy": {
             "status": "not_enabled"
-          }
+          },
+          "mobile": null,
+          "sourceBadges": [
+            "Google Places",
+            "Website audit",
+            "Brreg/company-profile",
+            "Proff later"
+          ],
+          "workflow": {
+            "status": "New lead",
+            "owner": "unassigned",
+            "nextAction": "Review",
+            "notes": ""
+          },
+          "contactability": "available"
         },
         {
           "rank": 4,
@@ -258,281 +689,31 @@ const fallbackData = {
             "candidateOrganizationNumber": null,
             "matchStatus": "not_run",
             "matchConfidence": null,
-            "warnings": []
+            "warnings": [],
+            "legalName": null,
+            "organizationForm": null,
+            "employees": null,
+            "registrationDate": null,
+            "activeStatus": "unknown",
+            "registeredAddress": null
           },
           "economy": {
             "status": "not_enabled"
-          }
-        }
-      ]
-    },
-    {
-      "id": "pilot-leads",
-      "name": "Pilot lead packs",
-      "purpose": "Seller-ready lead cards",
-      "message": "Ranked lead packs show context, evidence, caution, contactability, and export fields.",
-      "query": "calibrated pilot leads",
-      "provider": "Generated lead packs",
-      "searchScope": "mixed",
-      "includedLeadCount": 5,
-      "totalDiscovered": 5,
-      "totalExcludedByLocation": 0,
-      "lowSupply": false,
-      "fallbackAvailable": false,
-      "fallbackUsed": false,
-      "recommendedExpansion": null,
-      "locationQualityCounts": {
-        "exact_location": 5
-      },
-      "nextRecommendedAction": "Review HIGH leads first, then compare strongest MEDIUM shortlist leads.",
-      "leads": [
-        {
-          "rank": 1,
-          "companyName": "Glomma Tannklinikk",
-          "priority": "HIGH",
-          "vertical": "dentist",
-          "website": "http://glommatannklinikk.no",
-          "phone": "69 16 90 90",
-          "email": "post@glommatannklinikk.no",
-          "address": "Glemmengata 8",
-          "city": "Fredrikstad",
-          "rating": 4.8,
-          "reviewCount": 55,
-          "leadClass": "technical_redesign",
-          "opportunityType": "technical_trust_risk",
-          "whyRanked": [
-            "Clear technical trust/reliability evidence",
-            "Contactable local clinic",
-            "Direct Webconsult fit",
-            "Retained as HIGH after human calibration"
-          ],
-          "evidence": [
-            "Failed request and technical reliability signals",
-            "Visible contact path",
-            "Trust-sensitive clinic vertical"
-          ],
-          "caution": [
-            "Verify technical findings before presenting them",
-            "Do not frame as generic redesign"
-          ],
-          "sourceQuality": {
-            "requestedLocation": "Fredrikstad",
-            "candidateLocation": "Fredrikstad",
-            "locationMatchStatus": "exact_location",
-            "locationConfidence": 0.95,
-            "distanceKm": 0,
-            "fallbackUsed": false,
-            "locationWarnings": []
           },
-          "companyProfile": {
-            "organizationNumber": null,
-            "candidateOrganizationNumber": "manual verify",
-            "matchStatus": "manual_verify",
-            "matchConfidence": 1,
-            "warnings": [
-              "duplicate_candidate_review"
-            ]
+          "mobile": null,
+          "sourceBadges": [
+            "Google Places",
+            "Website audit",
+            "Brreg/company-profile",
+            "Proff later"
+          ],
+          "workflow": {
+            "status": "New lead",
+            "owner": "unassigned",
+            "nextAction": "Review",
+            "notes": ""
           },
-          "economy": {
-            "status": "not_enabled"
-          }
-        },
-        {
-          "rank": 2,
-          "companyName": "Advokatfirmaet Bjørnebekk og Martinsen AS",
-          "priority": "HIGH",
-          "vertical": "lawyer",
-          "website": "http://www.advokat-bm.no",
-          "phone": "69 36 74 40",
-          "email": "unknown",
-          "address": "Traraveien 7",
-          "city": "Fredrikstad",
-          "rating": null,
-          "reviewCount": null,
-          "leadClass": "technical_redesign",
-          "opportunityType": "technical_trust_risk",
-          "whyRanked": [
-            "Technical trust risk in a credibility-sensitive lawyer vertical",
-            "Local and contactable",
-            "Retained as HIGH after calibration"
-          ],
-          "evidence": [
-            "Website credibility matters for legal client enquiries",
-            "Technical/reliability evidence stronger than polished law-firm cases"
-          ],
-          "caution": [
-            "Use legal client-intake language",
-            "Do not use booking or patient terminology"
-          ],
-          "sourceQuality": {
-            "requestedLocation": "Fredrikstad",
-            "candidateLocation": "Fredrikstad",
-            "locationMatchStatus": "exact_location",
-            "locationConfidence": 0.94,
-            "distanceKm": 0,
-            "fallbackUsed": false,
-            "locationWarnings": []
-          },
-          "companyProfile": {
-            "organizationNumber": null,
-            "candidateOrganizationNumber": null,
-            "matchStatus": "not_run",
-            "matchConfidence": null,
-            "warnings": []
-          },
-          "economy": {
-            "status": "not_enabled"
-          }
-        },
-        {
-          "rank": 3,
-          "companyName": "Arne Nilsen AS",
-          "priority": "MEDIUM",
-          "vertical": "plumber / VVS",
-          "website": "https://www.vvseksperten.no/rorlegger/fredrikstad/arne-nilsen-as",
-          "phone": "69 31 02 03",
-          "email": "unknown",
-          "address": "Gelertsens gate 7",
-          "city": "Fredrikstad",
-          "rating": null,
-          "reviewCount": null,
-          "leadClass": "service_line_optimization",
-          "opportunityType": "high_value_service_conversion",
-          "whyRanked": [
-            "Strong VVS vertical",
-            "High-value services such as bad, varme and rehabilitering",
-            "Interesting MEDIUM/borderline shortlist lead"
-          ],
-          "evidence": [
-            "Clear service demand categories",
-            "Contact paths and trust markers already present",
-            "MEDIUM because pain is not severe enough for HIGH"
-          ],
-          "caution": [
-            "Do not promote to HIGH unless technical trust pain is severe",
-            "Network affiliation and trust markers reduce urgency"
-          ],
-          "sourceQuality": {
-            "requestedLocation": "Fredrikstad",
-            "candidateLocation": "Fredrikstad",
-            "locationMatchStatus": "exact_location",
-            "locationConfidence": 0.93,
-            "distanceKm": 0,
-            "fallbackUsed": false,
-            "locationWarnings": []
-          },
-          "companyProfile": {
-            "organizationNumber": null,
-            "candidateOrganizationNumber": "manual verify",
-            "matchStatus": "manual_verify",
-            "matchConfidence": 1,
-            "warnings": [
-              "chain_ambiguity"
-            ]
-          },
-          "economy": {
-            "status": "not_enabled"
-          }
-        },
-        {
-          "rank": 4,
-          "companyName": "Drammen Sportsklinikk",
-          "priority": "MEDIUM",
-          "vertical": "clinic",
-          "website": "https://www.drammensportsklinikk.no",
-          "phone": "91 19 53 00",
-          "email": "unknown",
-          "address": "Schwartz gate 6",
-          "city": "Drammen",
-          "rating": null,
-          "reviewCount": null,
-          "leadClass": "campaign_optimization",
-          "opportunityType": "service_line_conversion",
-          "whyRanked": [
-            "Strong clinic vertical",
-            "Multiple treatment/service lines",
-            "Booking path exists, so MEDIUM is appropriate"
-          ],
-          "evidence": [
-            "Treatment pages and booking journey can be reviewed",
-            "High-value patient services",
-            "No obvious call-first pain"
-          ],
-          "caution": [
-            "Booking/contact already exists",
-            "Do not overstate basic conversion pain"
-          ],
-          "sourceQuality": {
-            "requestedLocation": "Drammen",
-            "candidateLocation": "Drammen",
-            "locationMatchStatus": "exact_location",
-            "locationConfidence": 0.96,
-            "distanceKm": 0,
-            "fallbackUsed": false,
-            "locationWarnings": []
-          },
-          "companyProfile": {
-            "organizationNumber": null,
-            "candidateOrganizationNumber": "manual verify",
-            "matchStatus": "manual_verify",
-            "matchConfidence": 1,
-            "warnings": [
-              "multiple_plausible_candidates"
-            ]
-          },
-          "economy": {
-            "status": "not_enabled"
-          }
-        },
-        {
-          "rank": 5,
-          "companyName": "VB Engelsviken Rør",
-          "priority": "MEDIUM",
-          "vertical": "plumber / VVS",
-          "website": "https://www.engelsvikenror.no",
-          "phone": "69 36 77 77",
-          "email": "post@engelsvikenror.no",
-          "address": "Seljeveien 3",
-          "city": "Rolvsøy",
-          "rating": null,
-          "reviewCount": null,
-          "leadClass": "service_line_optimization",
-          "opportunityType": "high_value_service_conversion",
-          "whyRanked": [
-            "Relevant trade vertical",
-            "Mature but useful shortlist lead",
-            "Good service-line/campaign test case"
-          ],
-          "evidence": [
-            "Bad, varme, varmepumpe and local VVS services",
-            "Clear contact path",
-            "VB/network maturity reduces urgency"
-          ],
-          "caution": [
-            "Network affiliation should prevent easy HIGH",
-            "Verify legal entity before attaching org.nr"
-          ],
-          "sourceQuality": {
-            "requestedLocation": "Fredrikstad",
-            "candidateLocation": "Rolvsøy",
-            "locationMatchStatus": "exact_location",
-            "locationConfidence": 0.88,
-            "distanceKm": null,
-            "fallbackUsed": false,
-            "locationWarnings": []
-          },
-          "companyProfile": {
-            "organizationNumber": null,
-            "candidateOrganizationNumber": null,
-            "matchStatus": "no_match",
-            "matchConfidence": 0,
-            "warnings": [
-              "brand_legal_name_mismatch_possible"
-            ]
-          },
-          "economy": {
-            "status": "not_enabled"
-          }
+          "contactability": "available"
         }
       ]
     }
@@ -540,31 +721,35 @@ const fallbackData = {
 }
 
 const state = {
-  data: null,
-  scenarioId: null,
+  data: fallbackData,
+  scenarioId: fallbackData.meta.defaultScenario || 'pilot-leads',
   selectedLeadIndex: 0,
-  exportVisible: false,
 }
 
 const els = {
-  tabs: document.getElementById('scenarioTabs'),
+  scenarioSelect: document.getElementById('scenarioSelect'),
+  queryInput: document.getElementById('queryInput'),
+  runButton: document.getElementById('runButton'),
   summary: document.getElementById('summaryPanel'),
   leadCards: document.getElementById('leadCards'),
   leadCountText: document.getElementById('leadCountText'),
-  detail: document.getElementById('detailPanel'),
+  companyProfile: document.getElementById('companyProfile'),
+  intelligence: document.getElementById('intelligencePanel'),
   exportPreview: document.getElementById('exportPreview'),
-  exportButton: document.getElementById('exportButton'),
 }
 
 init()
 
 async function init() {
   state.data = await loadData()
-  state.scenarioId = state.data.scenarios[0]?.id || null
-  els.exportButton.addEventListener('click', () => {
-    state.exportVisible = !state.exportVisible
+  state.scenarioId = state.data.meta.defaultScenario || state.data.scenarios[0]?.id || 'pilot-leads'
+  renderScenarioOptions()
+  els.scenarioSelect.addEventListener('change', () => {
+    state.scenarioId = els.scenarioSelect.value
+    state.selectedLeadIndex = 0
     render()
   })
+  els.runButton.addEventListener('click', () => render())
   render()
 }
 
@@ -573,212 +758,268 @@ async function loadData() {
     const response = await fetch('demo-data/showcase.json', { cache: 'no-store' })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     return await response.json()
-  } catch (error) {
+  } catch (_) {
     return fallbackData
   }
+}
+
+function renderScenarioOptions() {
+  els.scenarioSelect.innerHTML = state.data.scenarios.map((scenario) => `
+    <option value="${escapeAttr(scenario.id)}">${escapeHtml(scenario.name)}</option>
+  `).join('')
+  els.scenarioSelect.value = state.scenarioId
 }
 
 function currentScenario() {
   return state.data.scenarios.find((scenario) => scenario.id === state.scenarioId) || state.data.scenarios[0]
 }
 
+function selectedLead(scenario) {
+  return (scenario.leads || [])[state.selectedLeadIndex] || null
+}
+
 function render() {
   const scenario = currentScenario()
-  if (!scenario) {
-    els.summary.innerHTML = '<div class="empty-state">No demo data loaded. Serve this folder locally to load demo-data/showcase.json.</div>'
-    return
-  }
-  renderTabs(scenario)
+  if (!scenario) return
+  els.queryInput.value = scenario.query
+  els.scenarioSelect.value = scenario.id
   renderSummary(scenario)
-  renderLeads(scenario)
-  renderDetail(scenario)
+  renderLeadList(scenario)
+  renderCompanyProfile(selectedLead(scenario), scenario)
+  renderIntelligence(selectedLead(scenario), scenario)
   renderExport(scenario)
 }
 
-function renderTabs(activeScenario) {
-  els.tabs.innerHTML = state.data.scenarios.map((scenario) => `
-    <button class="scenario-tab ${scenario.id === activeScenario.id ? 'active' : ''}" type="button" data-scenario="${escapeHtml(scenario.id)}">
-      <strong>${escapeHtml(scenario.name)}</strong>
-      <span>${escapeHtml(scenario.purpose)}</span>
-    </button>
-  `).join('')
-  els.tabs.querySelectorAll('button').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.scenarioId = button.dataset.scenario
-      state.selectedLeadIndex = 0
-      state.exportVisible = false
-      render()
-    })
-  })
-}
-
 function renderSummary(scenario) {
-  const counts = scenario.locationQualityCounts || {}
   els.summary.innerHTML = `
-    <div class="summary-header">
-      <div>
-        <p class="eyebrow">${escapeHtml(scenario.purpose)}</p>
-        <h2>${escapeHtml(scenario.query)}</h2>
-        <p>${escapeHtml(scenario.message)}</p>
-      </div>
-      <div class="badge-row">
-        ${badge(scenario.searchScope)}
-        ${scenario.lowSupply ? badge('low_supply') : ''}
-        ${scenario.fallbackUsed ? badge('fallback_used') : ''}
-      </div>
-    </div>
-    <div class="metric-grid">
-      ${metric('Provider', scenario.provider)}
-      ${metric('Discovered', scenario.totalDiscovered)}
-      ${metric('Included', scenario.includedLeadCount)}
-      ${metric('Excluded by location', scenario.totalExcludedByLocation)}
-      ${metric('Fallback', scenario.fallbackUsed ? 'used' : (scenario.fallbackAvailable ? 'available' : 'no'))}
-    </div>
-    <div class="next-action"><strong>Next action:</strong> ${escapeHtml(scenario.nextRecommendedAction || 'Review generated lead packs.')}</div>
-    <div class="detail-section">
-      <h3>Location quality</h3>
-      <div class="badge-row">${Object.entries(counts).map(([key, value]) => `${badge(key)} <span class="muted">${value}</span>`).join('')}</div>
-    </div>
+    ${metric('Provider', scenario.provider)}
+    ${metric('Scope', readableStatus(scenario.searchScope))}
+    ${metric('Discovered', scenario.totalDiscovered)}
+    ${metric('Included', scenario.includedLeadCount)}
+    ${metric('Low supply', scenario.lowSupply ? 'Yes' : 'No')}
+    ${metric('Next', scenario.recommendedExpansion ? `Expand: ${scenario.recommendedExpansion}` : 'Review leads')}
   `
 }
 
-function renderLeads(scenario) {
+function renderLeadList(scenario) {
   const leads = scenario.leads || []
-  els.leadCountText.textContent = leads.length ? `${leads.length} lead pack${leads.length === 1 ? '' : 's'} ready for review.` : 'No lead packs included in this scope.'
+  els.leadCountText.textContent = `${leads.length} lead pack${leads.length === 1 ? '' : 's'}`
   if (!leads.length) {
-    els.leadCards.innerHTML = `<div class="empty-state">Strict mode found no included leads. This is a trust signal: the system did not fill the result with wrong-location candidates.</div>`
+    els.leadCards.innerHTML = `<div class="empty-state">Få lokale treff. Strict mode inkluderte ingen feil-lokasjon leads. Prøv nearby eller regional for mer volum.</div>`
     return
   }
+
   els.leadCards.innerHTML = leads.map((lead, index) => `
-    <article class="lead-card ${index === state.selectedLeadIndex ? 'active' : ''}" data-lead-index="${index}" tabindex="0">
-      <div class="card-top">
-        <div class="badge-row">
-          ${badge(lead.priority)}
-          ${badge(lead.sourceQuality?.locationMatchStatus || 'unknown')}
-          ${badge(companyBadge(lead.companyProfile))}
-        </div>
-        <span class="muted">#${lead.rank}</span>
+    <button class="lead-row ${index === state.selectedLeadIndex ? 'active' : ''}" type="button" data-index="${index}">
+      <div class="lead-row-top">
+        <div class="badge-row">${badge(lead.priority)}${badge(readableStatus(lead.sourceQuality?.locationMatchStatus))}</div>
+        <strong>#${escapeHtml(lead.rank)}</strong>
       </div>
       <h3>${escapeHtml(lead.companyName)}</h3>
-      <p>${escapeHtml(lead.city || 'unknown')} · ${escapeHtml(lead.vertical || 'unknown')} · ${escapeHtml(lead.leadClass || 'unknown')}</p>
-    </article>
+      <p>${escapeHtml(lead.city || 'unknown')} · ${escapeHtml(lead.phone || 'unknown')} · ${readableStatus(lead.companyProfile?.matchStatus || 'not_run')}</p>
+      <p>${escapeHtml((lead.whyRanked || [])[0] || 'Ranked lead pack')}</p>
+    </button>
   `).join('')
-  els.leadCards.querySelectorAll('.lead-card').forEach((card) => {
-    const select = () => {
-      state.selectedLeadIndex = Number(card.dataset.leadIndex)
+
+  els.leadCards.querySelectorAll('.lead-row').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.selectedLeadIndex = Number(button.dataset.index)
       render()
-    }
-    card.addEventListener('click', select)
-    card.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') select()
     })
   })
 }
 
-function renderDetail(scenario) {
-  const leads = scenario.leads || []
-  const lead = leads[state.selectedLeadIndex]
+function renderCompanyProfile(lead, scenario) {
   if (!lead) {
-    els.detail.innerHTML = `
-      <p class="eyebrow">Lead detail</p>
-      <h2>No lead selected</h2>
-      <p class="muted">Use regional expansion or another scenario to review lead packs.</p>
+    els.companyProfile.innerHTML = `
+      <div class="company-hero">
+        <div class="company-name">
+          <p class="eyebrow">Company profile</p>
+          <h2>No selected lead</h2>
+          <p>Strict mode found no local lead packs. The useful product signal is low supply plus controlled expansion.</p>
+        </div>
+      </div>
+      ${section('Run context', kvList([
+        ['Query', scenario.query],
+        ['Search scope', readableStatus(scenario.searchScope)],
+        ['Fallback available', scenario.fallbackAvailable ? 'Yes' : 'No'],
+        ['Next action', scenario.nextRecommendedAction],
+      ]))}
     `
     return
   }
-  els.detail.innerHTML = `
-    <p class="eyebrow">Lead detail</p>
-    <h2>${escapeHtml(lead.companyName)}</h2>
-    <div class="badge-row" style="margin-top: 10px;">${badge(lead.priority)}${badge(lead.opportunityType)}${badge(lead.companyProfile?.matchStatus || 'not_run')}</div>
-    ${detailSection('Contact', kvList([
+
+  const profile = lead.companyProfile || {}
+  const primaryId = lead.mobile || lead.phone || profile.organizationNumber || profile.candidateOrganizationNumber || 'unknown'
+  els.companyProfile.innerHTML = `
+    <div class="company-hero">
+      <div class="company-mainline">
+        <div class="company-name">
+          <p class="eyebrow">Company profile</p>
+          <h2>${escapeHtml(lead.companyName)}</h2>
+          <p>${escapeHtml(profile.legalName || 'Legal name unknown')}</p>
+        </div>
+        <div class="big-identifier">
+          <span>Primary identifier</span>
+          <strong>${escapeHtml(primaryId)}</strong>
+        </div>
+      </div>
+      <div class="badge-row">
+        ${badge(lead.priority)}
+        ${badge(readableStatus(profile.matchStatus || 'not_run'))}
+        ${badge(readableStatus(lead.sourceQuality?.locationMatchStatus || 'unknown'))}
+        ${badge(readableStatus(lead.economy?.status || 'not_enabled'))}
+      </div>
+    </div>
+
+    <div class="fact-grid section-block">
+      ${fact('Confirmed org.nr', profile.organizationNumber || 'none')}
+      ${fact('Candidate org.nr', profile.candidateOrganizationNumber || 'none')}
+      ${fact('Employees', profile.employees ?? 'unknown')}
+      ${fact('Status', readableStatus(profile.activeStatus || 'unknown'))}
+      ${fact('Organization form', profile.organizationForm || 'unknown')}
+      ${fact('Founded', profile.registrationDate || 'unknown')}
+      ${fact('Match confidence', profile.matchConfidence ?? 'unknown')}
+      ${fact('City', lead.city || 'unknown')}
+    </div>
+
+    ${section('Contact', kvList([
+      ['Phone', lead.phone || 'unknown'],
+      ['Mobile', lead.mobile || 'unknown'],
+      ['Email', lead.email || 'unknown'],
       ['Website', linkValue(lead.website)],
-      ['Phone', lead.phone],
-      ['Email', lead.email],
-      ['Address', [lead.address, lead.city].filter(Boolean).join(', ')],
-      ['Rating', formatRating(lead)],
+      ['Address', profile.registeredAddress || [lead.address, lead.city].filter(Boolean).join(', ') || 'unknown'],
     ]))}
-    ${detailSection('Why ranked', bulletList(lead.whyRanked))}
-    ${detailSection('Evidence', bulletList(lead.evidence))}
-    ${detailSection('Caution', bulletList(lead.caution))}
-    ${detailSection('Source quality', kvList([
-      ['Requested', lead.sourceQuality?.requestedLocation],
-      ['Candidate', lead.sourceQuality?.candidateLocation],
-      ['Location status', lead.sourceQuality?.locationMatchStatus],
-      ['Confidence', lead.sourceQuality?.locationConfidence],
-      ['Fallback used', String(Boolean(lead.sourceQuality?.fallbackUsed))],
-      ['Warnings', (lead.sourceQuality?.locationWarnings || []).join(', ') || 'none'],
+
+    ${section('Sources', `<div class="sources-grid">${(lead.sourceBadges || []).map((source) => `<div class="source-pill">${escapeHtml(source)}</div>`).join('')}</div>`)}
+  `
+}
+
+function renderIntelligence(lead, scenario) {
+  if (!lead) {
+    els.intelligence.innerHTML = `
+      <h2>Run intelligence</h2>
+      <div class="workflow-strip">
+        ${kvList([
+          ['Status', 'Low local supply'],
+          ['Next action', scenario.nextRecommendedAction],
+          ['Fallback', scenario.fallbackAvailable ? 'Available' : 'Not available'],
+        ])}
+      </div>
+      ${section('Location quality', badgeList(Object.entries(scenario.locationQualityCounts || {}).map(([key, value]) => `${readableStatus(key)}: ${value}`)))}
+    `
+    return
+  }
+
+  els.intelligence.innerHTML = `
+    <h2>Lead intelligence</h2>
+    <div class="workflow-strip">
+      ${kvList([
+        ['Status', lead.workflow?.status || 'New lead'],
+        ['Owner', lead.workflow?.owner || 'unassigned'],
+        ['Next action', lead.workflow?.nextAction || 'Review'],
+      ])}
+      <div class="notes-box">Notes: ${escapeHtml(lead.workflow?.notes || 'Add seller notes after review.')}</div>
+    </div>
+    ${section('Priority', kvList([
+      ['Call priority', lead.priority],
+      ['Lead class', lead.leadClass],
+      ['Opportunity', lead.opportunityType],
+      ['Contactability', lead.contactability || 'unknown'],
+      ['Location', readableStatus(lead.sourceQuality?.locationMatchStatus || 'unknown')],
     ]))}
-    ${detailSection('Company profile', kvList([
-      ['Org.nr', lead.companyProfile?.organizationNumber || 'not confirmed'],
-      ['Candidate org.nr', lead.companyProfile?.candidateOrganizationNumber || 'none'],
-      ['Match status', lead.companyProfile?.matchStatus || 'not_run'],
-      ['Confidence', lead.companyProfile?.matchConfidence ?? 'unknown'],
-      ['Warnings', (lead.companyProfile?.warnings || []).join(', ') || 'none'],
-      ['Economy', lead.economy?.status || 'not_enabled'],
-    ]))}
+    ${section('Why ranked', bulletList(lead.whyRanked))}
+    ${section('Evidence', bulletList(lead.evidence))}
+    ${section('Caution', bulletList(lead.caution))}
+    ${section('Warnings', bulletList([...(lead.sourceQuality?.locationWarnings || []), ...(lead.companyProfile?.warnings || [])]))}
   `
 }
 
 function renderExport(scenario) {
-  els.exportButton.textContent = state.exportVisible ? 'Hide CSV preview' : 'CSV preview'
-  els.exportPreview.hidden = !state.exportVisible
-  if (!state.exportVisible) return
-  const rows = scenario.leads || []
-  if (!rows.length) {
-    els.exportPreview.innerHTML = '<div class="empty-state">No rows in this scope. Expand the search to preview export fields.</div>'
+  const leads = scenario.leads || []
+  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'evidenceSummary', 'cautionSummary']
+  if (!leads.length) {
+    els.exportPreview.innerHTML = `
+      <p class="eyebrow">Sales export preview</p>
+      <div class="empty-state">No export rows in strict low-supply mode. Expand scope to produce rows.</div>
+    `
     return
   }
-  const headers = ['rank', 'priority', 'companyName', 'city', 'website', 'phone', 'leadClass', 'opportunityType', 'locationStatus', 'companyMatch']
   els.exportPreview.innerHTML = `
-    <div class="section-title">CSV export preview</div>
+    <p class="eyebrow">Sales export preview</p>
     <table>
       <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
-      <tbody>
-        ${rows.map((lead) => `<tr>
-          ${cell(lead.rank)}
-          ${cell(lead.priority)}
-          ${cell(lead.companyName)}
-          ${cell(lead.city)}
-          ${cell(lead.website)}
-          ${cell(lead.phone)}
-          ${cell(lead.leadClass)}
-          ${cell(lead.opportunityType)}
-          ${cell(lead.sourceQuality?.locationMatchStatus)}
-          ${cell(lead.companyProfile?.matchStatus)}
-        </tr>`).join('')}
-      </tbody>
+      <tbody>${leads.map((lead) => exportRow(lead)).join('')}</tbody>
     </table>
   `
+}
+
+function exportRow(lead) {
+  const profile = lead.companyProfile || {}
+  return `<tr>
+    ${cell(lead.rank)}
+    ${cell(lead.companyName)}
+    ${cell(profile.organizationNumber || '')}
+    ${cell(profile.candidateOrganizationNumber || '')}
+    ${cell(lead.phone || '')}
+    ${cell(lead.email || '')}
+    ${cell(lead.website || '')}
+    ${cell(lead.city || '')}
+    ${cell(lead.priority || '')}
+    ${cell(lead.leadClass || '')}
+    ${cell(profile.matchStatus || '')}
+    ${cell((lead.evidence || []).join(' | '))}
+    ${cell((lead.caution || []).join(' | '))}
+  </tr>`
 }
 
 function metric(label, value) {
   return `<div class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value ?? 'unknown')}</strong></div>`
 }
 
+function fact(label, value) {
+  return `<div class="fact"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value ?? 'unknown')}</strong></div>`
+}
+
+function section(title, content) {
+  return `<section class="section-block"><h3>${escapeHtml(title)}</h3>${content}</section>`
+}
+
+function kvList(items) {
+  return `<div class="kv-grid">${items.map(([key, value]) => `<div class="kv"><span>${escapeHtml(key)}</span><span>${isHtml(value) ? value : escapeHtml(value ?? 'unknown')}</span></div>`).join('')}</div>`
+}
+
+function bulletList(items = []) {
+  if (!items.length) return '<p class="muted">None.</p>'
+  return `<ul class="bullet-list">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+}
+
+function badgeList(items = []) {
+  return `<div class="badge-row">${items.map((item) => badge(item)).join('')}</div>`
+}
+
 function badge(value) {
   if (!value) return ''
   const text = String(value)
   const cls = text.toLowerCase().replace(/[^a-z0-9_]+/g, '_')
-  return `<span class="badge ${escapeHtml(cls)}">${escapeHtml(text)}</span>`
+  return `<span class="badge ${escapeAttr(cls)}">${escapeHtml(text)}</span>`
 }
 
-function companyBadge(profile = {}) {
-  if (profile.organizationNumber) return 'confirmed_org'
-  if (profile.candidateOrganizationNumber && profile.candidateOrganizationNumber !== 'manual verify') return 'candidate_org'
-  return profile.matchStatus || 'not_run'
-}
-
-function detailSection(title, content) {
-  return `<section class="detail-section"><h3>${escapeHtml(title)}</h3>${content}</section>`
-}
-
-function kvList(items) {
-  return `<div class="kv-list">${items.map(([key, value]) => `<div class="kv"><span>${escapeHtml(key)}</span><span>${value && String(value).startsWith('<a') ? value : escapeHtml(value ?? 'unknown')}</span></div>`).join('')}</div>`
-}
-
-function bulletList(items = []) {
-  if (!items.length) return '<p class="muted">No items.</p>'
-  return `<ul class="bullet-list">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+function readableStatus(value) {
+  const map = {
+    exact_location: 'Exact location / riktig sted',
+    regional_fallback: 'Regional fallback',
+    manual_verify: 'Manual verify',
+    low_supply: 'Low local supply / få lokale treff',
+    not_enabled: 'Not enabled',
+    no_match: 'No match',
+    not_run: 'Not run',
+    strict: 'Strict',
+    regional: 'Regional',
+    mixed: 'Mixed',
+    active: 'Active',
+  }
+  return map[value] || value || 'unknown'
 }
 
 function linkValue(value) {
@@ -786,13 +1027,12 @@ function linkValue(value) {
   return `<a href="${escapeAttr(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>`
 }
 
-function formatRating(lead) {
-  if (lead.rating === null || lead.rating === undefined) return 'unknown'
-  return `${lead.rating} (${lead.reviewCount ?? 0} reviews)`
-}
-
 function cell(value) {
   return `<td>${escapeHtml(value ?? '')}</td>`
+}
+
+function isHtml(value) {
+  return typeof value === 'string' && value.trim().startsWith('<')
 }
 
 function escapeHtml(value) {

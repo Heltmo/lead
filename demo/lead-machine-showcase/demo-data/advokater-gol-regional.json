@@ -63,11 +63,31 @@
         "candidateOrganizationNumber": null,
         "matchStatus": "not_run",
         "matchConfidence": null,
-        "warnings": []
+        "warnings": [],
+        "legalName": null,
+        "organizationForm": null,
+        "employees": null,
+        "registrationDate": null,
+        "activeStatus": "unknown",
+        "registeredAddress": null
       },
       "economy": {
         "status": "not_enabled"
-      }
+      },
+      "mobile": null,
+      "sourceBadges": [
+        "Google Places",
+        "Website audit",
+        "Brreg/company-profile",
+        "Proff later"
+      ],
+      "workflow": {
+        "status": "New lead",
+        "owner": "unassigned",
+        "nextAction": "Review",
+        "notes": ""
+      },
+      "contactability": "available"
     },
     {
       "rank": 2,
@@ -113,11 +133,31 @@
         "candidateOrganizationNumber": null,
         "matchStatus": "not_run",
         "matchConfidence": null,
-        "warnings": []
+        "warnings": [],
+        "legalName": null,
+        "organizationForm": null,
+        "employees": null,
+        "registrationDate": null,
+        "activeStatus": "unknown",
+        "registeredAddress": null
       },
       "economy": {
         "status": "not_enabled"
-      }
+      },
+      "mobile": null,
+      "sourceBadges": [
+        "Google Places",
+        "Website audit",
+        "Brreg/company-profile",
+        "Proff later"
+      ],
+      "workflow": {
+        "status": "New lead",
+        "owner": "unassigned",
+        "nextAction": "Review",
+        "notes": ""
+      },
+      "contactability": "available"
     },
     {
       "rank": 3,
@@ -163,11 +203,31 @@
         "candidateOrganizationNumber": null,
         "matchStatus": "not_run",
         "matchConfidence": null,
-        "warnings": []
+        "warnings": [],
+        "legalName": null,
+        "organizationForm": null,
+        "employees": null,
+        "registrationDate": null,
+        "activeStatus": "unknown",
+        "registeredAddress": null
       },
       "economy": {
         "status": "not_enabled"
-      }
+      },
+      "mobile": null,
+      "sourceBadges": [
+        "Google Places",
+        "Website audit",
+        "Brreg/company-profile",
+        "Proff later"
+      ],
+      "workflow": {
+        "status": "New lead",
+        "owner": "unassigned",
+        "nextAction": "Review",
+        "notes": ""
+      },
+      "contactability": "available"
     },
     {
       "rank": 4,
@@ -212,11 +272,31 @@
         "candidateOrganizationNumber": null,
         "matchStatus": "not_run",
         "matchConfidence": null,
-        "warnings": []
+        "warnings": [],
+        "legalName": null,
+        "organizationForm": null,
+        "employees": null,
+        "registrationDate": null,
+        "activeStatus": "unknown",
+        "registeredAddress": null
       },
       "economy": {
         "status": "not_enabled"
-      }
+      },
+      "mobile": null,
+      "sourceBadges": [
+        "Google Places",
+        "Website audit",
+        "Brreg/company-profile",
+        "Proff later"
+      ],
+      "workflow": {
+        "status": "New lead",
+        "owner": "unassigned",
+        "nextAction": "Review",
+        "notes": ""
+      },
+      "contactability": "available"
     }
   ]
 }

@@ -3,54 +3,78 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lead Machine Demo</title>
+  <title>Lead Machine</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="app-header">
+  <header class="topbar">
     <div>
-      <p class="eyebrow">Webconsult showcase</p>
-      <h1>Lead Machine Demo</h1>
-      <p class="lede">Location-aware lead discovery, ranked seller-ready lead packs, evidence, caution, and export.</p>
+      <p class="eyebrow">Webconsult</p>
+      <h1>Lead Machine</h1>
+      <p class="subtitle">Søk etter bransje og sted. Få rangerte lead-pakker med firmainfo, kontaktinfo, nettsidesignaler, evidence og eksport.</p>
     </div>
-    <div class="header-panel" aria-label="Product boundary">
-      <div>
-        <span class="label">Machine provides</span>
-        <strong>discovery · enrichment · ranking · evidence · caution · export</strong>
-      </div>
-      <div>
-        <span class="label">Seller owns</span>
-        <strong>angle · wording · outreach · timing · relationship · close</strong>
-      </div>
+    <div class="boundary-panel" aria-label="Product boundary">
+      <div><span>Machine provides</span><strong>discovery · enrichment · ranking · evidence · caution · export</strong></div>
+      <div><span>Seller owns</span><strong>angle · wording · outreach · timing · relationship · close</strong></div>
     </div>
   </header>
 
-  <main class="layout">
-    <aside class="scenario-panel" aria-label="Demo scenarios">
-      <div class="section-title">Scenarios</div>
-      <div id="scenarioTabs" class="scenario-tabs"></div>
-      <div class="boundary-box">
-        <div class="section-title">What this proves</div>
-        <p>A user can search a niche and place, see whether supply is local or expanded, review ranked lead packs, and export the result.</p>
+  <main class="lead-desk">
+    <section class="run-panel" aria-label="Search and run summary">
+      <div class="search-row">
+        <label>
+          <span>Search</span>
+          <input id="queryInput" type="text" readonly value="calibrated pilot leads">
+        </label>
+        <label>
+          <span>Scope</span>
+          <select id="scenarioSelect" aria-label="Demo scenario"></select>
+        </label>
+        <button id="runButton" type="button">Show run</button>
       </div>
-    </aside>
+      <div id="summaryPanel" class="summary-strip" aria-live="polite"></div>
+    </section>
 
-    <section class="content-area">
-      <section id="summaryPanel" class="summary-panel" aria-live="polite"></section>
-      <section class="split-view">
-        <div>
-          <div class="toolbar-row">
-            <div>
-              <div class="section-title">Ranked leads</div>
-              <p id="leadCountText" class="muted"></p>
-            </div>
-            <button id="exportButton" class="export-button" type="button">CSV preview</button>
+    <section class="desk-grid">
+      <aside class="lead-list-panel" aria-label="Ranked leads">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Ranked leads</p>
+            <h2 id="leadCountText">Lead packs</h2>
           </div>
-          <div id="leadCards" class="lead-grid"></div>
         </div>
-        <aside id="detailPanel" class="detail-panel" aria-label="Lead details"></aside>
+        <div id="leadCards" class="lead-list"></div>
+      </aside>
+
+      <section class="company-panel" aria-label="Selected company profile">
+        <div id="companyProfile"></div>
       </section>
-      <section id="exportPreview" class="export-preview" hidden></section>
+
+      <aside class="intel-panel" aria-label="Lead intelligence">
+        <div id="intelligencePanel"></div>
+      </aside>
+    </section>
+
+    <section class="bottom-grid">
+      <section class="proof-panel">
+        <p class="eyebrow">What this proves</p>
+        <ul>
+          <li>Ranked lead packs</li>
+          <li>Company and contact context</li>
+          <li>Location quality and fallback warnings</li>
+          <li>Evidence, caution and export-ready data</li>
+        </ul>
+      </section>
+      <section class="proof-panel muted-proof">
+        <p class="eyebrow">Not shown yet</p>
+        <ul>
+          <li>Live SaaS UI</li>
+          <li>Proff economy enrichment</li>
+          <li>Automated outreach</li>
+          <li>CRM integration</li>
+        </ul>
+      </section>
+      <section id="exportPreview" class="export-preview"></section>
     </section>
   </main>
 
