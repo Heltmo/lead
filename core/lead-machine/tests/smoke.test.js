@@ -96,10 +96,39 @@ async function main() {
   assert(csv.includes('searchScope'), 'CSV should include searchScope column')
   assert(!JSON.stringify(leadPacks).toLowerCase().includes('call opener'), 'lead-machine should not generate outreach scripts')
 
+  const fastOutputDir = path.join(root, 'fast-run')
+  const fastResult = await runLeadMachine({
+    query: 'advokater i Gol',
+    provider: 'mock',
+    mockResultsPath,
+    maxResults: 5,
+    searchScope: 'strict',
+    mode: 'fast',
+    enrichCompanyProfile: false,
+    outputDir: fastOutputDir,
+    runId: 'fixture-fast-lead-machine',
+    orchestratorRootDir: path.join(root, 'fast-orchestrator-runs'),
+    validate: false,
+  })
+  const fastSummary = JSON.parse(fs.readFileSync(fastResult.summaryPath, 'utf8'))
+  const fastPacks = JSON.parse(fs.readFileSync(path.join(fastResult.leadPackOutputPath, 'lead-packs.json'), 'utf8'))
+  const fastCsv = fs.readFileSync(path.join(fastResult.leadPackOutputPath, 'lead-packs.csv'), 'utf8')
+  assert(fastSummary.mode === 'fast', 'fast mode summary should preserve mode')
+  assert(fastSummary.auditStatus === 'skipped_fast_mode', 'fast mode should skip full website audit')
+  assert(fastPacks.length === 1, 'fast strict mode should package exact-location discovery candidates')
+  assert(fastPacks[0].website.auditStatus === 'skipped_fast_mode', 'fast lead pack should mark audit skipped')
+  assert(fastPacks[0].callPriority === 'verify', 'fast lead pack should require verification instead of call-first priority')
+  assert(fastPacks[0].leadClass === 'fast_discovery', 'fast lead pack should use fast discovery lead class')
+  assert(fastPacks[0].contact.phone === '41 00 00 00', 'fast lead pack should preserve phone from discovery')
+  assert(fastCsv.includes('skipped_fast_mode'), 'fast CSV should expose skipped audit status')
+
   assert(buildNextRecommendedAction({ searchScope: 'strict', includedLeadCount: 0, lowSupply: true, fallbackAvailable: true, fallbackUsed: false, recommendedExpansion: 'nearby', callPriorityCounts: {} }) === 'Run again with --search-scope nearby or regional.', 'zero strict supply should recommend expansion')
   assert(buildNextRecommendedAction({ searchScope: 'regional', includedLeadCount: 4, lowSupply: false, fallbackAvailable: false, fallbackUsed: true, recommendedExpansion: null, callPriorityCounts: { medium: 4 } }) === 'Review fallback location warnings before treating these as local leads.', 'regional fallback should warn')
   assert(buildNextRecommendedAction({ searchScope: 'strict', includedLeadCount: 2, lowSupply: false, fallbackAvailable: false, fallbackUsed: false, recommendedExpansion: null, callPriorityCounts: { high: 1, medium: 1 } }) === 'Review HIGH leads first.', 'HIGH leads should be reviewed first')
   assert(buildNextRecommendedAction({ searchScope: 'strict', includedLeadCount: 2, lowSupply: false, fallbackAvailable: false, fallbackUsed: false, recommendedExpansion: null, callPriorityCounts: { medium: 2 } }) === 'Review top MEDIUM leads as shortlist.', 'MEDIUM-only results should recommend shortlist review')
+  const fastTerminalSummary = formatTerminalSummary(fastSummary)
+  assert(fastTerminalSummary.includes('Mode: fast'), 'terminal summary should show fast mode')
+
   const terminalSummary = formatTerminalSummary(summary)
   assert(terminalSummary.includes('Lead Machine Run Complete'), 'terminal summary should have clear title')
   assert(terminalSummary.includes('Query: advokater i Gol'), 'terminal summary should show query')

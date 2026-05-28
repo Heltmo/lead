@@ -17,6 +17,7 @@ async function main() {
     provider: args.provider,
     maxResults: args.maxResults || args['max-results'],
     searchScope: args.searchScope || args['search-scope'],
+    mode: args.mode,
     enrichCompanyProfile: args.enrichCompanyProfile || args['enrich-company-profile'],
     outputDir: args.outputDir || args['output-dir'],
     runId: args.runId || args['run-id'],

@@ -48,6 +48,7 @@ async function handleRun(req, res, context) {
   const maxResults = normalizeMaxResults(body.maxResults, 5)
   const provider = ['demo-fixture', 'google-places', 'mock'].includes(body.provider) ? body.provider : 'demo-fixture'
   const searchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'strict'
+  const mode = ['fast', 'deep'].includes(body.mode) ? body.mode : 'fast'
   const enrichCompanyProfile = body.enrichCompanyProfile === true || body.enrichCompanyProfile === 'true'
   const runId = createSafeRunId(parsedQuery.normalizedQuery)
   const outputDir = path.join(context.runsDir, runId)
@@ -70,6 +71,7 @@ async function handleRun(req, res, context) {
       maxResults,
       searchScope,
       enrichCompanyProfile,
+      mode,
       outputDir,
       runId,
     })

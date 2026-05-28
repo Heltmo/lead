@@ -29,6 +29,7 @@ const els = {
   locationOptions: document.getElementById('locationOptions'),
   query: document.getElementById('queryInput'),
   provider: document.getElementById('provider'),
+  runMode: document.getElementById('runMode'),
   maxResults: document.getElementById('maxResults'),
   searchScope: document.getElementById('searchScope'),
   companyProfile: document.getElementById('companyProfile'),
@@ -84,6 +85,7 @@ async function runSearch() {
         provider: els.provider.value,
         maxResults: Number(els.maxResults.value),
         searchScope: els.searchScope.value,
+        mode: els.runMode.value,
         enrichCompanyProfile: els.companyProfile.checked,
       }),
     })
@@ -111,6 +113,7 @@ function renderSummary(result) {
   const summary = result?.summary || {}
   els.summary.innerHTML = `
     ${metric('Included', summary.includedLeadCount ?? summary.totalLeads ?? 0)}
+    ${metric('Mode', readable(summary.mode || 'fast'))}
     ${metric('Discovered', summary.totalDiscovered ?? 'unknown')}
     ${metric('Low supply', summary.lowSupply ? 'Yes' : 'No')}
     ${metric('Fallback', summary.fallbackUsed ? 'Used' : (summary.fallbackAvailable ? 'Available' : 'No'))}

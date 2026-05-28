@@ -3,6 +3,8 @@ const path = require('path')
 const { discoverLocalBusinesses, writeDiscoveryOutputs, shouldIncludeInHandoff, formatHandoffCandidate } = require('../lead-discovery-agent/discoverLocalBusinesses')
 const { runAuditQueue } = require('../orchestrator/pipelines/auditQueue')
 const { runLeadPack } = require('../lead-pack-runner/leadPackRunner')
+const { enrichCompanyProfile } = require('../company-profile/companyProfile')
+const { renderCsv } = require('../lead-review-workspace/readers/csv')
 const { normalizeSearchScope } = require('../lead-discovery-agent/normalizers/locationQuality')
 
 async function runLeadMachine(options = {}) {
@@ -11,7 +13,8 @@ async function runLeadMachine(options = {}) {
   const provider = options.provider || 'google-places'
   const maxResults = normalizePositiveInteger(options.maxResults, 5)
   const searchScope = normalizeSearchScope(options.searchScope)
-  const enrichCompanyProfile = parseBoolean(options.enrichCompanyProfile)
+  const enrichCompanyProfileEnabled = parseBoolean(options.enrichCompanyProfile)
+  const runMode = normalizeRunMode(options.mode || options.runMode)
   const runId = options.runId || createLeadMachineRunId(query)
   const outputDir = path.resolve(options.outputDir || path.join(__dirname, 'runs', runId))
   const discoveryDir = path.join(outputDir, 'discovery')
@@ -47,7 +50,18 @@ async function runLeadMachine(options = {}) {
   let leadPackResult = null
   let leadPackSummary = null
   let leadPacks = []
-  if (handoffItems.length > 0) {
+  if (runMode === 'fast') {
+    leadPackResult = await writeFastLeadPackOutputs({
+      outputDir: leadPackOutputDir,
+      query,
+      runId,
+      discovery,
+      candidates: discovery.candidates.filter((candidate) => shouldIncludeInHandoff(candidate)),
+      enrichCompanyProfile: enrichCompanyProfileEnabled,
+    })
+    leadPackSummary = readJson(leadPackResult.summaryPath)
+    leadPacks = readJson(leadPackResult.leadPacksPath)
+  } else if (handoffItems.length > 0) {
     auditResult = await runAuditQueue({
       urls: handoffItems,
       runId: `${runId}-orchestrator`,
@@ -58,7 +72,7 @@ async function runLeadMachine(options = {}) {
       query,
       runDir: path.dirname(auditResult.summaryPath),
       outputDir: leadPackOutputDir,
-      enrichCompanyProfile,
+      enrichCompanyProfile: enrichCompanyProfileEnabled,
     })
     leadPackSummary = readJson(leadPackResult.summaryPath)
     leadPacks = readJson(leadPackResult.leadPacksPath)
@@ -80,8 +94,9 @@ async function runLeadMachine(options = {}) {
     provider,
     maxResults,
     searchScope,
-    enrichCompanyProfile,
+    enrichCompanyProfile: enrichCompanyProfileEnabled,
     outputDir,
+    runMode,
     discovery,
     discoveryOutputs,
     auditResult,
@@ -94,7 +109,7 @@ async function runLeadMachine(options = {}) {
   return { outputDir, summaryPath, leadPackOutputPath: leadPackOutputDir, sourceRunPath: summary.sourceRunPath, totalLeads: summary.totalIncluded, summary }
 }
 
-function buildLeadMachineSummary({ runId, query, provider, maxResults, searchScope, enrichCompanyProfile, outputDir, discovery, discoveryOutputs, auditResult, leadPackResult, leadPackSummary, leadPacks }) {
+function buildLeadMachineSummary({ runId, query, provider, maxResults, searchScope, enrichCompanyProfile, outputDir, runMode = 'deep', discovery, discoveryOutputs, auditResult, leadPackResult, leadPackSummary, leadPacks }) {
   const locationQualityCounts = leadPackSummary.locationQualityCounts || discovery.locationQuality?.counts || {}
   const callPriorityCounts = leadPackSummary.priorityCounts || {}
   const includedLeadCount = leadPackSummary.totalLeads || 0
@@ -118,11 +133,12 @@ function buildLeadMachineSummary({ runId, query, provider, maxResults, searchSco
     query,
     provider,
     searchScope,
+    mode: runMode,
     maxResults,
     outputDir,
     createdAt: new Date().toISOString(),
     discoveryOutputs,
-    sourceRunPath: auditResult ? path.dirname(auditResult.summaryPath) : null,
+    sourceRunPath: auditResult ? path.dirname(auditResult.summaryPath) : (runMode === 'fast' ? discoveryOutputs.handoffPath : null),
     leadPackOutputPath: leadPackResult.outputDir,
     totalDiscovered: discovery.totalCandidates,
     totalIncluded: includedLeadCount,
@@ -137,9 +153,216 @@ function buildLeadMachineSummary({ runId, query, provider, maxResults, searchSco
     companyProfileEnabled: Boolean(enrichCompanyProfile),
     companyProfileCounts: countCompanyProfileStatuses(leadPacks),
     economyStatus: 'not_enabled',
+    auditStatus: runMode === 'fast' ? 'skipped_fast_mode' : (auditResult ? 'completed' : 'not_run'),
     nextRecommendedAction,
     productBoundary: 'machine_generates_ranked_lead_packs_seller_owns_angle_wording_outreach_timing_relationship_close',
   }
+}
+
+async function writeFastLeadPackOutputs({ outputDir, query, runId, discovery, candidates, enrichCompanyProfile }) {
+  fs.mkdirSync(outputDir, { recursive: true })
+  const lastCheckedAt = new Date().toISOString()
+  const leadPacks = []
+  for (const candidate of candidates) {
+    const companyProfile = enrichCompanyProfile ? await safeFastCompanyProfile(candidate) : null
+    leadPacks.push(buildFastLeadPack({ candidate, discovery, query, runId, companyProfile, lastCheckedAt }))
+  }
+  leadPacks.forEach((pack, index) => { pack.rank = index + 1 })
+  const summary = buildFastLeadPackSummary({ outputDir, query, runId, discovery, leadPacks, enrichCompanyProfile, lastCheckedAt })
+  const leadPacksPath = path.join(outputDir, 'lead-packs.json')
+  const csvPath = path.join(outputDir, 'lead-packs.csv')
+  const summaryPath = path.join(outputDir, 'summary.json')
+  fs.writeFileSync(leadPacksPath, `${JSON.stringify(leadPacks, null, 2)}\n`)
+  fs.writeFileSync(csvPath, buildFastLeadPacksCsv(leadPacks))
+  fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`)
+  return { outputDir, leadPacksPath, csvPath, summaryPath, totalLeads: leadPacks.length }
+}
+
+function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile, lastCheckedAt }) {
+  const company = companyFromFastProfile(candidate, companyProfile)
+  const contactability = candidate.phone || candidate.website ? 'basic_contact_available' : 'limited_contact_data'
+  const whyRanked = [
+    'Fast mode lead: local discovery and contact data only.',
+    candidate.phone ? 'Phone available from discovery source.' : null,
+    candidate.website ? 'Website available for later deep audit.' : null,
+    candidate.rating ? `Google rating ${candidate.rating}${candidate.reviewCount ? ` from ${candidate.reviewCount} reviews` : ''}.` : null,
+    companyProfile?.matchStatus ? `companyProfile:${companyProfile.matchStatus}` : null,
+  ].filter(Boolean)
+  const caution = [
+    'Fast mode skips full website audit and commercial scoring.',
+    'Run Deep mode before treating this as call-first.',
+    companyProfile?.matchStatus && !['exact_match', 'strong_match'].includes(companyProfile.matchStatus) ? 'Company identity requires manual verification before using org.nr.' : null,
+    ...(companyProfile?.warnings || []).map((warning) => `Company profile warning: ${warning}`),
+  ].filter(Boolean)
+
+  return {
+    rank: 0,
+    callPriority: 'verify',
+    leadClass: 'fast_discovery',
+    opportunityType: 'needs_deep_review',
+    company,
+    contact: {
+      website: candidate.website || null,
+      phone: candidate.phone || null,
+      email: null,
+      address: candidate.address || candidate.location || null,
+      city: candidate.candidateCity || extractCity(candidate.address || candidate.location || ''),
+    },
+    places: {
+      provider: candidate.provenance?.provider || candidate.sources?.[0]?.provider || candidate.source || null,
+      placeId: candidate.placeId || null,
+      rating: numberOrNull(candidate.rating),
+      reviewCount: numberOrNull(candidate.reviewCount),
+    },
+    website: {
+      auditStatus: 'skipped_fast_mode',
+      topEvidence: [
+        candidate.website ? 'Website URL found; deep audit not run yet.' : 'No website URL found in discovery.',
+        candidate.phone ? 'Phone found in discovery source.' : 'Phone not found in discovery source.',
+      ],
+      contactability,
+      ctaProfile: null,
+    },
+    ranking: {
+      whyRanked,
+      caution,
+      painScore: null,
+      buyingLikelihood: null,
+      salesEase: candidate.phone || candidate.website ? 'medium' : 'unknown',
+    },
+    economy: { status: 'not_enabled', source: null, revenue: null, profit: null, employees: null },
+    sourceQuality: {
+      searchScope: candidate.searchScope || discovery.searchScope || 'strict',
+      requestedMaxResults: discovery.searchSupply?.requestedMaxResults ?? null,
+      includedLeadCount: discovery.searchSupply?.includedLeadCount ?? null,
+      lowSupply: Boolean(discovery.searchSupply?.lowSupply),
+      fallbackAvailable: Boolean(discovery.searchSupply?.fallbackAvailable),
+      recommendedExpansion: discovery.searchSupply?.recommendedExpansion || null,
+      requestedLocation: candidate.requestedLocation || discovery.location || discovery.locationIntent?.requestedLocation || null,
+      candidateLocation: candidate.candidateLocation || candidate.address || candidate.location || null,
+      locationMatchStatus: candidate.locationMatchStatus || 'unknown',
+      locationConfidence: numberOrNull(candidate.locationConfidence),
+      distanceKm: numberOrNull(candidate.distanceKm),
+      locationWarnings: Array.isArray(candidate.locationWarnings) ? candidate.locationWarnings : [],
+      fallbackUsed: Boolean(candidate.fallbackUsed),
+    },
+    meta: {
+      sourceQuery: query,
+      sourceRun: runId,
+      lastCheckedAt,
+      mode: 'fast',
+    },
+  }
+}
+
+function companyFromFastProfile(candidate, profile) {
+  return {
+    displayName: candidate.businessName || candidate.name || null,
+    legalName: profile?.legalName || null,
+    organizationNumber: isConfirmedFastProfile(profile) ? profile.organizationNumber : null,
+    candidateOrganizationNumber: profile?.candidateOrganizationNumber || null,
+    organizationForm: profile?.organizationForm || null,
+    matchStatus: profile?.matchStatus || null,
+    matchConfidence: profile?.matchConfidence ?? null,
+    warnings: Array.isArray(profile?.warnings) ? profile.warnings : [],
+  }
+}
+
+function isConfirmedFastProfile(profile) {
+  return Boolean(profile && ['exact_match', 'strong_match'].includes(profile.matchStatus) && profile.organizationNumber)
+}
+
+async function safeFastCompanyProfile(candidate) {
+  try {
+    return await enrichCompanyProfile({
+      companyName: candidate.businessName || candidate.name,
+      website: candidate.website,
+      phone: candidate.phone,
+      email: null,
+      address: candidate.address || candidate.location,
+      city: candidate.candidateCity || extractCity(candidate.address || candidate.location || ''),
+      industry: candidate.industry || candidate.canonicalIndustry,
+    })
+  } catch (error) {
+    return { organizationNumber: null, candidateOrganizationNumber: null, legalName: null, organizationForm: null, matchStatus: 'error', matchConfidence: 0, warnings: [error && error.message ? error.message : 'company_profile_error'] }
+  }
+}
+
+function buildFastLeadPackSummary({ outputDir, query, runId, discovery, leadPacks, enrichCompanyProfile, lastCheckedAt }) {
+  return {
+    runId,
+    sourceRun: runId,
+    outputDir,
+    sourceQuery: query,
+    generatedAt: lastCheckedAt,
+    mode: 'fast',
+    totalLeads: leadPacks.length,
+    priorityCounts: countPriority(leadPacks),
+    enrichCompanyProfile: Boolean(enrichCompanyProfile),
+    economyStatus: 'not_enabled',
+    searchScope: discovery.searchScope || 'strict',
+    requestedMaxResults: discovery.searchSupply?.requestedMaxResults ?? null,
+    includedLeadCount: leadPacks.length,
+    lowSupply: Boolean(discovery.searchSupply?.lowSupply),
+    fallbackAvailable: Boolean(discovery.searchSupply?.fallbackAvailable),
+    fallbackUsed: Boolean(discovery.searchSupply?.fallbackUsed),
+    recommendedExpansion: discovery.searchSupply?.recommendedExpansion || null,
+    locationQualityCounts: discovery.locationQuality?.counts || {},
+  }
+}
+
+function buildFastLeadPacksCsv(leadPacks) {
+  const rows = leadPacks.map((pack) => ({
+    rank: pack.rank,
+    callPriority: pack.callPriority,
+    leadClass: pack.leadClass,
+    opportunityType: pack.opportunityType,
+    companyDisplayName: pack.company.displayName,
+    legalName: pack.company.legalName,
+    organizationNumber: pack.company.organizationNumber,
+    candidateOrganizationNumber: pack.company.candidateOrganizationNumber,
+    organizationForm: pack.company.organizationForm,
+    matchStatus: pack.company.matchStatus,
+    matchConfidence: pack.company.matchConfidence,
+    website: pack.contact.website,
+    phone: pack.contact.phone,
+    email: pack.contact.email,
+    address: pack.contact.address,
+    city: pack.contact.city,
+    placeId: pack.places.placeId,
+    rating: pack.places.rating,
+    reviewCount: pack.places.reviewCount,
+    auditStatus: pack.website.auditStatus,
+    contactability: pack.website.contactability,
+    whyRanked: pack.ranking.whyRanked.join('|'),
+    caution: pack.ranking.caution.join('|'),
+    economyStatus: pack.economy.status,
+    searchScope: pack.sourceQuality.searchScope,
+    locationMatchStatus: pack.sourceQuality.locationMatchStatus,
+    sourceQuery: pack.meta.sourceQuery,
+    mode: pack.meta.mode,
+  }))
+  return renderCsv(rows, ['rank', 'callPriority', 'leadClass', 'opportunityType', 'companyDisplayName', 'legalName', 'organizationNumber', 'candidateOrganizationNumber', 'organizationForm', 'matchStatus', 'matchConfidence', 'website', 'phone', 'email', 'address', 'city', 'placeId', 'rating', 'reviewCount', 'auditStatus', 'contactability', 'whyRanked', 'caution', 'economyStatus', 'searchScope', 'locationMatchStatus', 'sourceQuery', 'mode'])
+}
+
+function countPriority(leadPacks) {
+  return (leadPacks || []).reduce((acc, lead) => {
+    const key = lead.callPriority || 'unknown'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+}
+
+function extractCity(value) {
+  const parts = String(value || '').split(',').map((part) => part.trim()).filter(Boolean)
+  if (!parts.length) return null
+  const cityPart = parts.find((part) => /\b\d{4}\b/.test(part)) || parts[parts.length - 1]
+  return cityPart.replace(/\b\d{4}\b/g, '').replace(/\bNorway\b/gi, '').trim() || null
+}
+
+function numberOrNull(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
 }
 
 function writeEmptyLeadPackOutputs({ outputDir, query, runId, discovery }) {
@@ -154,6 +377,7 @@ function writeEmptyLeadPackOutputs({ outputDir, query, runId, discovery }) {
     priorityCounts: {},
     enrichCompanyProfile: false,
     economyStatus: 'not_enabled',
+    auditStatus: 'not_run',
     searchScope: discovery.searchScope || 'strict',
     requestedMaxResults: discovery.searchSupply?.requestedMaxResults ?? null,
     includedLeadCount: 0,
@@ -215,6 +439,7 @@ function formatTerminalSummary(summary) {
     `Query: ${summary.query}`,
     `Provider: ${summary.provider}`,
     `Scope: ${summary.searchScope}`,
+    `Mode: ${summary.mode || 'deep'}`,
     `Max results: ${summary.maxResults}`,
     `Discovered candidates: ${summary.totalDiscovered}`,
     `Included leads: ${summary.includedLeadCount}`,
@@ -250,6 +475,10 @@ function normalizePositiveInteger(value, fallback) {
   return Number.isFinite(number) && number > 0 ? Math.floor(number) : fallback
 }
 
+function normalizeRunMode(value) {
+  return String(value || 'deep').toLowerCase() === 'fast' ? 'fast' : 'deep'
+}
+
 function parseBoolean(value) {
   if (value === true) return true
   return ['1', 'true', 'yes'].includes(String(value || '').toLowerCase())
@@ -272,4 +501,4 @@ function parseArgs(argv) {
   return out
 }
 
-module.exports = { runLeadMachine, buildLeadMachineSummary, buildNextRecommendedAction, formatTerminalSummary, createLeadMachineRunId, parseArgs, slugify }
+module.exports = { runLeadMachine, buildLeadMachineSummary, buildNextRecommendedAction, formatTerminalSummary, createLeadMachineRunId, parseArgs, slugify, normalizeRunMode }

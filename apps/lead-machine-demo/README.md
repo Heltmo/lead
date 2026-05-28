@@ -69,6 +69,12 @@ The profession selector is a controlled list of supported verticals. The locatio
 - `frisør Tromsø`
 - `eiendomsmeglere i Oslo`
 
+## Fast vs Deep Mode
+
+- `Fast` mode is the default for daily scanning. It runs discovery/location quality and creates basic lead packs without full website audit.
+- `Deep` mode runs the full website audit and commercial scoring flow for slower, richer lead packs.
+- Use Fast for 10-25 lead scans, then Deep for the strongest leads.
+
 ## What It Does
 
 By default, the app uses `Demo fixture`, which works without external API keys and returns deterministic local lead-pack data. Select `Google Places` for a live run after setting `GOOGLE_PLACES_API_KEY`.
@@ -126,8 +132,8 @@ No prepared pitch text, email templates, or automated outreach are included.
 Live runs are slower than the fixture because each included lead can trigger:
 
 1. Google Places discovery
-2. website audit
+2. optional website audit in Deep mode
 3. lead-pack generation
 4. optional Brreg company-profile lookup
 
-Use `Max 5` for quick checks. Increase to `10-25` when you want more coverage. Turn on `Brreg firmaprofil` when identity/org.nr matters more than speed.
+Use `Fast` + `Max 10-25` for quick scans. Use `Deep` when you want full website audit/scoring. Turn on `Brreg firmaprofil` when identity/org.nr matters more than speed.
