@@ -75,6 +75,15 @@ The profession selector is a controlled list of supported verticals. The locatio
 - `Deep` mode runs the full website audit and commercial scoring flow for slower, richer lead packs.
 - Use Fast for 10-25 lead scans, then Deep for the strongest leads.
 
+Recommended workflow:
+
+1. Run `Fast` to scan a market quickly.
+2. Review phone, website, location, rating/reviews, and source warnings.
+3. Use `Run Deep qualification` on promising candidates. In V1 this reruns the current query in Deep mode; selected-lead-only qualification comes later.
+4. Export the lead pack once the lead is qualified enough for seller review.
+
+Fast results are candidates, not fully qualified leads. Deep results include website audit/scoring signals.
+
 ## What It Does
 
 By default, the app uses `Demo fixture`, which works without external API keys and returns deterministic local lead-pack data. Select `Google Places` for a live run after setting `GOOGLE_PLACES_API_KEY`.

@@ -47,6 +47,7 @@ els.query.addEventListener('keydown', (event) => { if (event.key === 'Enter') ru
 els.location.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
 els.profession.addEventListener('change', syncQueryFromStructuredSearch)
 els.location.addEventListener('input', syncQueryFromStructuredSearch)
+els.runMode.addEventListener('change', () => renderSummary(state.result))
 renderSummary(null)
 renderExport(null)
 
@@ -76,7 +77,10 @@ async function runSearch() {
   renderExport(null)
 
   try {
-    setStatus('running: discovery, website audit and lead-pack build', 'running')
+    const statusText = els.runMode.value === 'fast'
+      ? 'running: fast discovery and lead-pack build'
+      : 'running: discovery, website audit and lead-pack build'
+    setStatus(statusText, 'running')
     const response = await fetch('/api/runs', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -118,7 +122,7 @@ function renderSummary(result) {
     ${metric('Low supply', summary.lowSupply ? 'Yes' : 'No')}
     ${metric('Fallback', summary.fallbackUsed ? 'Used' : (summary.fallbackAvailable ? 'Available' : 'No'))}
     ${metric('Priority counts', formatCounts(summary.callPriorityCounts || summary.priorityCounts || {}))}
-    ${metric('Next action', summary.nextRecommendedAction || 'Run a search')}
+    ${metric('Next action', modeGuidance(summary))}
   `
 }
 
@@ -134,7 +138,7 @@ function renderLeads(leads) {
     const primarySignal = sellerSignals(lead)[0] || humanize(lead.opportunityType || 'Lead pack')
     return `
       <button class="lead-card ${index === state.selectedIndex ? 'active' : ''}" type="button" data-index="${index}">
-        <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(company.matchStatus)}</div>
+        <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(company.matchStatus)}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
         <p class="card-signal">${escapeHtml(primarySignal)}</p>
@@ -169,7 +173,7 @@ function renderDetail(lead) {
         <h2>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h2>
         <p class="muted">${escapeHtml(company.legalName || 'Legal name unknown')}</p>
       </div>
-      <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(company.matchStatus)}${badge(sourceQuality.locationMatchStatus)}</div>
+      <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(company.matchStatus)}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
     </div>
 
     <div class="quick-facts">
@@ -188,6 +192,8 @@ function renderDetail(lead) {
       </div>
       ${bullets(leverage)}
     </section>
+
+    ${fastQualificationPanel(lead)}
 
     <div class="source-grid">
       ${sourceCard('Google Places', places.provider || 'available', [
@@ -233,6 +239,32 @@ function renderDetail(lead) {
     ${section('Evidence', bullets((website.topEvidence || lead.topEvidence || lead.evidence || []).map(humanizeEvidence)))}
     ${section('Caution', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}
   `
+}
+
+function modeGuidance(summary) {
+  const mode = summary.mode || els.runMode.value || 'fast'
+  if (!summary || Object.keys(summary).length === 0) {
+    return mode === 'deep' ? 'Deep mode qualifies leads with full audit/scoring.' : 'Fast mode finds candidates; use Deep to qualify selected leads.'
+  }
+  const included = Number(summary.includedLeadCount ?? summary.totalLeads ?? 0)
+  if (mode === 'fast' && included > 0) return 'These are candidates, not fully qualified leads. Run Deep on promising ones.'
+  return summary.nextRecommendedAction || 'These leads include audit/scoring signals.'
+}
+
+function fastBadge(lead) {
+  return isFastLead(lead) ? '<span class="badge audit-skipped">Audit skipped</span>' : ''
+}
+
+function isFastLead(lead) {
+  return lead?.meta?.mode === 'fast' || lead?.website?.auditStatus === 'skipped_fast_mode' || lead?.leadClass === 'fast_discovery'
+}
+
+function fastQualificationPanel(lead) {
+  if (!isFastLead(lead)) return '<section class="qualification-panel deep"><strong>Deep qualified</strong><span>This lead includes website audit and scoring signals.</span></section>'
+  return `<section class="qualification-panel fast">
+    <div><strong>Needs Deep qualification</strong><span>Fast mode found this candidate quickly. Full audit and scoring are not run yet.</span></div>
+    <button type="button" id="runDeepQualification">Run Deep qualification</button>
+  </section>`
 }
 
 function factCard(label, value, note) {
@@ -354,6 +386,13 @@ function renderExport(result) {
   const copy = document.getElementById('copyPath')
   copy?.addEventListener('click', () => navigator.clipboard?.writeText(result.outputDir))
 }
+
+document.addEventListener('click', (event) => {
+  if (event.target && event.target.id === 'runDeepQualification') {
+    els.runMode.value = 'deep'
+    runSearch()
+  }
+})
 
 function setStatus(text, cls) {
   els.status.className = `status-panel ${cls || ''}`
