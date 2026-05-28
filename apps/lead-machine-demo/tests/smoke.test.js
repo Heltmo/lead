@@ -11,6 +11,10 @@ async function main() {
   assert(parseLeadQuery('rørleggere i Kristiansand').normalizedQuery === 'rørlegger i Kristiansand', 'i-pattern query should parse')
   assert(parseLeadQuery('advokater i Gol').normalizedQuery === 'advokat i Gol', 'lawyer query should parse')
   assert(parseLeadQuery('Gol advokat').normalizedQuery === 'advokat i Gol', 'Gol advokat should parse')
+  assert(parseLeadQuery('Ålesund fysioterapeuter').normalizedQuery === 'fysioterapeut i Ålesund', 'Ålesund fysioterapeuter should parse')
+  assert(parseLeadQuery('bilverksted i Bergen').normalizedQuery === 'bilverksted i Bergen', 'bilverksted should parse')
+  assert(parseLeadQuery('frisør Tromsø').normalizedQuery === 'frisør i Tromsø', 'frisør should parse')
+  assert(parseLeadQuery('eiendomsmeglere i Oslo').normalizedQuery === 'eiendomsmegler i Oslo', 'eiendomsmegler should parse')
 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lead-machine-demo-'))
   let runnerArgs = null
@@ -75,6 +79,10 @@ async function main() {
   assert(!lower.includes('ready-to-send'), 'UI must not include ready-to-send text')
   assert(!lower.includes('suggested wording'), 'UI must not include suggested wording')
   assert(lower.includes('demo-fixture'), 'UI should expose a no-key demo fixture provider')
+  assert(lower.includes('professionselect'), 'UI should include structured profession selector')
+  assert(lower.includes('locationinput'), 'UI should include structured location input')
+  assert(lower.includes('ålesund'), 'UI should include Norway location autocomplete options')
+  assert(lower.includes('fysioterapeut'), 'UI should include supported profession options')
 
   server.close()
   failing.close()

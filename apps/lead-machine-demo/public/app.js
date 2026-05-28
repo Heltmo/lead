@@ -1,6 +1,32 @@
+const PROFESSIONS = [
+  { label: 'Rørlegger', value: 'rørlegger' },
+  { label: 'Elektriker', value: 'elektriker' },
+  { label: 'Tannlege', value: 'tannlege' },
+  { label: 'Advokat', value: 'advokat' },
+  { label: 'Fysioterapeut', value: 'fysioterapeut' },
+  { label: 'Regnskapsfører', value: 'regnskapsfører' },
+  { label: 'Restaurant', value: 'restaurant' },
+  { label: 'Bilverksted', value: 'bilverksted' },
+  { label: 'Frisør', value: 'frisør' },
+  { label: 'Eiendomsmegler', value: 'eiendomsmegler' },
+]
+
+const LOCATIONS = [
+  'Oslo', 'Bergen', 'Trondheim', 'Stavanger', 'Kristiansand', 'Drammen', 'Fredrikstad', 'Sarpsborg', 'Moss', 'Halden',
+  'Ålesund', 'Molde', 'Kristiansund', 'Bodø', 'Tromsø', 'Alta', 'Narvik', 'Harstad', 'Hamar', 'Lillehammer',
+  'Gjøvik', 'Elverum', 'Kongsvinger', 'Tønsberg', 'Sandefjord', 'Larvik', 'Skien', 'Porsgrunn', 'Arendal', 'Grimstad',
+  'Mandal', 'Flekkefjord', 'Bryne', 'Sandnes', 'Haugesund', 'Karmøy', 'Stord', 'Voss', 'Førde', 'Florø',
+  'Sogndal', 'Gol', 'Geilo', 'Hønefoss', 'Kongsberg', 'Notodden', 'Ringerike', 'Lillestrøm', 'Jessheim', 'Ski',
+  'Asker', 'Bærum', 'Lørenskog', 'Eidsvoll', 'Ullensaker', 'Nesodden', 'Nittedal', 'Råde', 'Rygge', 'Rolvsøy',
+  'Namsos', 'Steinkjer', 'Levanger', 'Stjørdal', 'Mo i Rana', 'Mosjøen', 'Brønnøysund', 'Sortland', 'Svolvær', 'Hammerfest',
+]
+
 const state = { result: null, selectedIndex: 0 }
 
 const els = {
+  profession: document.getElementById('professionSelect'),
+  location: document.getElementById('locationInput'),
+  locationOptions: document.getElementById('locationOptions'),
   query: document.getElementById('queryInput'),
   provider: document.getElementById('provider'),
   maxResults: document.getElementById('maxResults'),
@@ -14,10 +40,27 @@ const els = {
   exportPanel: document.getElementById('exportPanel'),
 }
 
+initStructuredSearch()
 els.runButton.addEventListener('click', runSearch)
 els.query.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
+els.location.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
+els.profession.addEventListener('change', syncQueryFromStructuredSearch)
+els.location.addEventListener('input', syncQueryFromStructuredSearch)
 renderSummary(null)
 renderExport(null)
+
+function initStructuredSearch() {
+  els.profession.innerHTML = PROFESSIONS.map((item) => `<option value="${escapeAttr(item.value)}">${escapeHtml(item.label)}</option>`).join('')
+  els.locationOptions.innerHTML = LOCATIONS.map((location) => `<option value="${escapeAttr(location)}"></option>`).join('')
+  els.profession.value = 'rørlegger'
+  syncQueryFromStructuredSearch()
+}
+
+function syncQueryFromStructuredSearch() {
+  const profession = els.profession.value.trim()
+  const location = els.location.value.trim()
+  if (profession && location) els.query.value = `${profession} i ${location}`
+}
 
 async function runSearch() {
   const query = els.query.value.trim()

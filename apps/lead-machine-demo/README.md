@@ -40,6 +40,23 @@ Open:
 http://127.0.0.1:8787
 ```
 
+## Search UX
+
+The demo supports structured search:
+
+```text
+Bransje: Fysioterapeut
+Sted: Ålesund
+```
+
+This generates the same internal query as free text:
+
+```text
+fysioterapeut i Ålesund
+```
+
+The profession selector is a controlled list of supported verticals. The location field is an autocomplete list of common Norwegian cities/municipalities, while still allowing manual text entry.
+
 ## Example Queries
 
 - `Kristiansand rørlegger`
@@ -47,6 +64,10 @@ http://127.0.0.1:8787
 - `rørleggere i Kristiansand`
 - `advokater i Gol`
 - `Gol advokat`
+- `Ålesund fysioterapeuter`
+- `bilverksted i Bergen`
+- `frisør Tromsø`
+- `eiendomsmeglere i Oslo`
 
 ## What It Does
 

@@ -6,6 +6,9 @@ const VERTICALS = [
   { terms: ['regnskapsfører', 'regnskapsførere', 'regnskapsforer', 'regnskapsforere'], canonical: 'regnskapsfører' },
   { terms: ['fysioterapeut', 'fysioterapeuter'], canonical: 'fysioterapeut' },
   { terms: ['restaurant', 'restauranter'], canonical: 'restaurant' },
+  { terms: ['bilverksted', 'bilverksteder', 'verksted', 'verksteder'], canonical: 'bilverksted' },
+  { terms: ['frisør', 'frisører', 'frisor', 'frisorer'], canonical: 'frisør' },
+  { terms: ['eiendomsmegler', 'eiendomsmeglere', 'megler', 'meglere'], canonical: 'eiendomsmegler' },
 ]
 
 function parseLeadQuery(rawQuery) {
