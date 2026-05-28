@@ -35,11 +35,11 @@
         <input id="queryInput" value="rørlegger i Kristiansand" autocomplete="off">
       </label>
       <label><span>Provider</span><select id="provider"><option value="demo-fixture">Demo fixture</option><option value="google-places">Google Places</option></select></label>
-      <label><span>Max</span><select id="maxResults"><option>5</option><option>10</option></select></label>
+      <label><span>Max</span><select id="maxResults"><option>5</option><option>10</option><option>15</option><option>20</option><option>25</option></select></label>
       <label><span>Scope</span><select id="searchScope"><option value="strict">strict</option><option value="nearby">nearby</option><option value="regional">regional</option></select></label>
-      <label class="toggle"><input id="companyProfile" type="checkbox"> Company profile</label>
+      <label class="toggle"><input id="companyProfile" type="checkbox"> Brreg firmaprofil</label>
       <button id="runButton" type="button">Kjør søk</button>
-      <p class="search-hint">Velg bransje og sted, eller skriv direkte i query-feltet.</p>
+      <p class="search-hint">Velg bransje og sted, eller skriv direkte i query-feltet. Brreg firmaprofil henter org.nr/juridisk navn konservativt og kan gjøre live-run tregere.</p>
     </section>
 
     <section id="statusPanel" class="status-panel">Ready. Demo fixture works without Google Places API key.</section>

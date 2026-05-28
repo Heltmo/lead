@@ -117,6 +117,17 @@ No prepared pitch text, email templates, or automated outreach are included.
 - Uses local server only.
 - `Demo fixture` works without credentials.
 - Live Google Places runs require `GOOGLE_PLACES_API_KEY`.
-- Company profile enrichment defaults off.
+- `Brreg firmaprofil` uses `core/company-profile` to enrich org.nr/legal identity conservatively. It defaults off because it adds API lookups per lead.
 - Economy/Proff status remains `not_enabled`.
 - Run folders are local and ignored by git.
+
+## Speed Notes
+
+Live runs are slower than the fixture because each included lead can trigger:
+
+1. Google Places discovery
+2. website audit
+3. lead-pack generation
+4. optional Brreg company-profile lookup
+
+Use `Max 5` for quick checks. Increase to `10-25` when you want more coverage. Turn on `Brreg firmaprofil` when identity/org.nr matters more than speed.
