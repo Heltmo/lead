@@ -83,6 +83,9 @@ async function main() {
   assert(lower.includes('locationinput'), 'UI should include structured location input')
   assert(lower.includes('ålesund'), 'UI should include Norway location autocomplete options')
   assert(lower.includes('fysioterapeut'), 'UI should include supported profession options')
+  assert(lower.includes('seller leverage'), 'UI should expose seller leverage section')
+  assert(lower.includes('quick-facts'), 'UI should include quick facts cards')
+  assert(lower.includes('source-grid'), 'UI should include source intelligence cards')
 
   server.close()
   failing.close()

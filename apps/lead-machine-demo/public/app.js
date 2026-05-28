@@ -124,14 +124,21 @@ function renderLeads(leads) {
     els.leadCards.innerHTML = '<div class="empty-state">No lead packs yet.</div>'
     return
   }
-  els.leadCards.innerHTML = leads.map((lead, index) => `
-    <button class="lead-card ${index === state.selectedIndex ? 'active' : ''}" type="button" data-index="${index}">
-      <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(lead.sourceQuality?.locationMatchStatus)}</div>
-      <h3>${escapeHtml(lead.company?.displayName || lead.companyName || 'Unknown company')}</h3>
-      <p>${escapeHtml(lead.contact?.city || lead.city || 'unknown')} · ${escapeHtml(lead.contact?.phone || lead.phone || 'phone unknown')}</p>
-      <p>${escapeHtml((lead.ranking?.whyRanked || lead.whyRanked || [])[0] || lead.opportunityType || 'Lead pack')}</p>
-    </button>
-  `).join('')
+  els.leadCards.innerHTML = leads.map((lead, index) => {
+    const contact = lead.contact || {}
+    const places = lead.places || {}
+    const company = lead.company || {}
+    const primarySignal = sellerSignals(lead)[0] || humanize(lead.opportunityType || 'Lead pack')
+    return `
+      <button class="lead-card ${index === state.selectedIndex ? 'active' : ''}" type="button" data-index="${index}">
+        <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(company.matchStatus)}</div>
+        <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
+        <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
+        <p class="card-signal">${escapeHtml(primarySignal)}</p>
+        <p class="card-meta">${escapeHtml(formatRating(places))} · ${escapeHtml(contact.website ? 'website found' : 'website unknown')}</p>
+      </button>
+    `
+  }).join('')
   els.leadCards.querySelectorAll('.lead-card').forEach((button) => button.addEventListener('click', () => {
     state.selectedIndex = Number(button.dataset.index)
     renderAll()
@@ -148,6 +155,10 @@ function renderDetail(lead) {
   const ranking = lead.ranking || {}
   const website = lead.website || {}
   const sourceQuality = lead.sourceQuality || {}
+  const places = lead.places || {}
+  const economy = lead.economy || {}
+  const leverage = sellerSignals(lead)
+  const nextStep = nextSellerStep(lead)
   els.leadDetail.innerHTML = `
     <div class="detail-title">
       <div>
@@ -157,10 +168,51 @@ function renderDetail(lead) {
       </div>
       <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(company.matchStatus)}${badge(sourceQuality.locationMatchStatus)}</div>
     </div>
+
+    <div class="quick-facts">
+      ${factCard('Phone', contact.phone || lead.phone || 'unknown', 'Best first contact field')}
+      ${factCard('Website', contact.website ? 'available' : 'unknown', contact.website ? link(contact.website) : 'No website in lead pack')}
+      ${factCard('Google', formatRating(places), places.placeId ? `Place ID: ${places.placeId}` : 'No place ID')}
+      ${factCard('Company ID', company.organizationNumber || company.candidateOrganizationNumber || 'not verified', company.matchStatus || 'not_run')}
+      ${factCard('Location', readable(sourceQuality.locationMatchStatus || 'unknown'), contact.address || contact.city || 'unknown')}
+      ${factCard('Priority', readable(lead.callPriority || lead.priority || 'unknown'), nextStep)}
+    </div>
+
+    <section class="leverage-panel">
+      <div>
+        <p class="eyebrow">Seller leverage</p>
+        <h3>What makes this worth a look</h3>
+      </div>
+      ${bullets(leverage)}
+    </section>
+
+    <div class="source-grid">
+      ${sourceCard('Google Places', places.provider || 'available', [
+        ['Rating', formatRating(places)],
+        ['Place ID', places.placeId || 'unknown'],
+        ['Reviews', places.reviewCount ?? 'unknown'],
+      ])}
+      ${sourceCard('Website audit', website.auditStatus || 'available', [
+        ['Contactability', website.contactability || 'unknown'],
+        ['Top signal', (website.topEvidence || [])[0] || 'none'],
+        ['CTA profile', website.ctaProfile ? 'available' : 'unknown'],
+      ])}
+      ${sourceCard('Brreg firmaprofil', company.matchStatus || 'not_run', [
+        ['Confirmed org.nr', company.organizationNumber || 'none'],
+        ['Candidate org.nr', company.candidateOrganizationNumber || 'none'],
+        ['Confidence', company.matchConfidence ?? 'unknown'],
+      ])}
+      ${sourceCard('Economy / Proff', economy.status || 'not_enabled', [
+        ['Revenue', economy.revenue ?? 'not enabled'],
+        ['Employees', economy.employees ?? 'not enabled'],
+        ['Source', economy.source || 'not enabled'],
+      ])}
+    </div>
+
     ${section('Company and contact', kv([
       ['Confirmed org.nr', company.organizationNumber || 'none'],
       ['Candidate org.nr', company.candidateOrganizationNumber || 'none'],
-      ['Match status', company.matchStatus || 'not_run'],
+      ['Match status', readable(company.matchStatus || 'not_run')],
       ['Website', link(contact.website || lead.website)],
       ['Phone', contact.phone || lead.phone || 'unknown'],
       ['Email', contact.email || lead.email || 'unknown'],
@@ -168,17 +220,86 @@ function renderDetail(lead) {
       ['City', contact.city || lead.city || 'unknown'],
     ]))}
     ${section('Lead intelligence', kv([
-      ['Lead class', lead.leadClass || 'unknown'],
-      ['Opportunity', lead.opportunityType || 'unknown'],
-      ['Sales ease', ranking.salesEase || 'unknown'],
+      ['Lead class', humanize(lead.leadClass || 'unknown')],
+      ['Opportunity', humanize(lead.opportunityType || 'unknown')],
+      ['Sales ease', readable(ranking.salesEase || 'unknown')],
       ['Pain score', ranking.painScore ?? 'unknown'],
-      ['Location', sourceQuality.locationMatchStatus || 'unknown'],
-      ['Economy', lead.economy?.status || 'not_enabled'],
+      ['Location', readable(sourceQuality.locationMatchStatus || 'unknown')],
+      ['Economy', readable(economy.status || 'not_enabled')],
     ]))}
-    ${section('Why ranked', bullets(ranking.whyRanked || lead.whyRanked || []))}
-    ${section('Evidence', bullets(website.topEvidence || lead.topEvidence || lead.evidence || []))}
-    ${section('Caution', bullets(ranking.caution || lead.caution || []))}
+    ${section('Evidence', bullets((website.topEvidence || lead.topEvidence || lead.evidence || []).map(humanizeEvidence)))}
+    ${section('Caution', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}
   `
+}
+
+function factCard(label, value, note) {
+  return `<div class="fact-card"><span>${escapeHtml(label)}</span><strong>${isHtml(value) ? value : escapeHtml(value)}</strong><small>${isHtml(note) ? note : escapeHtml(note)}</small></div>`
+}
+
+function sourceCard(title, status, rows) {
+  return `<section class="source-card"><div class="source-title"><h3>${escapeHtml(title)}</h3>${badge(status)}</div>${kv(rows)}</section>`
+}
+
+function sellerSignals(lead) {
+  const ranking = lead.ranking || {}
+  const website = lead.website || {}
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const raw = [lead.opportunityType, lead.leadClass, ...(ranking.whyRanked || []), ...(website.topEvidence || [])].filter(Boolean)
+  const signals = []
+  if (contact.phone || contact.email) signals.push('Contact path is available, so the seller can qualify the lead directly.')
+  if (company.organizationNumber) signals.push('Official company identity is confirmed through Brreg.')
+  else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Possible company identity exists, but org.nr should be verified before export.')
+  for (const item of raw) {
+    const mapped = leverageLabel(item)
+    if (mapped && !signals.includes(mapped)) signals.push(mapped)
+  }
+  if (!signals.length) signals.push('Lead has enough contact and source context to review manually.')
+  return signals.slice(0, 6)
+}
+
+function leverageLabel(value) {
+  const text = String(value || '').toLowerCase()
+  if (text.includes('technical_trust_risk') || text.includes('technical trust')) return 'Website trust or reliability signals may be weaker than the business itself.'
+  if (text.includes('many_failed_requests') || text.includes('failed network')) return 'Website reliability evidence exists; verify before using it as a sales point.'
+  if (text.includes('accessibility') || text.includes('usability')) return 'Usability/accessibility friction may affect customer confidence.'
+  if (text.includes('high_value_service') || text.includes('service_line')) return 'High-value services are present and may deserve clearer lead paths.'
+  if (text.includes('strong_existing_conversion_flow')) return 'Contact flow already looks strong, so urgency should not be overstated.'
+  if (text.includes('contact_maturity_requires_stronger_technical_pain')) return 'Contact maturity is high; treat this as shortlist unless technical pain is clear.'
+  if (text.includes('visible_technical_trust_pain')) return 'Visible technical trust evidence supports a deeper review.'
+  if (text.includes('no social links')) return 'Social proof links were not detected in the website audit.'
+  if (text.includes('contactable')) return 'Business appears reachable from available contact data.'
+  return humanize(value)
+}
+
+function nextSellerStep(lead) {
+  const priority = String(lead.callPriority || lead.priority || '').toLowerCase()
+  const match = String(lead.company?.matchStatus || '').toLowerCase()
+  if (match === 'manual_verify' || match === 'weak_match') return 'Verify company identity first'
+  if (priority === 'high') return 'Review first'
+  if (priority === 'medium') return 'Shortlist and inspect evidence'
+  if (priority === 'low') return 'Keep as low-urgency reference'
+  if (priority === 'verify') return 'Manual verification required'
+  return 'Review source data'
+}
+
+function formatRating(places) {
+  if (!places || places.rating === null || places.rating === undefined) return 'rating unknown'
+  const reviews = places.reviewCount === null || places.reviewCount === undefined ? 'reviews unknown' : `${places.reviewCount} reviews`
+  return `${places.rating} / 5 · ${reviews}`
+}
+
+function humanizeEvidence(value) {
+  const mapped = leverageLabel(value)
+  return mapped || humanize(value)
+}
+
+function humanize(value) {
+  return String(value || 'unknown')
+    .replace(/[_:]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^./, (char) => char.toUpperCase())
 }
 
 function renderExport(result) {
