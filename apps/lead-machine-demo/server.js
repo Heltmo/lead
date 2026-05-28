@@ -8,6 +8,8 @@ const DEFAULT_PORT = Number(process.env.PORT || 8787)
 const APP_ROOT = __dirname
 const PUBLIC_DIR = path.join(APP_ROOT, 'public')
 const RUNS_DIR = path.join(APP_ROOT, 'runs')
+const FIXTURE_DIR = path.join(APP_ROOT, 'fixtures')
+const DEMO_FIXTURE_PATH = path.join(FIXTURE_DIR, 'kristiansand-rorlegger-result.json')
 
 function createServer(options = {}) {
   const runner = options.runner || runLeadMachine
@@ -41,22 +43,34 @@ async function handleRun(req, res, context) {
   if (!parsedQuery.ok) return json(res, 400, { error: parsedQuery.error })
 
   const maxResults = normalizeMaxResults(body.maxResults, 5)
-  const provider = ['google-places', 'mock'].includes(body.provider) ? body.provider : 'google-places'
+  const provider = ['demo-fixture', 'google-places', 'mock'].includes(body.provider) ? body.provider : 'demo-fixture'
   const searchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'strict'
   const enrichCompanyProfile = body.enrichCompanyProfile === true || body.enrichCompanyProfile === 'true'
   const runId = createSafeRunId(parsedQuery.normalizedQuery)
   const outputDir = path.join(context.runsDir, runId)
   fs.mkdirSync(outputDir, { recursive: true })
 
-  const result = await context.runner({
-    query: parsedQuery.normalizedQuery,
-    provider,
-    maxResults,
-    searchScope,
-    enrichCompanyProfile,
-    outputDir,
-    runId,
-  })
+  let result
+  if (provider === 'demo-fixture') {
+    result = createDemoFixtureRun({
+      parsedQuery,
+      maxResults,
+      searchScope,
+      enrichCompanyProfile,
+      outputDir,
+      runId,
+    })
+  } else {
+    result = await context.runner({
+      query: parsedQuery.normalizedQuery,
+      provider,
+      maxResults,
+      searchScope,
+      enrichCompanyProfile,
+      outputDir,
+      runId,
+    })
+  }
 
   const leadPackOutputPath = result.leadPackOutputPath || path.join(outputDir, 'lead-packs')
   const leadPacksPath = path.join(leadPackOutputPath, 'lead-packs.json')
@@ -82,6 +96,146 @@ async function handleRun(req, res, context) {
     summary: { ...leadPackSummary, ...machineSummary },
     leadPacks,
   })
+}
+
+function createDemoFixtureRun({ parsedQuery, maxResults, searchScope, enrichCompanyProfile, outputDir, runId }) {
+  const fixture = readJsonFile(DEMO_FIXTURE_PATH, null)
+  if (!fixture) throw new Error('Demo fixture data is missing')
+
+  const leadPackOutputPath = path.join(outputDir, 'lead-packs')
+  fs.mkdirSync(leadPackOutputPath, { recursive: true })
+
+  const allLeadPacks = Array.isArray(fixture.leadPacks) ? fixture.leadPacks : []
+  const leadPacks = allLeadPacks.slice(0, maxResults).map((lead) => withDemoRunMetadata(lead, parsedQuery, searchScope, enrichCompanyProfile))
+  const summary = buildDemoSummary(fixture.summary || {}, leadPacks, parsedQuery, maxResults, searchScope, enrichCompanyProfile, outputDir, leadPackOutputPath)
+
+  fs.writeFileSync(path.join(leadPackOutputPath, 'lead-packs.json'), JSON.stringify(leadPacks, null, 2))
+  fs.writeFileSync(path.join(leadPackOutputPath, 'lead-packs.csv'), toLeadPackCsv(leadPacks))
+  fs.writeFileSync(path.join(leadPackOutputPath, 'summary.json'), JSON.stringify(summary.leadPackSummary, null, 2))
+  const summaryPath = path.join(outputDir, 'lead-machine-summary.json')
+  fs.writeFileSync(summaryPath, JSON.stringify(summary.machineSummary, null, 2))
+
+  return {
+    outputDir,
+    summaryPath,
+    leadPackOutputPath,
+    summary: summary.machineSummary,
+    totalLeads: leadPacks.length,
+    provider: 'demo-fixture',
+    runId,
+  }
+}
+
+function withDemoRunMetadata(lead, parsedQuery, searchScope, enrichCompanyProfile) {
+  const copy = JSON.parse(JSON.stringify(lead))
+  copy.meta = {
+    ...(copy.meta || {}),
+    sourceQuery: parsedQuery.normalizedQuery,
+    requestedQuery: parsedQuery.rawQuery,
+    sourceRun: 'demo-fixture',
+    lastCheckedAt: new Date().toISOString(),
+  }
+  copy.sourceQuality = {
+    searchScope,
+    fallbackUsed: false,
+    locationWarnings: [],
+    ...(copy.sourceQuality || {}),
+  }
+  copy.company = {
+    displayName: 'unknown',
+    legalName: null,
+    organizationNumber: null,
+    candidateOrganizationNumber: null,
+    organizationForm: null,
+    matchStatus: 'not_run',
+    matchConfidence: null,
+    warnings: [],
+    ...(copy.company || {}),
+  }
+  if (enrichCompanyProfile && copy.company.matchStatus === 'not_run') {
+    copy.company.matchStatus = 'manual_verify'
+    copy.company.warnings = [...(copy.company.warnings || []), 'demo_fixture_company_profile_not_verified']
+  }
+  copy.economy = { status: 'not_enabled', source: null, revenue: null, profit: null, employees: null, ...(copy.economy || {}) }
+  return copy
+}
+
+function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searchScope, enrichCompanyProfile, outputDir, leadPackOutputPath) {
+  const priorityCounts = leadPacks.reduce((counts, lead) => {
+    const key = String(lead.callPriority || 'unknown').toLowerCase()
+    counts[key] = (counts[key] || 0) + 1
+    return counts
+  }, {})
+  const locationQualityCounts = leadPacks.reduce((counts, lead) => {
+    const key = lead.sourceQuality && lead.sourceQuality.locationMatchStatus ? lead.sourceQuality.locationMatchStatus : 'unknown'
+    counts[key] = (counts[key] || 0) + 1
+    return counts
+  }, {})
+  const hasHigh = Boolean(priorityCounts.high)
+  const hasMedium = Boolean(priorityCounts.medium)
+  const fallbackUsed = leadPacks.some((lead) => lead.sourceQuality && lead.sourceQuality.fallbackUsed)
+  const lowSupply = leadPacks.length < maxResults
+  const nextRecommendedAction = hasHigh
+    ? 'Review HIGH leads first.'
+    : hasMedium
+      ? 'Review top MEDIUM leads as shortlist.'
+      : lowSupply
+        ? 'Try nearby or regional search scope for more volume.'
+        : 'Review included leads.'
+
+  const common = {
+    ...baseSummary,
+    query: parsedQuery.normalizedQuery,
+    provider: 'demo-fixture',
+    searchScope,
+    maxResults,
+    sourceRunPath: 'demo-fixture',
+    leadPackOutputPath,
+    outputDir,
+    includedLeadCount: leadPacks.length,
+    totalIncluded: leadPacks.length,
+    totalDiscovered: Math.max(baseSummary.totalDiscovered || leadPacks.length, leadPacks.length),
+    totalExcludedByLocation: baseSummary.totalExcludedByLocation || 0,
+    locationQualityCounts,
+    callPriorityCounts: priorityCounts,
+    lowSupply,
+    fallbackAvailable: lowSupply,
+    fallbackUsed,
+    recommendedExpansion: lowSupply ? 'nearby' : null,
+    economyStatus: 'not_enabled',
+    companyProfileEnabled: Boolean(enrichCompanyProfile),
+    nextRecommendedAction,
+  }
+
+  return {
+    leadPackSummary: common,
+    machineSummary: common,
+  }
+}
+
+function toLeadPackCsv(leadPacks) {
+  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'evidenceSummary', 'cautionSummary']
+  const rows = leadPacks.map((lead) => [
+    lead.rank,
+    lead.company && lead.company.displayName,
+    lead.company && lead.company.organizationNumber,
+    lead.company && lead.company.candidateOrganizationNumber,
+    lead.contact && lead.contact.phone,
+    lead.contact && lead.contact.email,
+    lead.contact && lead.contact.website,
+    lead.contact && lead.contact.city,
+    lead.callPriority,
+    lead.leadClass,
+    lead.company && lead.company.matchStatus,
+    [...((lead.ranking && lead.ranking.whyRanked) || []), ...((lead.website && lead.website.topEvidence) || [])].join(' | '),
+    ((lead.ranking && lead.ranking.caution) || []).join(' | '),
+  ])
+  return [headers, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n') + '\n'
+}
+
+function csvEscape(value) {
+  const text = value === null || value === undefined ? '' : String(value)
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
 function handleRunFile(url, res, runIndex) {
@@ -153,7 +307,11 @@ function readJsonFile(filePath, fallback) {
 }
 
 function friendlyError(error) {
-  return error && error.message ? error.message : 'Run failed'
+  const message = error && error.message ? error.message : 'Run failed'
+  if (message.includes('GOOGLE_PLACES_API_KEY')) {
+    return 'Google Places requires GOOGLE_PLACES_API_KEY. Choose Demo fixture to run without an API key, or set GOOGLE_PLACES_API_KEY for live Google Places runs.'
+  }
+  return message
 }
 
 if (require.main === module) {
@@ -163,4 +321,4 @@ if (require.main === module) {
   })
 }
 
-module.exports = { createServer, createSafeRunId, normalizeMaxResults }
+module.exports = { createServer, createSafeRunId, normalizeMaxResults, createDemoFixtureRun }

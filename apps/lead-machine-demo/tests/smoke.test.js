@@ -45,8 +45,16 @@ async function main() {
   let response = await post(port, '/api/runs', { query: '' })
   assert(response.status === 400, 'missing query should return validation error')
 
+  response = await post(port, '/api/runs', { query: 'Kristiansand rørlegger', maxResults: 5, searchScope: 'strict', enrichCompanyProfile: false })
+  assert(response.status === 200, 'default demo fixture should complete without a live API key')
+  assert(response.body.summary.provider === 'demo-fixture', 'default provider should be demo-fixture')
+  assert(response.body.leadPacks.length >= 1, 'demo fixture should return lead packs')
+  assert(response.body.downloads.csv.includes('/api/runs/'), 'demo fixture should return CSV download path')
+  const fixtureCsv = await get(port, response.body.downloads.csv)
+  assert(fixtureCsv.status === 200 && fixtureCsv.body.includes('Kristiansand Rør AS'), 'fixture CSV download should return generated CSV')
+
   response = await post(port, '/api/runs', { query: 'rørlegger i Kristiansand; rm -rf /', provider: 'google-places', maxResults: 5, searchScope: 'strict', enrichCompanyProfile: false })
-  assert(response.status === 200, 'valid query should complete')
+  assert(response.status === 200, 'explicit live provider should still call runner')
   assert(runnerArgs.query === 'rørlegger i Kristiansand; rm -rf /', 'query should be passed as data, not shell command')
   assert(!('shellCommand' in runnerArgs), 'backend should not construct shell command')
   assert(response.body.leadPacks.length === 1, 'completed run should return lead packs')
@@ -57,7 +65,7 @@ async function main() {
 
   const failing = createServer({ runner: async () => { throw new Error('provider unavailable') }, runsDir: path.join(root, 'runs-fail') })
   await listen(failing)
-  const failResponse = await post(failing.address().port, '/api/runs', { query: 'advokater i Gol' })
+  const failResponse = await post(failing.address().port, '/api/runs', { query: 'advokater i Gol', provider: 'google-places' })
   assert(failResponse.status === 500, 'failed run should return user-friendly error')
   assert(failResponse.body.error.includes('provider unavailable'), 'failed run should expose friendly error')
 
@@ -66,6 +74,7 @@ async function main() {
   assert(!lower.includes('call opener'), 'UI must not include call openers')
   assert(!lower.includes('ready-to-send'), 'UI must not include ready-to-send text')
   assert(!lower.includes('suggested wording'), 'UI must not include suggested wording')
+  assert(lower.includes('demo-fixture'), 'UI should expose a no-key demo fixture provider')
 
   server.close()
   failing.close()

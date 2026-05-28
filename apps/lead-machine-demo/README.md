@@ -37,7 +37,9 @@ http://127.0.0.1:8787
 
 ## What It Does
 
-The browser sends the query to a local Node server. The server calls the existing `core/lead-machine` module directly and returns:
+By default, the app uses `Demo fixture`, which works without external API keys and returns deterministic local lead-pack data. Select `Google Places` for a live run after setting `GOOGLE_PLACES_API_KEY`.
+
+The browser sends the query to a local Node server. For live providers, the server calls the existing `core/lead-machine` module directly and returns:
 
 - run summary
 - lead packs
@@ -79,7 +81,8 @@ No prepared pitch text, email templates, or automated outreach are included.
 ## Limitations
 
 - Uses local server only.
-- Requires whatever provider credentials the existing Lead Machine needs for live Google Places runs.
+- `Demo fixture` works without credentials.
+- Live Google Places runs require `GOOGLE_PLACES_API_KEY`.
 - Company profile enrichment defaults off.
 - Economy/Proff status remains `not_enabled`.
 - Run folders are local and ignored by git.

@@ -1,0 +1,231 @@
+{
+  "summary": {
+    "query": "rørlegger i Kristiansand",
+    "provider": "demo-fixture",
+    "totalDiscovered": 4,
+    "totalExcludedByLocation": 0,
+    "lowSupply": false,
+    "fallbackAvailable": false,
+    "fallbackUsed": false,
+    "recommendedExpansion": null,
+    "economyStatus": "not_enabled"
+  },
+  "leadPacks": [
+    {
+      "rank": 1,
+      "callPriority": "medium",
+      "leadClass": "service_line_optimization",
+      "opportunityType": "high_value_service_conversion",
+      "company": {
+        "displayName": "Kristiansand Rør AS",
+        "legalName": null,
+        "organizationNumber": null,
+        "candidateOrganizationNumber": null,
+        "organizationForm": null,
+        "matchStatus": "not_run",
+        "matchConfidence": null,
+        "warnings": []
+      },
+      "contact": {
+        "website": "https://example.no/kristiansand-ror",
+        "phone": "38 00 00 00",
+        "email": "post@example.no",
+        "address": "Kristiansand",
+        "city": "Kristiansand"
+      },
+      "places": {
+        "provider": "demo_fixture",
+        "placeId": "demo-kristiansand-ror",
+        "rating": 4.6,
+        "reviewCount": 42
+      },
+      "website": {
+        "auditStatus": "demo_fixture",
+        "topEvidence": [
+          "Visible website and contact path",
+          "High-value VVS service categories present"
+        ],
+        "contactability": "strong",
+        "ctaProfile": {
+          "visiblePhone": true,
+          "visibleEmail": true,
+          "clearCta": true
+        }
+      },
+      "ranking": {
+        "whyRanked": [
+          "Contactable local trade business",
+          "Relevant high-value services",
+          "Seller-ready company/contact context is available"
+        ],
+        "caution": [
+          "Demo fixture data",
+          "Verify company identity before treating org data as confirmed"
+        ],
+        "painScore": 0.62,
+        "buyingLikelihood": 0.58,
+        "salesEase": "medium"
+      },
+      "sourceQuality": {
+        "requestedLocation": "Kristiansand",
+        "candidateLocation": "Kristiansand",
+        "locationMatchStatus": "exact_location",
+        "locationConfidence": 0.96,
+        "distanceKm": 0,
+        "locationWarnings": [],
+        "fallbackUsed": false
+      },
+      "economy": {
+        "status": "not_enabled",
+        "source": null,
+        "revenue": null,
+        "profit": null,
+        "employees": null
+      }
+    },
+    {
+      "rank": 2,
+      "callPriority": "medium",
+      "leadClass": "technical_redesign",
+      "opportunityType": "technical_trust_risk",
+      "company": {
+        "displayName": "Sørlandet VVS Service",
+        "legalName": null,
+        "organizationNumber": null,
+        "candidateOrganizationNumber": null,
+        "organizationForm": null,
+        "matchStatus": "not_run",
+        "matchConfidence": null,
+        "warnings": []
+      },
+      "contact": {
+        "website": "https://example.no/sorlandet-vvs",
+        "phone": "38 11 22 33",
+        "email": "kontakt@example.no",
+        "address": "Kvadraturen, Kristiansand",
+        "city": "Kristiansand"
+      },
+      "places": {
+        "provider": "demo_fixture",
+        "placeId": "demo-sorlandet-vvs",
+        "rating": 4.3,
+        "reviewCount": 19
+      },
+      "website": {
+        "auditStatus": "demo_fixture",
+        "topEvidence": [
+          "Local service pages detected",
+          "Some trust/technical signals would need manual review"
+        ],
+        "contactability": "medium",
+        "ctaProfile": {
+          "visiblePhone": true,
+          "visibleEmail": false,
+          "clearCta": true
+        }
+      },
+      "ranking": {
+        "whyRanked": [
+          "Local VVS provider",
+          "Website has enough signal for shortlist review",
+          "Phone path is visible"
+        ],
+        "caution": [
+          "Demo fixture data",
+          "Do not overstate technical issues without manual audit"
+        ],
+        "painScore": 0.66,
+        "buyingLikelihood": 0.52,
+        "salesEase": "medium"
+      },
+      "sourceQuality": {
+        "requestedLocation": "Kristiansand",
+        "candidateLocation": "Kristiansand",
+        "locationMatchStatus": "exact_location",
+        "locationConfidence": 0.92,
+        "distanceKm": 0,
+        "locationWarnings": [],
+        "fallbackUsed": false
+      },
+      "economy": {
+        "status": "not_enabled",
+        "source": null,
+        "revenue": null,
+        "profit": null,
+        "employees": null
+      }
+    },
+    {
+      "rank": 3,
+      "callPriority": "low",
+      "leadClass": "mature_contact_ready",
+      "opportunityType": "service_line_optimization",
+      "company": {
+        "displayName": "Agder Bad og Varme",
+        "legalName": null,
+        "organizationNumber": null,
+        "candidateOrganizationNumber": null,
+        "organizationForm": null,
+        "matchStatus": "not_run",
+        "matchConfidence": null,
+        "warnings": []
+      },
+      "contact": {
+        "website": "https://example.no/agder-bad-varme",
+        "phone": "38 44 55 66",
+        "email": "hei@example.no",
+        "address": "Kristiansand",
+        "city": "Kristiansand"
+      },
+      "places": {
+        "provider": "demo_fixture",
+        "placeId": "demo-agder-bad-varme",
+        "rating": 4.8,
+        "reviewCount": 73
+      },
+      "website": {
+        "auditStatus": "demo_fixture",
+        "topEvidence": [
+          "Strong contact paths",
+          "Mature service presentation"
+        ],
+        "contactability": "strong",
+        "ctaProfile": {
+          "visiblePhone": true,
+          "visibleEmail": true,
+          "clearCta": true
+        }
+      },
+      "ranking": {
+        "whyRanked": [
+          "Relevant local trade business",
+          "Good contactability",
+          "Useful for export/shortlist context"
+        ],
+        "caution": [
+          "Low immediate pain in demo fixture",
+          "Likely not call-first without stronger evidence"
+        ],
+        "painScore": 0.38,
+        "buyingLikelihood": 0.44,
+        "salesEase": "high"
+      },
+      "sourceQuality": {
+        "requestedLocation": "Kristiansand",
+        "candidateLocation": "Kristiansand",
+        "locationMatchStatus": "exact_location",
+        "locationConfidence": 0.94,
+        "distanceKm": 0,
+        "locationWarnings": [],
+        "fallbackUsed": false
+      },
+      "economy": {
+        "status": "not_enabled",
+        "source": null,
+        "revenue": null,
+        "profit": null,
+        "employees": null
+      }
+    }
+  ]
+}
