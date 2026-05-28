@@ -1,5 +1,9 @@
 #!/usr/bin/env node
+const path = require('path')
+const { loadEnvFiles } = require('../loadEnv')
 const { runLeadMachine, parseArgs, formatTerminalSummary } = require('../leadMachine')
+
+loadEnvFiles([path.resolve(__dirname, '..', '..', '..', '.env')])
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))

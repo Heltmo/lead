@@ -2,6 +2,7 @@ const http = require('http')
 const fs = require('fs')
 const path = require('path')
 const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
+const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { parseLeadQuery } = require('./queryParser')
 
 const DEFAULT_PORT = Number(process.env.PORT || 8787)
@@ -10,6 +11,8 @@ const PUBLIC_DIR = path.join(APP_ROOT, 'public')
 const RUNS_DIR = path.join(APP_ROOT, 'runs')
 const FIXTURE_DIR = path.join(APP_ROOT, 'fixtures')
 const DEMO_FIXTURE_PATH = path.join(FIXTURE_DIR, 'kristiansand-rorlegger-result.json')
+const REPO_ROOT = path.resolve(APP_ROOT, '..', '..')
+loadEnvFiles([path.join(REPO_ROOT, '.env'), path.join(APP_ROOT, '.env')])
 
 function createServer(options = {}) {
   const runner = options.runner || runLeadMachine

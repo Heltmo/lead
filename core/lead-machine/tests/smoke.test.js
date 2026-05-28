@@ -3,6 +3,7 @@ const http = require('http')
 const path = require('path')
 const os = require('os')
 const { runLeadMachine, createLeadMachineRunId, parseArgs, slugify, buildNextRecommendedAction, formatTerminalSummary } = require('../leadMachine')
+const { loadEnvFiles, parseEnvLine } = require('../loadEnv')
 
 async function main() {
   const args = parseArgs(['--query', 'advokater i Gol', '--max-results', '5', '--search-scope', 'strict'])
@@ -11,6 +12,17 @@ async function main() {
   assert(args['search-scope'] === 'strict', 'CLI args should parse search-scope')
   assert(slugify('Advokater i Gol') === 'advokater-i-gol', 'slugify should normalize query')
   assert(createLeadMachineRunId('Advokater i Gol').startsWith('advokater-i-gol-'), 'run id should include query slug')
+  assert(parseEnvLine('GOOGLE_PLACES_API_KEY=abc123').value === 'abc123', 'env parser should parse simple key values')
+  assert(parseEnvLine('PROFF_API_KEY="token value"').value === 'token value', 'env parser should strip quotes')
+  const envRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lead-machine-env-'))
+  const envPath = path.join(envRoot, '.env')
+  const fakeEnv = { GOOGLE_PLACES_API_KEY: 'existing' }
+  fs.writeFileSync(envPath, 'GOOGLE_PLACES_API_KEY=from-file\nBRAVE_SEARCH_API_KEY=brave-test\n')
+  const loadedKeys = loadEnvFiles([envPath], fakeEnv)
+  assert(fakeEnv.GOOGLE_PLACES_API_KEY === 'existing', 'env loader should not override existing process values')
+  assert(fakeEnv.BRAVE_SEARCH_API_KEY === 'brave-test', 'env loader should load missing provider keys')
+  assert(loadedKeys.includes('BRAVE_SEARCH_API_KEY'), 'env loader should report loaded keys')
+  fs.rmSync(envRoot, { recursive: true, force: true })
 
   const server = http.createServer((request, response) => {
     response.writeHead(200, { 'content-type': 'text/html' })

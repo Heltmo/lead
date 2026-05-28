@@ -21,6 +21,19 @@ cd apps/lead-machine-demo
 npm run dev
 ```
 
+The server automatically reads API keys from:
+
+- `/home/xman/webconsult/.env`
+- `apps/lead-machine-demo/.env`
+
+For live Google Places runs, add this to `.env`:
+
+```bash
+GOOGLE_PLACES_API_KEY=your-google-places-key
+```
+
+Keep `Demo fixture` selected when you want to test the UI without external API calls.
+
 Open:
 
 ```text
