@@ -70,7 +70,7 @@ The profession selector is a controlled list of supported verticals. The locatio
 
 ## Fast vs Deep Mode
 
-- `Fast` mode is the default for daily scanning. It runs discovery/location quality and creates basic lead packs without full website audit.
+- `Fast` mode is the default for daily scanning. It runs discovery/location quality and creates basic lead packs without full website audit, using the broadest safe demo search cap automatically.
 - `Deep` mode runs the full website audit and commercial scoring flow for slower, richer lead packs.
 - Use Fast for 10-25 lead scans, then Deep for the strongest leads.
 
@@ -150,4 +150,4 @@ Live runs are slower than the fixture because each included lead can trigger:
 4. lead-pack generation
 5. automatic Brreg company-profile lookup for non-Brreg-first candidates
 
-Use `Fast` + `Max 10-25` for quick scans. Use selected-lead `Deep` when you want full website audit/scoring for one candidate. Brreg runs by default for seller-ready identity context.
+Use `Fast` for broad automatic scans. The local demo uses an internal cap of 25 leads so the seller does not need to choose a technical max-results value. Use selected-lead `Deep` when you want full website audit/scoring for one candidate. Brreg runs by default for seller-ready identity context.
