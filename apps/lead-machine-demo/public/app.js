@@ -184,17 +184,14 @@ function renderWorkflowBoard(result) {
     els.workflowBoard.textContent = 'Run a search to build seller queue.'
     return
   }
-  const counts = workflowCounts(leads)
-  const queue = todayCallQueue(leads).slice(0, 5)
-  els.workflowBoard.className = 'workflow-board call-queue-board'
+  const columns = workflowColumns(leads)
+  els.workflowBoard.className = 'workflow-board call-queue-board pipeline-board'
   els.workflowBoard.innerHTML = `
-    <div class="queue-stat"><span>Today call queue</span><strong>${queue.length}</strong></div>
-    <div class="queue-stat"><span>Follow-up due</span><strong>${counts.followUpDue}</strong></div>
-    <div class="queue-stat"><span>New to call</span><strong>${counts.notContacted}</strong></div>
-    <div class="queue-list">
-      ${queue.length ? queue.map(({ lead, index, reason }) => callQueueRow(lead, index, reason)).join('') : '<p class="muted">No call-ready leads yet. Use Call now, Needs verification, Follow-ups or clear filters.</p>'}
-    </div>
-    <p>Today call queue uses phone, follow-up date, workflow status and source quality. It does not place calls or send messages.</p>
+    ${workflowColumn('Call now', columns.callNow, 'New phone-ready leads')}
+    ${workflowColumn('Follow-up due', columns.followUp, 'Due follow-ups')}
+    ${workflowColumn('Interested', columns.interested, 'Positive responses')}
+    ${workflowColumn('Done / rejected', columns.done, 'Closed out')}
+    <p>Seller board uses phone, follow-up date, workflow status and source quality. It does not place calls, send messages or create calendar events.</p>
   `
   els.workflowBoard.querySelectorAll('.queue-select').forEach((button) => button.addEventListener('click', () => {
     state.selectedIndex = Number(button.dataset.index)
@@ -212,6 +209,40 @@ function callQueueRow(lead, index, reason) {
     <div class="queue-row-actions">${phoneLink(phone)}<button type="button" class="queue-select" data-index="${index}">Inspect</button></div>
     ${quickActionsHtml(index, 'queue')}
   </article>`
+}
+
+function workflowColumns(leads) {
+  const columns = { callNow: [], followUp: [], interested: [], done: [] }
+  ;(Array.isArray(leads) ? leads : []).forEach((lead, index) => {
+    const workflow = lead.workflow || {}
+    const phone = lead.contact?.phone || lead.phone
+    const item = { lead, index }
+    if (workflow.status === 'rejected' || workflow.response === 'negative' || workflow.outcome === 'not relevant') {
+      columns.done.push({ ...item, reason: 'Closed out' })
+    } else if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') {
+      columns.interested.push({ ...item, reason: workflow.response === 'meeting_booked' ? 'Meeting booked' : 'Interested lead' })
+    } else if (isFollowUpDue(lead) || workflow.status === 'follow_up') {
+      columns.followUp.push({ ...item, reason: workflow.followUpDate ? `Follow-up ${workflow.followUpDate}` : 'Follow-up needed' })
+    } else if (phone && !workflow.contacted && !['contacted'].includes(workflow.status)) {
+      columns.callNow.push({ ...item, reason: 'Not contacted yet' })
+    }
+  })
+  columns.callNow.sort((a, b) => todayCallScore(b.lead) - todayCallScore(a.lead))
+  columns.followUp.sort((a, b) => followUpSortScore(b.lead) - followUpSortScore(a.lead))
+  columns.interested.sort((a, b) => bestLeadScore(b.lead) - bestLeadScore(a.lead))
+  columns.done.sort((a, b) => bestLeadScore(b.lead) - bestLeadScore(a.lead))
+  return columns
+}
+
+function workflowColumn(title, items, subtitle) {
+  const limited = items.slice(0, 4)
+  return `<section class="pipeline-column">
+    <div class="pipeline-column-head"><div><span>${escapeHtml(subtitle)}</span><strong>${escapeHtml(title)}</strong></div><b>${items.length}</b></div>
+    <div class="queue-list">
+      ${limited.length ? limited.map(({ lead, index, reason }) => callQueueRow(lead, index, reason)).join('') : '<p class="muted">No leads here.</p>'}
+    </div>
+    ${items.length > limited.length ? `<small>${items.length - limited.length} more in filters/export.</small>` : ''}
+  </section>`
 }
 
 function quickActionsHtml(index, variant = 'full') {
