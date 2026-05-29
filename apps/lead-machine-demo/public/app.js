@@ -184,14 +184,19 @@ function renderWorkflowBoard(result) {
     els.workflowBoard.textContent = 'Run a search to build seller queue.'
     return
   }
-  const columns = workflowColumns(leads)
-  els.workflowBoard.className = 'workflow-board call-queue-board pipeline-board'
+  const counts = workflowCounts(leads)
+  const queue = todayCallQueue(leads).slice(0, 7)
+  els.workflowBoard.className = 'workflow-board call-queue-board simple-call-board'
   els.workflowBoard.innerHTML = `
-    ${workflowColumn('Call now', columns.callNow, 'New phone-ready leads')}
-    ${workflowColumn('Follow-up due', columns.followUp, 'Due follow-ups')}
-    ${workflowColumn('Interested', columns.interested, 'Positive responses')}
-    ${workflowColumn('Done / rejected', columns.done, 'Closed out')}
-    <p>Seller board uses phone, follow-up date, workflow status and source quality. It does not place calls, send messages or create calendar events.</p>
+    <div class="queue-stats">
+      <div class="queue-stat"><span>Call now</span><strong>${queue.length}</strong></div>
+      <div class="queue-stat"><span>Follow-up due</span><strong>${counts.followUpDue}</strong></div>
+      <div class="queue-stat"><span>Interested</span><strong>${counts.interested}</strong></div>
+    </div>
+    <div class="queue-list">
+      ${queue.length ? queue.map(({ lead, index, reason }) => callQueueRow(lead, index, reason)).join('') : '<p class="muted">No call-ready leads yet. Use filters below or run a new search.</p>'}
+    </div>
+    <p>Manual call queue only. No calls, messages or calendar events are sent.</p>
   `
   els.workflowBoard.querySelectorAll('.queue-select').forEach((button) => button.addEventListener('click', () => {
     state.selectedIndex = Number(button.dataset.index)
@@ -212,39 +217,6 @@ function callQueueRow(lead, index, reason) {
   </article>`
 }
 
-function workflowColumns(leads) {
-  const columns = { callNow: [], followUp: [], interested: [], done: [] }
-  ;(Array.isArray(leads) ? leads : []).forEach((lead, index) => {
-    const workflow = lead.workflow || {}
-    const phone = lead.contact?.phone || lead.phone
-    const item = { lead, index }
-    if (workflow.status === 'rejected' || workflow.response === 'negative' || workflow.outcome === 'not relevant') {
-      columns.done.push({ ...item, reason: 'Closed out' })
-    } else if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') {
-      columns.interested.push({ ...item, reason: workflow.response === 'meeting_booked' ? 'Meeting booked' : 'Interested lead' })
-    } else if (isFollowUpDue(lead) || workflow.status === 'follow_up') {
-      columns.followUp.push({ ...item, reason: followUpQueueReason(lead) })
-    } else if (phone && !workflow.contacted && !['contacted'].includes(workflow.status)) {
-      columns.callNow.push({ ...item, reason: 'Not contacted yet' })
-    }
-  })
-  columns.callNow.sort((a, b) => todayCallScore(b.lead) - todayCallScore(a.lead))
-  columns.followUp.sort((a, b) => followUpSortScore(b.lead) - followUpSortScore(a.lead))
-  columns.interested.sort((a, b) => bestLeadScore(b.lead) - bestLeadScore(a.lead))
-  columns.done.sort((a, b) => bestLeadScore(b.lead) - bestLeadScore(a.lead))
-  return columns
-}
-
-function workflowColumn(title, items, subtitle) {
-  const limited = items.slice(0, 4)
-  return `<section class="pipeline-column">
-    <div class="pipeline-column-head"><div><span>${escapeHtml(subtitle)}</span><strong>${escapeHtml(title)}</strong></div><b>${items.length}</b></div>
-    <div class="queue-list">
-      ${limited.length ? limited.map(({ lead, index, reason }) => callQueueRow(lead, index, reason)).join('') : '<p class="muted">No leads here.</p>'}
-    </div>
-    ${items.length > limited.length ? `<small>${items.length - limited.length} more in filters/export.</small>` : ''}
-  </section>`
-}
 
 function quickActionsHtml(index, variant = 'full') {
   const actions = variant === 'queue'
