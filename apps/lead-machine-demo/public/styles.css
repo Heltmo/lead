@@ -137,6 +137,14 @@ a { color: var(--blue); }
 .workflow-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 10px; }
 .workflow-head h3 { margin: 0 0 4px; font-size: 18px; }
 .workflow-form { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 10px; }
+.quick-actions { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 10px; }
+.quick-actions.compact { grid-column: 1 / -1; margin: 2px 0 0; }
+.quick-action { min-height: 31px; border: 1px solid #b8c8c0; border-radius: 999px; background: #fff; color: var(--ink); padding: 6px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
+.quick-action:hover, .quick-action:focus-visible { border-color: var(--green); outline: none; box-shadow: 0 0 0 2px rgba(15,123,85,.12); }
+.quick-action.positive { border-color: #b9dfcb; background: var(--green-soft); color: var(--green); }
+.quick-action.warning { border-color: #ecd098; background: var(--amber-soft); color: var(--amber); }
+.quick-action.negative { border-color: #efb6b0; background: var(--red-soft); color: var(--red); }
+.quick-action:disabled { opacity: .58; cursor: wait; }
 .workflow-form label { display: grid; gap: 5px; }
 .workflow-form input, .workflow-form select, .workflow-form textarea { width: 100%; border: 1px solid #b8c8c0; border-radius: 8px; padding: 8px 9px; background: #fff; color: var(--ink); }
 .workflow-notes { grid-column: 1 / -1; }
@@ -175,6 +183,6 @@ a { color: var(--blue); }
 .queue-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px; border: 1px solid #d5e4dc; border-radius: 8px; background: rgba(255,255,255,.86); }
 .queue-row strong { display: block; font-size: 13px; line-height: 1.2; overflow-wrap: anywhere; }
 .queue-row span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; text-transform: none; font-weight: 650; }
-.queue-row > div:last-child { display: inline-flex; align-items: center; justify-content: end; gap: 8px; }
+.queue-row > div:last-child, .queue-row-actions { display: inline-flex; align-items: center; justify-content: end; gap: 8px; }
 .queue-select { border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 6px 8px; font-size: 12px; font-weight: 800; cursor: pointer; }
 @media (max-width: 1180px) { .call-queue-board { grid-template-columns: 1fr; } .queue-row { grid-template-columns: 1fr; } .queue-row > div:last-child { justify-content: start; } }

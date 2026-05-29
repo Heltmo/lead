@@ -23,6 +23,16 @@ const LOCATIONS = [
 
 const state = { result: null, selectedIndex: 0, selectedLeadId: null }
 
+const QUICK_WORKFLOW_ACTIONS = [
+  { id: 'mark_called', label: 'Mark called', tone: 'neutral' },
+  { id: 'no_answer', label: 'No answer', tone: 'warning' },
+  { id: 'interested', label: 'Interested', tone: 'positive' },
+  { id: 'not_relevant', label: 'Not relevant', tone: 'negative' },
+  { id: 'follow_up_tomorrow', label: 'Follow up tomorrow', tone: 'warning' },
+  { id: 'follow_up_next_week', label: 'Follow up next week', tone: 'warning' },
+]
+
+
 const els = {
   profession: document.getElementById('professionSelect'),
   location: document.getElementById('locationInput'),
@@ -178,8 +188,18 @@ function callQueueRow(lead, index, reason) {
   const phone = lead.contact?.phone || lead.phone || ''
   return `<article class="queue-row">
     <div><strong>${escapeHtml(name)}</strong><span>${escapeHtml(reason)}</span></div>
-    <div>${phoneLink(phone)}<button type="button" class="queue-select" data-index="${index}">Inspect</button></div>
+    <div class="queue-row-actions">${phoneLink(phone)}<button type="button" class="queue-select" data-index="${index}">Inspect</button></div>
+    ${quickActionsHtml(index, 'queue')}
   </article>`
+}
+
+function quickActionsHtml(index, variant = 'full') {
+  const actions = variant === 'queue'
+    ? QUICK_WORKFLOW_ACTIONS.filter((action) => ['mark_called', 'no_answer', 'interested'].includes(action.id))
+    : QUICK_WORKFLOW_ACTIONS
+  return `<div class="quick-actions ${variant === 'queue' ? 'compact' : ''}" aria-label="Quick workflow actions">
+    ${actions.map((action) => `<button type="button" class="quick-action ${escapeAttr(action.tone)}" data-workflow-action="${escapeAttr(action.id)}" data-index="${index}">${escapeHtml(action.label)}</button>`).join('')}
+  </div>`
 }
 
 function renderLeads(visibleLeads) {
@@ -481,6 +501,7 @@ function workflowPanel(lead) {
       </div>
       ${badge(workflow.contacted ? 'contacted' : 'new')}
     </div>
+    ${quickActionsHtml(state.selectedIndex, 'full')}
     <form id="workflowForm" class="workflow-form">
       <label><span>Status</span><select name="status">${workflowOptions(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'], workflow.status)}</select></label>
       <label><span>Contacted</span><select name="contacted">${workflowOptions(['false', 'true'], String(Boolean(workflow.contacted)))}</select></label>
@@ -1059,10 +1080,77 @@ document.addEventListener('submit', (event) => {
 })
 
 document.addEventListener('click', (event) => {
+  const quickActionButton = event.target.closest('[data-workflow-action]')
+  if (quickActionButton) {
+    runWorkflowQuickAction(quickActionButton)
+    return
+  }
   if (event.target && event.target.id === 'runDeepQualification') {
     runSelectedDeepQualification(event.target)
   }
 })
+
+async function runWorkflowQuickAction(button) {
+  const index = Number(button.dataset.index ?? state.selectedIndex)
+  const lead = state.result?.leadPacks?.[index]
+  if (!lead) return setStatus('failed: no selected lead for quick action', 'failed')
+  const action = button.dataset.workflowAction
+  const workflow = buildQuickWorkflow(action, lead.workflow || {})
+  if (!workflow) return setStatus('failed: unknown quick action', 'failed')
+  state.selectedIndex = index
+  state.selectedLeadId = leadId(lead, index)
+  const originalText = button.textContent
+  button.disabled = true
+  button.textContent = 'Saving...'
+  setStatus(`saving workflow: ${originalText}`, 'running')
+  try {
+    const response = await fetch('/api/workflow', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        leadId: lead.workflow?.leadId || leadId(lead, index),
+        runId: state.result?.runId,
+        leadName: lead.company?.displayName || lead.companyName || '',
+        workflow,
+      }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Workflow quick action failed')
+    lead.workflow = payload.workflow
+    setStatus(`workflow updated: ${readable(payload.workflow.status || 'new')}`, '')
+    renderAll()
+  } catch (error) {
+    setStatus(`failed: ${error.message || 'Workflow quick action failed'}`, 'failed')
+  } finally {
+    button.disabled = false
+    button.textContent = originalText
+  }
+}
+
+function buildQuickWorkflow(action, current = {}) {
+  const base = { status: 'new', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextAction: 'review', outcome: '', ...current }
+  const tomorrow = isoDateOffset(1)
+  const nextWeek = isoDateOffset(7)
+  if (action === 'mark_called') return { ...base, status: 'contacted', contacted: true, channel: base.channel || 'phone', response: base.response || 'neutral', nextAction: 'review call result', notes: appendQuickNote(base.notes, 'Quick action: marked called.') }
+  if (action === 'no_answer') return { ...base, status: 'follow_up', contacted: true, channel: base.channel || 'phone', response: 'no_answer', followUpDate: base.followUpDate || tomorrow, nextAction: 'call again', notes: appendQuickNote(base.notes, 'Quick action: no answer.') }
+  if (action === 'interested') return { ...base, status: 'interested', contacted: true, channel: base.channel || 'phone', response: 'interested', nextAction: 'follow up interested lead', outcome: base.outcome || 'interested', notes: appendQuickNote(base.notes, 'Quick action: interested.') }
+  if (action === 'not_relevant') return { ...base, status: 'rejected', contacted: true, channel: base.channel || 'phone', response: 'negative', nextAction: 'do not contact', outcome: 'not relevant', notes: appendQuickNote(base.notes, 'Quick action: not relevant.') }
+  if (action === 'follow_up_tomorrow') return { ...base, status: 'follow_up', followUpDate: tomorrow, nextAction: 'follow up tomorrow', notes: appendQuickNote(base.notes, 'Quick action: follow up tomorrow.') }
+  if (action === 'follow_up_next_week') return { ...base, status: 'follow_up', followUpDate: nextWeek, nextAction: 'follow up next week', notes: appendQuickNote(base.notes, 'Quick action: follow up next week.') }
+  return null
+}
+
+function appendQuickNote(notes, line) {
+  const current = String(notes || '').trim()
+  if (current.includes(line)) return current
+  return [current, line].filter(Boolean).join('\n').slice(0, 2000)
+}
+
+function isoDateOffset(days) {
+  const date = new Date()
+  date.setDate(date.getDate() + Number(days || 0))
+  return date.toISOString().slice(0, 10)
+}
 
 async function runSelectedDeepQualification(button) {
   const lead = state.result?.leadPacks?.[state.selectedIndex]

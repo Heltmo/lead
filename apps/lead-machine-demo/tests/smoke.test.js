@@ -129,16 +129,33 @@ async function main() {
   assert(Array.isArray(savedWorkflow.body.workflow.activities) && savedWorkflow.body.workflow.activities.length === 1, 'workflow save should append an activity timeline entry')
   const workflowLookup = await get(port, `/api/workflow?leadId=${encodeURIComponent(workflowLeadId)}`)
   assert(workflowLookup.status === 200 && workflowLookup.body.workflow.response === 'interested', 'workflow lookup should return saved response')
+  const quickWorkflow = await post(port, '/api/workflow', {
+    leadId: workflowLeadId,
+    runId: response.body.runId,
+    leadName: 'Kristiansand Rør AS',
+    status: 'follow_up',
+    contacted: true,
+    channel: 'phone',
+    response: 'no_answer',
+    followUpDate: '2026-06-02',
+    nextAction: 'call again',
+    notes: 'Quick action: no answer.',
+    outcome: 'pending',
+  })
+  assert(quickWorkflow.status === 200, 'quick workflow-style save should succeed')
+  assert(quickWorkflow.body.workflow.status === 'follow_up', 'quick workflow action should update status')
+  assert(quickWorkflow.body.workflow.response === 'no_answer', 'quick workflow action should update response')
+  assert(quickWorkflow.body.workflow.activities.length >= 2, 'quick workflow action should append activity timeline entry')
   const workflowCsv = await get(port, response.body.downloads.csv)
   assert(workflowCsv.body.includes('workflowStatus'), 'CSV should include workflow status column')
   assert(workflowCsv.body.includes('lastActivityAt'), 'CSV should include last activity timestamp column')
-  assert(workflowCsv.body.includes('follow up after call'), 'CSV should include workflow next action')
+  assert(workflowCsv.body.includes('call again'), 'CSV should include workflow next action from quick action')
   const callListCsv = await get(port, response.body.downloads.callListNotContacted)
   assert(callListCsv.status === 200 && callListCsv.body.includes('rank,company'), 'call-list export should return a CSV')
   const todayCallListCsv = await get(port, response.body.downloads.callListToday)
   assert(todayCallListCsv.status === 200 && todayCallListCsv.body.includes('rank,company'), 'today call queue export should return a CSV')
   response = await post(port, '/api/runs', { query: 'rørlegger i Kristiansand; rm -rf /', provider: 'google-places', searchScope: 'strict', enrichCompanyProfile: false })
-  assert(response.body.leadPacks[0].workflow.status === 'contacted', 'workflow should attach to later returned lead packs')
+  assert(response.body.leadPacks[0].workflow.status === 'follow_up', 'workflow quick action should attach to later returned lead packs')
 
   const deepResponse = await post(port, '/api/deep-qualify', { query: 'rørlegger i Kristiansand', lead: response.body.leadPacks[0], enrichCompanyProfile: true })
   assert(deepResponse.status === 200, 'selected lead deep qualification should complete')
@@ -278,6 +295,15 @@ async function main() {
   assert(lower.includes('follow-up due'), 'UI should include follow-up due leads in the queue')
   assert(lower.includes('inspect'), 'UI should allow inspecting a queued lead')
   assert(lower.includes('lastactivityat'), 'CSV should expose last activity timestamp')
+  assert(lower.includes('quick_workflow_actions'), 'UI should define quick workflow actions')
+  assert(lower.includes('mark called'), 'UI should include Mark called quick action')
+  assert(lower.includes('no answer'), 'UI should include No answer quick action')
+  assert(lower.includes('interested'), 'UI should include Interested quick action')
+  assert(lower.includes('not relevant'), 'UI should include Not relevant quick action')
+  assert(lower.includes('follow up tomorrow'), 'UI should include tomorrow follow-up quick action')
+  assert(lower.includes('follow up next week'), 'UI should include next-week follow-up quick action')
+  assert(lower.includes('data-workflow-action'), 'UI should wire quick workflow buttons through data attributes')
+  assert(lower.includes('buildquickworkflow'), 'UI should build quick workflow payloads locally')
 
   server.close()
   noWebsiteServer.close()
