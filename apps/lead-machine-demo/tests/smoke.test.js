@@ -108,6 +108,10 @@ async function main() {
 
   const csv = await get(port, response.body.downloads.csv)
   assert(csv.status === 200 && csv.body.includes('Kristiansand Rør AS'), 'CSV download should return generated CSV')
+  const latestRun = await get(port, '/api/latest-run')
+  assert(latestRun.status === 200, 'latest run endpoint should load previous run from disk')
+  assert(latestRun.body.leadPacks.length === 1, 'latest run endpoint should return lead packs')
+  assert(latestRun.body.downloads.csv.includes('/api/runs/'), 'latest run endpoint should return download links')
 
   const workflowLeadId = response.body.leadPacks[0].workflow.leadId
   const savedWorkflow = await post(port, '/api/workflow', {
@@ -304,6 +308,8 @@ async function main() {
   assert(lower.includes('follow up next week'), 'UI should include next-week follow-up quick action')
   assert(lower.includes('data-workflow-action'), 'UI should wire quick workflow buttons through data attributes')
   assert(lower.includes('buildquickworkflow'), 'UI should build quick workflow payloads locally')
+  assert(lower.includes('/api/latest-run'), 'UI should auto-load the latest local run on startup')
+  assert(lower.includes('loadlatestrun'), 'UI should define latest-run restore logic')
   assert(lower.includes('seller call queue'), 'UI should frame the left rail as a seller call queue')
   assert(lower.includes('data-queue-preset'), 'UI should expose call queue preset buttons')
   assert(lower.includes('call queue first'), 'UI should support call-queue-first sorting')

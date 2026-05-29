@@ -35,6 +35,10 @@ function createServer(options = {}) {
         await handleRun(req, res, { runner, runsDir, runIndex, workflowPath })
         return
       }
+      if (req.method === 'GET' && url.pathname === '/api/latest-run') {
+        await handleLatestRun(res, { runsDir, runIndex, workflowPath })
+        return
+      }
       if (req.method === 'POST' && url.pathname === '/api/deep-qualify') {
         await handleDeepQualify(req, res, { deepQualifier, runsDir, workflowPath })
         return
@@ -94,15 +98,49 @@ async function handleRun(req, res, context) {
   const leadPackSummaryPath = path.join(leadPackOutputPath, 'summary.json')
   const csvPath = path.join(leadPackOutputPath, 'lead-packs.csv')
   const machineSummaryPath = result.summaryPath || path.join(outputDir, 'lead-machine-summary.json')
-  const leadPacks = attachWorkflowToLeads(readJsonFile(leadPacksPath, []), readWorkflowStore(context.workflowPath))
-  const leadPackSummary = readJsonFile(leadPackSummaryPath, {})
-  const machineSummary = result.summary || readJsonFile(machineSummaryPath, {})
-
   context.runIndex.set(runId, { outputDir, leadPackOutputPath, csvPath, leadPacksPath, machineSummaryPath })
 
-  return json(res, 200, {
+  return json(res, 200, buildRunPayload({
     runId,
     parsedQuery,
+    outputDir,
+    leadPackOutputPath,
+    leadPacksPath,
+    leadPackSummaryPath,
+    machineSummaryPath,
+    workflowPath: context.workflowPath,
+    machineSummaryOverride: result.summary,
+  }))
+}
+
+async function handleLatestRun(res, context) {
+  const latest = findLatestRun(context.runsDir)
+  if (!latest) return json(res, 404, { error: 'No previous run found' })
+  const leadPackOutputPath = path.join(latest.outputDir, 'lead-packs')
+  const leadPacksPath = path.join(leadPackOutputPath, 'lead-packs.json')
+  const leadPackSummaryPath = path.join(leadPackOutputPath, 'summary.json')
+  const csvPath = path.join(leadPackOutputPath, 'lead-packs.csv')
+  const machineSummaryPath = path.join(latest.outputDir, 'lead-machine-summary.json')
+  context.runIndex.set(latest.runId, { outputDir: latest.outputDir, leadPackOutputPath, csvPath, leadPacksPath, machineSummaryPath })
+  return json(res, 200, buildRunPayload({
+    runId: latest.runId,
+    outputDir: latest.outputDir,
+    leadPackOutputPath,
+    leadPacksPath,
+    leadPackSummaryPath,
+    machineSummaryPath,
+    workflowPath: context.workflowPath,
+  }))
+}
+
+function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, leadPacksPath, leadPackSummaryPath, machineSummaryPath, workflowPath, machineSummaryOverride }) {
+  const leadPacks = attachWorkflowToLeads(readJsonFile(leadPacksPath, []), readWorkflowStore(workflowPath))
+  const leadPackSummary = readJsonFile(leadPackSummaryPath, {})
+  const machineSummary = machineSummaryOverride || readJsonFile(machineSummaryPath, {})
+  const normalizedQuery = parsedQuery?.normalizedQuery || machineSummary.query || leadPacks[0]?.meta?.sourceQuery || ''
+  return {
+    runId,
+    parsedQuery: parsedQuery || { ok: true, rawQuery: normalizedQuery, normalizedQuery },
     outputDir,
     leadPackOutputPath,
     downloads: {
@@ -117,7 +155,25 @@ async function handleRun(req, res, context) {
     },
     summary: { ...leadPackSummary, ...machineSummary },
     leadPacks,
-  })
+  }
+}
+
+function findLatestRun(runsDir) {
+  try {
+    return fs.readdirSync(runsDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => {
+        const outputDir = path.join(runsDir, entry.name)
+        const leadPacksPath = path.join(outputDir, 'lead-packs', 'lead-packs.json')
+        if (!fs.existsSync(leadPacksPath)) return null
+        const stat = fs.statSync(leadPacksPath)
+        return { runId: entry.name, outputDir, mtimeMs: stat.mtimeMs }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)[0] || null
+  } catch (_) {
+    return null
+  }
 }
 
 

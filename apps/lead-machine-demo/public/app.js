@@ -70,6 +70,7 @@ els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { st
 els.clearLeadFilters.addEventListener('click', () => { els.leadFilters.forEach((filter) => { filter.checked = false }); state.selectedLeadId = null; renderAll() })
 renderSummary(null)
 renderExport(null)
+loadLatestRun()
 
 function initStructuredSearch() {
   els.profession.innerHTML = PROFESSIONS.map((item) => `<option value="${escapeAttr(item.value)}">${escapeHtml(item.label)}</option>`).join('')
@@ -82,6 +83,23 @@ function syncQueryFromStructuredSearch() {
   const profession = els.profession.value.trim()
   const location = els.location.value.trim()
   if (profession && location) els.query.value = `${profession} i ${location}`
+}
+
+async function loadLatestRun() {
+  try {
+    const response = await fetch('/api/latest-run')
+    if (response.status === 404) return
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Latest run failed')
+    state.result = payload
+    state.selectedIndex = 0
+    state.selectedLeadId = null
+    if (payload.parsedQuery?.normalizedQuery) els.query.value = payload.parsedQuery.normalizedQuery
+    setStatus(`loaded latest run: ${payload.runId}`, '')
+    renderAll()
+  } catch (error) {
+    setStatus('Ready. Previous run could not be loaded; run a new search.', '')
+  }
 }
 
 async function runSearch() {

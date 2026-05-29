@@ -95,6 +95,8 @@ The browser sends the query to a local Node server. For live providers, the serv
 - JSON download path
 - output folder path
 
+On startup, the app attempts to restore the latest local run from `apps/lead-machine-demo/runs/`, so the desk opens with the last visible lead queue instead of an empty screen when previous run data exists.
+
 The frontend displays:
 
 - query/run status
