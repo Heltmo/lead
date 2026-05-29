@@ -49,10 +49,10 @@ Default product behavior must not generate sales scripts, email copy, call opene
 
 ```text
 User query
-  -> discovery/audit run
-  -> lead intelligence
-  -> company identity enrichment
-  -> ranked lead packs
+  -> Fast scan discovery
+  -> location and identity checks
+  -> ranked candidate lead packs
+  -> selected-lead Deep enrichment when needed
   -> JSON/CSV/UI export
 ```
 
@@ -137,7 +137,7 @@ Proff data should not affect scoring in V1.
 
 ### Website Audit
 
-Role: web intelligence.
+Role: one Deep enrichment module for web intelligence. It should not define whether a company is generally sellable by itself.
 
 Use for:
 
@@ -164,14 +164,16 @@ Future architecture:
 ```text
 User Query
   -> Lead Run Controller
-  -> Discovery Providers (Balanced / Brreg / Google Places)
-  -> Orchestrator / Website Audit
-  -> Business Signals
-  -> Opportunity Compression
-  -> Commercial Pressure
-  -> Company Profile / Brreg
+  -> Fast Scan Discovery (Balanced / Brreg / Google Places)
+  -> Location Quality + Company Identity
   -> Lead Pack Runner
   -> UI / CSV / API
+  -> Selected-Lead Deep Enrichment Modules
+     -> Website Audit
+     -> Brreg Verification
+     -> Contactability Refresh
+     -> Evidence + Caution Update
+     -> Later: Proff, social/source signals, decision makers, recent activity
 ```
 
 ## Lead Pack Object Shape
@@ -232,6 +234,32 @@ User Query
   }
 }
 ```
+
+
+## Fast Scan and Deep Enrichment
+
+The core product workflow is two-stage:
+
+```text
+Fast scan -> candidate lead packs -> enrich selected lead only
+```
+
+Fast scan is the daily seller workflow. It should be quick, broad, and honest about uncertainty. It uses discovery, Brreg/company identity, Google Places presence, location quality, contact basics, and source warnings. Fast candidates can be useful leads, but they are not final website/opportunity verdicts.
+
+Deep enrichment is selected-lead intelligence. It should run on one chosen lead, update only that lead card, and append deeper context without rerunning the whole market search. Website audit is the first active module, not the full definition of Deep.
+
+Deep enrichment modules should evolve toward:
+
+- company identity verification with Brreg/company-profile
+- website audit and source evidence
+- contactability refresh
+- Proff/economy after confirmed org.nr
+- social/source signals
+- decision-maker hints from public records/sources
+- recent activity and company-size/fit signals
+- seller leverage summary based on evidence and caution
+
+Deep must not generate sales scripts, call openers, or outreach automation.
 
 ## Self-Running Agent Concept
 

@@ -45,6 +45,16 @@ The seller owns:
 
 Default product behavior should not generate fixed sales scripts. Scripts, call openers, and ready-to-send outreach copy are not part of the lead pack contract.
 
+
+## Fast vs Deep Lead Packs
+
+Lead packs support two practical states:
+
+- Fast scan candidate: enough identity/contact/source context for a seller to shortlist quickly, with website audit skipped and uncertainty exposed.
+- Deep enriched lead: one selected lead upgraded with additional modules such as website audit, deeper Brreg verification, contactability refresh, evidence, caution, and later Proff/social/recent activity.
+
+Deep enrichment should update the selected lead pack only. It should not reclassify the whole run by default, and it should not make website pain the only definition of lead quality. A company can be a strong generic B2B sales lead even if website opportunity is low.
+
 ## Lead Pack Fields
 
 Target lead object:
@@ -87,6 +97,10 @@ Target lead object:
 - caution notes
 - verify notes
 - seller notes
+- enrichmentStatus
+- enrichmentModules[]
+- sellerReadiness
+- websiteOpportunity
 - last checked at
 
 ## Example Lead Pack
