@@ -406,7 +406,7 @@ function deepEnrichmentModules(lead, command) {
     { name: 'Recent activity', status: 'not_enabled', summary: 'Later module: hiring, news, website updates and public activity.' },
     { name: 'Seller leverage summary', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Uses current contact, company, location and source signals.' },
   ]
-  return `<details class="detail-collapse enrichment-modules" open>
+  return `<details class="detail-collapse enrichment-modules">
     <summary>Deep enrichment modules</summary>
     <div class="module-grid">
       ${modules.map((module) => `<div class="module-card"><div>${badge(module.status)}<strong>${escapeHtml(module.name)}</strong></div><small>${escapeHtml(module.summary || module.note || '')}</small></div>`).join('')}
@@ -427,14 +427,11 @@ function sellerCommandCard(command) {
         <strong>${escapeHtml(command.sellerReadiness)}</strong>
       </div>
     </div>
-    <div class="command-grid">
+    <div class="command-grid compact-command-grid">
       ${commandMetric('Best first contact', command.bestContact, command.bestContactNote)}
       ${commandMetric('Company fit', command.companyFit, command.companyFitNote)}
       ${commandMetric('Verification', command.verification, command.verificationNote)}
-      ${commandMetric('Website opportunity', command.websiteOpportunity, command.websiteOpportunityNote)}
-      ${commandMetric('Main risk', command.mainRisk, command.mainRiskNote)}
       ${commandMetric('Next action', command.nextAction, command.nextActionNote)}
-      ${commandMetric('Source confidence', command.sourceConfidence, command.sourceConfidenceNote)}
     </div>
   </section>`
 }
@@ -482,7 +479,8 @@ function sellerDeskCards(lead, command) {
     ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Deep enriched'],
     ['Seller readiness', command.sellerReadiness],
     ['Website opportunity', command.websiteOpportunity],
-    ['Opportunity type', humanize(lead.opportunityType || 'unknown')],
+    ['Main risk', command.mainRisk],
+    ['Source confidence', command.sourceConfidence],
   ]
   const riskRows = [
     ['Verification', command.verification],
