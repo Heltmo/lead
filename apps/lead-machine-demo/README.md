@@ -101,8 +101,8 @@ The frontend displays:
 - summary counts
 - lead cards
 - a Seller Command card with call readiness, best first contact, company fit, verification status, main risk, next action, and source confidence
-- a Seller Desk V2 layer with company identity, contactability, market proof, qualification, risk/caution, and seller next step
-- selected lead detail with raw source data collapsed below the decision layer
+- a compact Seller Desk V2 layer with company identity, contactability, market proof, and action/risk
+- secondary qualification, verification, source intelligence, and raw source data collapsed below the decision layer
 - per-lead Deep qualification that updates only the selected company card
 - evidence and caution
 - export links

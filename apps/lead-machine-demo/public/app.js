@@ -182,13 +182,16 @@ function renderDetail(lead) {
 
     ${sellerDeskCards(lead, command)}
 
-    <section class="leverage-panel compact">
-      <div>
-        <p class="eyebrow">Seller leverage</p>
-        <h3>Supporting reasons</h3>
-      </div>
-      ${bullets(leverage)}
-    </section>
+    <details class="detail-collapse lead-brief-details">
+      <summary>Why this lead is interesting</summary>
+      <section class="leverage-panel compact">
+        <div>
+          <p class="eyebrow">Seller leverage</p>
+          <h3>Supporting reasons</h3>
+        </div>
+        ${bullets(leverage)}
+      </section>
+    </details>
 
     ${fastQualificationPanel(lead)}
 
@@ -335,7 +338,6 @@ function sellerDeskCards(lead, command) {
   const identityRows = [
     ['Legal name', company.legalName || company.candidateLegalName || 'unknown'],
     ['Org.nr', company.organizationNumber || company.candidateOrganizationNumber || 'unknown'],
-    ['Status', company.activeStatus || 'unknown'],
     ['Employees', company.employees ?? 'unknown'],
     ['NACE', [company.naceCode, company.naceDescription].filter(Boolean).join(' - ') || 'unknown'],
   ]
@@ -351,6 +353,12 @@ function sellerDeskCards(lead, command) {
     ['Discovery', discoveryQuality.score == null ? readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown') : `${discoveryQuality.score}/100`],
     ['Presence', sourceQuality.presenceSource || places.provider || 'unknown'],
   ]
+  const actionRows = [
+    ['Readiness', command.callReadiness],
+    ['Next action', command.nextAction],
+    ['Main risk', command.mainRisk],
+    ['Export state', company.organizationNumber ? 'identity ready' : company.candidateOrganizationNumber ? 'verify candidate org.nr' : 'identity not confirmed'],
+  ]
   const qualificationRows = [
     ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Deep qualified'],
     ['Priority', readable(lead.callPriority || lead.priority || 'unknown')],
@@ -358,26 +366,25 @@ function sellerDeskCards(lead, command) {
     ['Opportunity', humanize(lead.opportunityType || 'unknown')],
   ]
   const riskRows = [
-    ['Readiness', command.callReadiness],
-    ['Main risk', command.mainRisk],
     ['Verification', command.verification],
     ['Warnings', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
-  ]
-  const nextRows = [
-    ['Next action', command.nextAction],
-    ['Why', command.nextActionNote],
     ['Economy', readable(economy.status || 'not_enabled')],
-    ['Export state', company.organizationNumber ? 'identity ready' : company.candidateOrganizationNumber ? 'verify candidate org.nr' : 'identity not confirmed'],
+    ['Why', command.nextActionNote],
   ]
 
-  return `<section class="seller-desk-v2">
+  return `<section class="seller-desk-v2 lead-brief-grid">
     ${sellerDeskCard('Company identity', orgStatus, identityRows, company.sourceUrl ? link(company.sourceUrl) : '')}
     ${sellerDeskCard('Contactability', contact.phone ? 'phone_available' : 'contact_missing', contactRows, command.bestContactNote)}
     ${sellerDeskCard('Market proof', sourceQuality.locationMatchStatus || 'unknown', marketRows, places.placeId ? `Place ID: ${places.placeId}` : '')}
-    ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Candidate until Deep runs.' : 'Audit/scoring included.')}
-    ${sellerDeskCard('Risk and caution', command.readinessKey, riskRows, command.mainRiskNote)}
-    ${sellerDeskCard('Seller next step', lead.callPriority || lead.priority || 'verify', nextRows, 'No script generated; seller owns angle and wording.')}
-  </section>`
+    ${sellerDeskCard('Action and risk', command.readinessKey, actionRows, 'No script generated; seller owns angle and wording.')}
+  </section>
+  <details class="detail-collapse lead-brief-details">
+    <summary>Qualification and verification details</summary>
+    <div class="seller-desk-v2 secondary-brief-grid">
+      ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Candidate until Deep runs.' : 'Audit/scoring included.')}
+      ${sellerDeskCard('Verification and caution', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : command.readinessKey, riskRows, command.mainRiskNote)}
+    </div>
+  </details>`
 }
 
 function sellerDeskCard(title, status, rows, footer = '') {
