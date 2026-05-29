@@ -150,7 +150,9 @@ async function main() {
   assert(lower.includes('main risk'), 'UI should expose main risk')
   assert(lower.includes('next action'), 'UI should expose next action')
   assert(lower.includes('source confidence'), 'UI should expose source confidence')
-  assert(lower.includes('brreg failed'), 'UI should explain Brreg lookup failures')
+  assert(lower.includes('identity pending'), 'UI should avoid making temporary Brreg failure the lead headline')
+  assert(lower.includes('brreg unavailable'), 'UI should expose Brreg unavailable as source status')
+  assert(lower.includes('source gap, not a weak lead signal'), 'UI should frame Brreg outages as source gaps')
   assert(lower.includes('brreg returned no confirmed identity'), 'UI should explain no-match identity state')
   assert(lower.includes('websitevalue'), 'UI should normalize website values before rendering')
   assert(lower.includes('seller leverage'), 'UI should expose seller leverage section')
@@ -172,6 +174,7 @@ async function main() {
   assert(lower.includes('source strategy'), 'UI should expose identity/presence source strategy')
   assert(lower.includes('identity source'), 'UI should expose identity source')
   assert(lower.includes('presence source'), 'UI should expose presence source')
+  assert(lower.includes('presence-first fallback'), 'UI should explain fallback when Brreg is unavailable')
   assert(lower.includes('confirmed_org'), 'UI should support confirmed org badge')
   assert(lower.includes('candidate_org'), 'UI should support candidate org badge')
 

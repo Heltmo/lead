@@ -184,7 +184,7 @@ function renderDetail(lead) {
       ${factCard('Phone', contact.phone || lead.phone || 'unknown', 'Best first contact field')}
       ${factCard('Website', websiteValue(contact.website) ? (isFastLead(lead) ? 'unverified' : 'available') : 'unknown', websiteValue(contact.website) ? `${link(websiteValue(contact.website))}${isFastLead(lead) ? ' · verify in Deep' : ''}` : 'No website in lead pack')}
       ${factCard('Google', formatRating(places), places.placeId ? `Place ID: ${places.placeId}` : 'No place ID')}
-      ${factCard('Company ID', company.organizationNumber || company.candidateOrganizationNumber || 'not verified', brregStatusLabel(company))}
+      ${factCard('Company ID', companyIdValue(company), companyIdNote(company))}
       ${factCard('Location', readable(sourceQuality.locationMatchStatus || 'unknown'), contact.address || contact.city || 'unknown')}
       ${factCard('Priority', readable(lead.callPriority || lead.priority || 'unknown'), nextStep)}
       ${factCard('Discovery', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown'), discoveryQuality.score == null ? 'Source confidence unknown' : `Score ${discoveryQuality.score}/100`)}
@@ -214,10 +214,10 @@ function renderDetail(lead) {
         ['CTA profile', website.ctaProfile ? 'available' : 'unknown'],
       ])}
       ${brregSourceCard(company)}
-      ${sourceCard('Source strategy', sourceQuality.identitySource || sourceQuality.presenceSource || 'unknown', [
-        ['Identity source', sourceQuality.identitySource || company.source || 'unknown'],
+      ${sourceCard('Source strategy', sourceStrategyStatus(company, sourceQuality, places), [
+        ['Identity source', isBrregUnavailable(company) ? 'brreg unavailable' : (sourceQuality.identitySource || company.source || 'unknown')],
         ['Presence source', sourceQuality.presenceSource || places.provider || 'unknown'],
-        ['Strategy', sourceQuality.identitySource === 'brreg' ? 'Brreg-first identity with presence enrichment' : 'Presence-first discovery'],
+        ['Strategy', sourceStrategyLabel(company, sourceQuality)],
       ])}
       ${sourceCard('Economy / Proff', economy.status || 'not_enabled', [
         ['Revenue', economy.revenue ?? 'not enabled'],
@@ -378,9 +378,9 @@ function sellerCommand(lead) {
     hasPhone ? 'phone available' : 'phone missing',
   ].join(' · ')
 
-  const brregError = String(company.matchStatus || '').toLowerCase() === 'error'
-  const verification = confirmedOrg ? 'Confirmed org.nr' : candidateOrg ? 'Candidate org.nr' : brregError ? 'Brreg failed' : 'Not verified'
-  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : brregError ? `Retry Brreg or verify manually${company.warnings?.length ? `: ${company.warnings[0]}` : '.'}` : 'Brreg returned no confirmed identity.'
+  const brregUnavailable = isBrregUnavailable(company)
+  const verification = confirmedOrg ? 'Confirmed org.nr' : candidateOrg ? 'Candidate org.nr' : brregUnavailable ? 'Identity pending' : 'Not verified'
+  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : brregUnavailable ? 'Brreg is unavailable right now; retry before export.' : 'Brreg returned no confirmed identity.'
 
   let mainRisk = 'Low data risk'
   let mainRiskNote = 'Core contact and identity fields look usable.'
@@ -401,7 +401,7 @@ function sellerCommand(lead) {
   let nextAction = nextSellerStep(lead)
   let nextActionNote = 'Use the lead pack evidence before sales work.'
   if (fast) {
-    nextAction = confirmedOrg && hasPhone ? 'Run Deep qualification' : candidateOrg ? 'Verify org.nr, then Deep' : brregError ? 'Retry Brreg or run Deep' : 'Run Deep qualification'
+    nextAction = confirmedOrg && hasPhone ? 'Run Deep qualification' : candidateOrg ? 'Verify org.nr, then Deep' : brregUnavailable ? 'Run Deep; retry Brreg before export' : 'Run Deep qualification'
     nextActionNote = 'Fast scan found the candidate; qualify before call-first.'
   } else if (priority === 'high') {
     nextAction = 'Review first'
@@ -439,6 +439,31 @@ function sourceCard(title, status, rows) {
   return `<section class="source-card"><div class="source-title"><h3>${escapeHtml(title)}</h3>${badge(status)}</div>${kv(rows)}</section>`
 }
 
+function companyIdValue(company = {}) {
+  if (company.organizationNumber) return company.organizationNumber
+  if (company.candidateOrganizationNumber) return company.candidateOrganizationNumber
+  if (isBrregUnavailable(company)) return 'Brreg unavailable'
+  return 'not verified'
+}
+
+function companyIdNote(company = {}) {
+  if (company.organizationNumber) return 'Confirmed official identity'
+  if (company.candidateOrganizationNumber) return 'Candidate org.nr; verify before export'
+  if (isBrregUnavailable(company)) return 'Registry lookup failed; retry later'
+  return brregStatusLabel(company)
+}
+
+function sourceStrategyStatus(company = {}, sourceQuality = {}, places = {}) {
+  if (isBrregUnavailable(company)) return 'brreg_unavailable'
+  return sourceQuality.identitySource || sourceQuality.presenceSource || places.provider || 'unknown'
+}
+
+function sourceStrategyLabel(company = {}, sourceQuality = {}) {
+  if (isBrregUnavailable(company)) return 'Presence-first fallback; Brreg should be retried before export'
+  if (sourceQuality.identitySource === 'brreg') return 'Brreg-first identity with presence enrichment'
+  return 'Presence-first discovery'
+}
+
 function brregSourceCard(company) {
   const rows = [
     ['Confirmed org.nr', company.organizationNumber || 'none'],
@@ -457,12 +482,20 @@ function brregSourceCard(company) {
 }
 
 function brregStatusLabel(company = {}) {
+  if (isBrregUnavailable(company)) return 'brreg_unavailable'
   const status = String(company.matchStatus || 'not_run').toLowerCase()
   if (company.organizationNumber && ['exact_match', 'strong_match'].includes(status)) return 'confirmed_org'
   if (company.candidateOrganizationNumber || status === 'manual_verify' || status === 'weak_match') return 'candidate_org'
   if (status === 'no_match') return 'no_match'
-  if (status === 'error') return 'error'
+  if (status === 'error') return 'brreg_unavailable'
   return status || 'not_run'
+}
+
+function isBrregUnavailable(company = {}) {
+  const status = String(company.matchStatus || '').toLowerCase()
+  const errorType = String(company.errorType || '').toLowerCase()
+  const warnings = normalizeList(company.warnings).join(' ').toLowerCase()
+  return status === 'error' || errorType.includes('network') || warnings.includes('fetch failed') || warnings.includes('timeout')
 }
 
 function candidateSection(company = {}) {
@@ -501,7 +534,7 @@ function sellerSignals(lead) {
 
   if (company.organizationNumber) signals.push(`Brreg confirmed: org.nr ${company.organizationNumber}. Legal identity is ready for export.`)
   else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Brreg candidate exists, but legal identity should be verified before export.')
-  else if (company.matchStatus === 'error') signals.push('Brreg lookup failed for this lead; retry or verify manually before export.')
+  else if (isBrregUnavailable(company)) signals.push('Brreg is unavailable right now; this is a source gap, not a weak lead signal.')
   else signals.push('Legal identity is not verified yet; Brreg returned no confirmed firm profile.')
 
   if (isLawLead(lead)) signals.push('Law-firm context: credibility, trust and client enquiry quality matter more than generic booking language.')
@@ -530,6 +563,7 @@ function leverageLabel(value) {
   if (text.includes('visible_technical_trust_pain')) return 'Visible technical trust evidence supports a deeper review.'
   if (text.includes('no social links')) return 'Social proof links were not detected in the website audit.'
   if (text.includes('no recognized technology stack')) return 'Technology stack was not recognized; this can be a manual review signal for site age or custom setup.'
+  if (text.includes('fetch failed') || text.includes('network error')) return 'Registry lookup was unavailable; retry Brreg before export.'
   if (text.includes('contactable')) return 'Business appears reachable from available contact data.'
   return null
 }
