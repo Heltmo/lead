@@ -185,7 +185,7 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
   const whyRanked = [
     'Fast mode lead: local discovery and contact data only.',
     candidate.phone ? 'Phone available from discovery source.' : null,
-    candidate.website ? 'Website available for later deep audit.' : null,
+    candidate.website ? 'Website URL is unverified until Deep audit confirms it.' : null,
     candidate.rating ? `Google rating ${candidate.rating}${candidate.reviewCount ? ` from ${candidate.reviewCount} reviews` : ''}.` : null,
     candidate.discoveryQuality?.level ? `Discovery confidence: ${candidate.discoveryQuality.level}.` : null,
     companyProfile?.matchStatus ? `companyProfile:${companyProfile.matchStatus}` : null,
@@ -193,6 +193,7 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
   const caution = [
     'Fast mode skips full website audit and commercial scoring.',
     'Run Deep mode before treating this as call-first.',
+    candidate.website ? 'Website is unverified in Fast mode and may be parked, stale, or unrelated.' : null,
     companyProfile?.matchStatus && !['exact_match', 'strong_match'].includes(companyProfile.matchStatus) ? 'Company identity requires manual verification before using org.nr.' : null,
     ...(companyProfile?.warnings || []).map((warning) => `Company profile warning: ${warning}`),
   ].filter(Boolean)
@@ -219,7 +220,7 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
     website: {
       auditStatus: 'skipped_fast_mode',
       topEvidence: [
-        candidate.website ? 'Website URL found; deep audit not run yet.' : 'No website URL found in discovery.',
+        candidate.website ? 'Website URL from discovery; not verified and may be parked/wrong until Deep audit runs.' : 'No website URL found in discovery.',
         candidate.phone ? 'Phone found in discovery source.' : 'Phone not found in discovery source.',
       ],
       contactability,

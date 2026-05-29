@@ -9,9 +9,9 @@
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">Local demo</p>
+      <p class="eyebrow">Lead intelligence desk</p>
       <h1>Lead Machine</h1>
-      <p>Skriv bransje + sted. Maskinen kjører discovery, audit og lead-pack-runner lokalt.</p>
+      <p>Skriv bransje + sted. Maskinen finner, beriker og pakker selgerklare leads.</p>
     </div>
     <div class="boundary">
       <div><span>Machine provides</span><strong>discovery · enrichment · ranking · evidence · caution · export</strong></div>
@@ -34,16 +34,16 @@
         <span>Query</span>
         <input id="queryInput" value="rørlegger i Kristiansand" autocomplete="off">
       </label>
-      <label><span>Provider</span><select id="provider"><option value="demo-fixture">Demo fixture</option><option value="google-places">Google Places</option></select></label>
+      <input id="provider" type="hidden" value="google-places">
       <label><span>Mode</span><select id="runMode"><option value="fast">Fast</option><option value="deep">Deep</option></select></label>
       <label><span>Max</span><select id="maxResults"><option>5</option><option>10</option><option>15</option><option>20</option><option>25</option></select></label>
       <label><span>Scope</span><select id="searchScope"><option value="strict">strict</option><option value="nearby">nearby</option><option value="regional">regional</option></select></label>
-      <label class="toggle"><input id="companyProfile" type="checkbox"> Brreg firmaprofil</label>
+      <label class="toggle"><input id="companyProfile" type="checkbox" checked> Brreg firmaprofil</label>
       <button id="runButton" type="button">Kjør søk</button>
-      <p class="search-hint">Fast: scan quickly with discovery/contact only. Website audit is skipped. Deep: qualifies fewer leads with full website audit, signals and scoring, and can take a few minutes. Brreg firmaprofil henter org.nr/juridisk navn konservativt.</p>
+      <p class="search-hint">Fast: rask markedsskanning med Google Places + Brreg. Nettsider er uverifisert til Deep kjøres. Deep: full nettsideaudit, signaler og scoring.</p>
     </section>
 
-    <section id="statusPanel" class="status-panel">Ready. Demo fixture works without Google Places API key.</section>
+    <section id="statusPanel" class="status-panel">Ready. Google Places + Brreg er standard. Fast gir kandidater; Deep kvalifiserer.</section>
     <section id="summaryPanel" class="summary-panel"></section>
 
     <section class="desk-grid">

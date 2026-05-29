@@ -182,7 +182,7 @@ function renderDetail(lead) {
 
     <div class="quick-facts secondary-facts">
       ${factCard('Phone', contact.phone || lead.phone || 'unknown', 'Best first contact field')}
-      ${factCard('Website', contact.website ? 'available' : 'unknown', contact.website ? link(contact.website) : 'No website in lead pack')}
+      ${factCard('Website', contact.website ? (isFastLead(lead) ? 'unverified' : 'available') : 'unknown', contact.website ? `${link(contact.website)}${isFastLead(lead) ? ' · verify in Deep' : ''}` : 'No website in lead pack')}
       ${factCard('Google', formatRating(places), places.placeId ? `Place ID: ${places.placeId}` : 'No place ID')}
       ${factCard('Company ID', company.organizationNumber || company.candidateOrganizationNumber || 'not verified', brregStatusLabel(company))}
       ${factCard('Location', readable(sourceQuality.locationMatchStatus || 'unknown'), contact.address || contact.city || 'unknown')}
@@ -200,7 +200,9 @@ function renderDetail(lead) {
 
     ${fastQualificationPanel(lead)}
 
-    <div class="source-grid">
+    <details class="detail-collapse">
+      <summary>Source intelligence</summary>
+      <div class="source-grid">
       ${sourceCard('Google Places', places.provider || 'available', [
         ['Rating', formatRating(places)],
         ['Place ID', places.placeId || 'unknown'],
@@ -222,8 +224,11 @@ function renderDetail(lead) {
         ['Reasons', (discoveryQuality.reasons || []).slice(0, 3).map(humanize).join(', ') || 'unknown'],
         ['Warnings', (discoveryQuality.warnings || []).slice(0, 3).map(humanize).join(', ') || 'none'],
       ])}
-    </div>
+      </div>
+    </details>
 
+    <details class="detail-collapse">
+      <summary>Raw lead data</summary>
     ${section('Company and contact', kv([
       ['Confirmed org.nr', company.organizationNumber || 'none'],
       ['Candidate org.nr', company.candidateOrganizationNumber || 'none'],
@@ -258,6 +263,7 @@ function renderDetail(lead) {
     ]))}
     ${section('Evidence', bullets((website.topEvidence || lead.topEvidence || lead.evidence || []).map(humanizeEvidence)))}
     ${section('Caution', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}
+    </details>
   `
 }
 
@@ -371,8 +377,8 @@ function sellerCommand(lead) {
   let mainRisk = 'Low data risk'
   let mainRiskNote = 'Core contact and identity fields look usable.'
   if (fast) {
-    mainRisk = 'Fast mode only'
-    mainRiskNote = 'Website audit and full scoring are skipped.'
+    mainRisk = contact.website ? 'Website unverified' : 'Fast mode only'
+    mainRiskNote = contact.website ? 'Google supplied a URL, but Deep must verify it is real and relevant.' : 'Website audit and full scoring are skipped.'
   } else if (!confirmedOrg && candidateOrg) {
     mainRisk = 'Identity uncertain'
     mainRiskNote = 'Candidate org.nr must be verified.'
@@ -412,7 +418,7 @@ function buildCommandSummary({ company, contact, places, confirmedOrg, candidate
   if (employees) parts.push(`${employees} employees registered`)
   if (places.rating) parts.push(`Google rating ${places.rating}/5`)
   if (exactLocation) parts.push('location matches the search')
-  if (fast) parts.push('full website audit is not run yet')
+  if (fast) parts.push(contact.website ? 'website URL is unverified until Deep runs' : 'full website audit is not run yet')
   else parts.push(`priority is ${String(priority || 'unknown').toUpperCase()}`)
   return `${parts.join('; ')}.`
 }
@@ -482,6 +488,8 @@ function sellerSignals(lead) {
   else if (contact.email) signals.push(`Email is available: ${contact.email}. Direct qualification is possible.`)
 
   if (places.rating) signals.push(`Google proof: ${formatRating(places)}. Use this to judge market presence before prioritizing.`)
+
+  if (isFastLead(lead) && contact.website) signals.push('Website is from discovery and has not been verified yet; run Deep before using website quality as leverage.')
 
   if (company.organizationNumber) signals.push(`Brreg confirmed: org.nr ${company.organizationNumber}. Legal identity is ready for export.`)
   else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Brreg candidate exists, but legal identity should be verified before export.')
