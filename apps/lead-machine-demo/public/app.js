@@ -394,19 +394,22 @@ function deepEnrichmentModules(lead, command) {
   const company = lead.company || {}
   const website = lead.website || {}
   const economy = lead.economy || {}
-  const modules = [
-    ['Website audit', isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), isFastLead(lead) ? 'Run enrichment to audit website quality.' : 'Website/audit signals are attached.'],
-    ['Brreg verification', company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), company.organizationNumber ? 'Official identity is confirmed.' : company.candidateOrganizationNumber ? 'Candidate identity needs manual verify.' : 'No confirmed identity yet.'],
-    ['Economy / Proff', economy.status || 'not_enabled', 'Requires confirmed org.nr and Proff integration.'],
-    ['Social/source signals', 'not_enabled', 'Later module: Facebook, LinkedIn, news and public source links.'],
-    ['Decision makers', 'not_enabled', 'Later module: public role/contact hints when available.'],
-    ['Recent activity', 'not_enabled', 'Later module: hiring, news, website updates and public activity.'],
-    ['Seller leverage summary', command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', 'Uses current contact, company, location and source signals.'],
+  const liveModules = Array.isArray(lead.enrichmentModules) && lead.enrichmentModules.length
+    ? lead.enrichmentModules
+    : Array.isArray(lead.enrichment?.modules) ? lead.enrichment.modules : []
+  const modules = liveModules.length ? liveModules : [
+    { name: 'Website audit', status: isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), summary: isFastLead(lead) ? 'Run enrichment to audit website quality.' : 'Website/audit signals are attached.' },
+    { name: 'Brreg verification', status: company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), summary: company.organizationNumber ? 'Official identity is confirmed.' : company.candidateOrganizationNumber ? 'Candidate identity needs manual verify.' : 'No confirmed identity yet.' },
+    { name: 'Economy / Proff', status: economy.status || 'not_enabled', summary: 'Requires confirmed org.nr and Proff integration.' },
+    { name: 'Social/source signals', status: 'not_enabled', summary: 'Later module: Facebook, LinkedIn, news and public source links.' },
+    { name: 'Decision makers', status: 'not_enabled', summary: 'Later module: public role/contact hints when available.' },
+    { name: 'Recent activity', status: 'not_enabled', summary: 'Later module: hiring, news, website updates and public activity.' },
+    { name: 'Seller leverage summary', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Uses current contact, company, location and source signals.' },
   ]
   return `<details class="detail-collapse enrichment-modules" open>
     <summary>Deep enrichment modules</summary>
     <div class="module-grid">
-      ${modules.map(([name, status, note]) => `<div class="module-card"><div>${badge(status)}<strong>${escapeHtml(name)}</strong></div><small>${escapeHtml(note)}</small></div>`).join('')}
+      ${modules.map((module) => `<div class="module-card"><div>${badge(module.status)}<strong>${escapeHtml(module.name)}</strong></div><small>${escapeHtml(module.summary || module.note || '')}</small></div>`).join('')}
     </div>
   </details>`
 }

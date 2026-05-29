@@ -71,7 +71,7 @@ The profession selector is a controlled list of supported verticals. The locatio
 ## Fast Scan vs Deep Enrich
 
 - `Fast scan` is the default for daily use. It runs broad discovery, location quality, Brreg identity enrichment, Google Places presence, and basic contact context without a full website audit.
-- `Deep enrich` upgrades one selected lead with enrichment modules. Today the active module is website audit/scoring; Brreg verification is already shown, while Proff/economy, social/source signals, decision-maker hints, and recent activity are planned modules.
+- `Deep enrich` upgrades one selected lead with enrichment modules. V1 refreshes Brreg/company identity, contactability, seller leverage summary, and website audit status when a website exists. Proff/economy, social/source signals, decision-maker hints, and recent activity remain planned modules.
 - Use Fast scan for 10-25 candidate scans, then enrich only the leads where extra context is worth the wait.
 
 Recommended workflow:
@@ -81,7 +81,7 @@ Recommended workflow:
 3. Use `Enrich selected lead` on one promising candidate. This enriches only the selected lead and replaces that card while the rest of the list stays as Fast candidates.
 4. Export the lead pack once the lead has enough context for seller review.
 
-Fast results are candidates, not final verdicts. Deep enrichment is per lead: it upgrades one selected candidate with extra modules without rerunning the full search. Website audit is only one enrichment module. A contactable, active, correctly located company can still be a useful B2B lead even when website opportunity is low.
+Fast results are candidates, not final verdicts. Deep enrichment is per lead: it upgrades one selected candidate with extra modules without rerunning the full search. Website audit is only one enrichment module and is skipped cleanly when no website exists. A contactable, active, correctly located company can still be a useful B2B lead even when website opportunity is low.
 
 ## What It Does
 
@@ -135,7 +135,7 @@ No prepared pitch text, email templates, or automated outreach are included. The
 - Uses local server only.
 - Balanced runs can return Brreg identity rows without a Google key, but Google Places presence enrichment requires `GOOGLE_PLACES_API_KEY`.
 - Brreg firmaprofil uses `core/company-profile` automatically to enrich org.nr/legal identity conservatively because company identity is core seller context.
-- Fast mode treats website URLs as unverified until Deep confirms they are real and relevant.
+- Fast mode treats website URLs as unverified until Deep confirms they are real and relevant. If no website exists, Deep still refreshes identity/contactability and marks website audit as skipped.
 - The Brreg panel shows confirmed org.nr only for strong matches. Uncertain results stay as candidate org.nr/manual verify with legal name, organization form, address, municipality, NACE, employees, status, match confidence, warnings, and candidate records when available.
 - Economy/Proff status remains `not_enabled`.
 - Run folders are local and ignored by git.
@@ -154,7 +154,7 @@ Use `Fast scan` for broad automatic scans. The local demo uses an internal cap o
 
 ## Deep Enrichment Roadmap
 
-Deep should become the selected-lead intelligence layer, not just a website audit button. The intended module stack is:
+Deep is now the selected-lead intelligence layer, not just a website audit button. V1 attaches module statuses for identity, contactability, website audit, seller summary, and disabled future modules. The intended module stack is:
 
 - website audit and technical/source evidence
 - deeper Brreg verification and candidate handling

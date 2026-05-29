@@ -70,6 +70,8 @@ async function main() {
       leadPackOutputPath: path.join(root, 'deep-run', 'lead-packs'),
       leadPack: {
         ...args.lead,
+        enrichmentStatus: 'deep_enriched',
+        enrichmentModules: [{ id: 'website_audit', name: 'Website audit', status: 'completed', summary: 'Website audit completed for selected lead.' }],
         callPriority: 'high',
         leadClass: 'technical_redesign',
         opportunityType: 'technical_trust_risk',
@@ -115,7 +117,22 @@ async function main() {
   assert(deepResponse.body.leadPack.meta.mode === 'deep', 'deep qualification should mark selected lead as deep')
 
   const missingWebsite = await post(port, '/api/deep-qualify', { lead: { company: { displayName: 'No Site AS' }, contact: {} } })
-  assert(missingWebsite.status === 400, 'deep qualification should reject leads without website')
+  assert(missingWebsite.status === 200, 'deep enrichment should not reject leads without website')
+
+  const noWebsiteServer = createServer({ runsDir: path.join(root, 'runs-no-website') })
+  await listen(noWebsiteServer)
+  const noWebsiteDeep = await post(noWebsiteServer.address().port, '/api/deep-qualify', {
+    lead: {
+      company: { displayName: 'No Site AS' },
+      contact: { phone: '40000000', city: 'Oslo' },
+      website: { auditStatus: 'skipped_fast_mode' },
+      meta: { mode: 'fast', sourceRun: 'fixture' },
+    },
+    enrichCompanyProfile: false,
+  })
+  assert(noWebsiteDeep.status === 200, 'default deep enrichment should handle selected leads without website')
+  assert(noWebsiteDeep.body.leadPack.enrichmentStatus === 'deep_enriched', 'default deep enrichment should attach enrichment status')
+  assert(noWebsiteDeep.body.leadPack.enrichmentModules.some((module) => module.id === 'website_audit' && module.status === 'skipped_no_website'), 'website audit module should be skipped when no website exists')
 
   const failing = createServer({ runner: async () => { throw new Error('provider unavailable') }, runsDir: path.join(root, 'runs-fail') })
   await listen(failing)
@@ -212,6 +229,7 @@ async function main() {
   assert(lower.includes('candidate_org'), 'UI should support candidate org badge')
 
   server.close()
+  noWebsiteServer.close()
   failing.close()
   fs.rmSync(root, { recursive: true, force: true })
 }

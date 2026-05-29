@@ -4,6 +4,7 @@ const path = require('path')
 const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
 const { runAuditQueue } = require('../../core/orchestrator/pipelines/auditQueue')
 const { runLeadPack } = require('../../core/lead-pack-runner/leadPackRunner')
+const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
 const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { parseLeadQuery } = require('./queryParser')
 
@@ -115,15 +116,14 @@ async function handleDeepQualify(req, res, context) {
   const body = await readJsonBody(req)
   const lead = body.lead && typeof body.lead === 'object' ? body.lead : null
   if (!lead) return json(res, 400, { error: 'Lead is required' })
-  const website = lead.contact?.website || lead.website
-  if (!website) return json(res, 400, { error: 'Selected lead has no website to audit' })
   const query = String(body.query || lead.meta?.sourceQuery || '').trim() || 'selected lead'
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
   const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir })
   return json(res, 200, result)
 }
 
-async function deepQualifyLead({ lead, query, enrichCompanyProfile, runsDir }) {
+async function deepQualifyLead({ lead, query, enrichCompanyProfile: shouldEnrichCompanyProfile, runsDir }) {
+  const originalLead = JSON.parse(JSON.stringify(lead))
   const company = lead.company || {}
   const contact = lead.contact || {}
   const places = lead.places || {}
@@ -134,8 +134,25 @@ async function deepQualifyLead({ lead, query, enrichCompanyProfile, runsDir }) {
   const leadPackOutputPath = path.join(outputDir, 'lead-packs')
   fs.mkdirSync(outputDir, { recursive: true })
 
+  const refreshedCompanyProfile = shouldEnrichCompanyProfile ? await safeSelectedCompanyProfile(lead) : null
+  const websiteUrl = selectedWebsiteUrl(lead)
+  const hasWebsite = Boolean(websiteUrl)
+  if (!hasWebsite) {
+    const deepLead = applyDeepEnrichmentV1(mergeSelectedCompanyProfile(originalLead, refreshedCompanyProfile), originalLead, {
+      companyProfile: refreshedCompanyProfile,
+      websiteAuditStatus: 'skipped_no_website',
+      outputDir,
+    })
+    return {
+      outputDir,
+      leadPackOutputPath,
+      leadPack: deepLead,
+      downloads: { csvPath: null, jsonPath: null, summaryPath: null },
+    }
+  }
+
   const auditInput = {
-    url: contact.website || lead.website,
+    url: websiteUrl,
     businessName: company.displayName || lead.companyName || '',
     source: places.provider || 'selected-lead',
     location: contact.city || '',
@@ -181,6 +198,7 @@ async function deepQualifyLead({ lead, query, enrichCompanyProfile, runsDir }) {
     registrationDate: company.registrationDate || '',
     activeStatus: company.activeStatus || '',
     sourceUrl: company.sourceUrl || '',
+    selectedLeadEnrichment: true,
   }
 
   const auditResult = await runAuditQueue({
@@ -193,23 +211,221 @@ async function deepQualifyLead({ lead, query, enrichCompanyProfile, runsDir }) {
     query,
     runDir: path.dirname(auditResult.summaryPath),
     outputDir: leadPackOutputPath,
-    enrichCompanyProfile,
+    enrichCompanyProfile: shouldEnrichCompanyProfile,
   })
   const leadPacks = readJsonFile(leadPackResult.leadPacksPath, [])
   const deepLead = leadPacks[0]
   if (!deepLead) throw new Error('Deep qualification did not produce a lead pack')
   deepLead.rank = lead.rank || deepLead.rank
-  deepLead.meta = { ...(deepLead.meta || {}), deepQualifiedFrom: lead.meta?.sourceRun || 'selected-fast-lead', mode: 'deep' }
+  const mergedLead = applyDeepEnrichmentV1(mergeSelectedCompanyProfile(deepLead, refreshedCompanyProfile), originalLead, {
+    companyProfile: refreshedCompanyProfile,
+    websiteAuditStatus: deepLead.website?.auditStatus || 'completed',
+    outputDir,
+  })
   return {
     outputDir,
     leadPackOutputPath,
-    leadPack: deepLead,
+    leadPack: mergedLead,
     downloads: {
       csvPath: leadPackResult.csvPath,
       jsonPath: leadPackResult.leadPacksPath,
       summaryPath: leadPackResult.summaryPath,
     },
   }
+}
+
+
+
+function selectedWebsiteUrl(lead = {}) {
+  const contactWebsite = lead.contact && typeof lead.contact.website === 'string' ? lead.contact.website.trim() : ''
+  if (contactWebsite) return contactWebsite
+  if (typeof lead.website === 'string') return lead.website.trim()
+  if (lead.website && typeof lead.website === 'object') {
+    return String(lead.website.url || lead.website.href || lead.website.website || lead.website.uri || '').trim()
+  }
+  return ''
+}
+
+async function safeSelectedCompanyProfile(lead = {}) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  try {
+    return await enrichCompanyProfile({
+      companyName: company.displayName || lead.companyName || company.legalName || company.candidateLegalName,
+      website: selectedWebsiteUrl(lead),
+      phone: contact.phone || lead.phone,
+      email: contact.email || lead.email,
+      address: contact.address || lead.address,
+      city: contact.city || lead.city,
+      industry: lead.leadClass || lead.opportunityType,
+    })
+  } catch (error) {
+    return {
+      organizationNumber: null,
+      candidateOrganizationNumber: null,
+      legalName: null,
+      candidateLegalName: null,
+      organizationForm: null,
+      registeredAddress: null,
+      municipality: null,
+      naceCode: null,
+      naceDescription: null,
+      employees: null,
+      registrationDate: null,
+      activeStatus: null,
+      source: 'brreg',
+      sourceUrl: null,
+      matchStatus: 'error',
+      matchConfidence: 0,
+      errorType: 'unknown_error',
+      warnings: [error && error.message ? error.message : 'company_profile_error'],
+      candidates: [],
+    }
+  }
+}
+
+function mergeSelectedCompanyProfile(lead = {}, profile) {
+  const copy = JSON.parse(JSON.stringify(lead || {}))
+  if (!profile) return copy
+  const company = copy.company || {}
+  const confirmed = profile.organizationNumber && ['exact_match', 'strong_match'].includes(String(profile.matchStatus || '').toLowerCase())
+  copy.company = {
+    ...company,
+    legalName: profile.legalName || company.legalName || null,
+    candidateLegalName: profile.candidateLegalName || company.candidateLegalName || profile.legalName || null,
+    organizationNumber: confirmed ? profile.organizationNumber : (company.organizationNumber || null),
+    candidateOrganizationNumber: profile.candidateOrganizationNumber || company.candidateOrganizationNumber || profile.organizationNumber || null,
+    organizationForm: profile.organizationForm || company.organizationForm || null,
+    registeredAddress: profile.registeredAddress || company.registeredAddress || null,
+    municipality: profile.municipality || company.municipality || null,
+    unitType: profile.unitType || company.unitType || null,
+    naceCode: profile.naceCode || company.naceCode || null,
+    naceDescription: profile.naceDescription || company.naceDescription || null,
+    employees: profile.employees ?? company.employees ?? null,
+    registrationDate: profile.registrationDate || company.registrationDate || null,
+    activeStatus: profile.activeStatus || company.activeStatus || null,
+    source: profile.source || company.source || 'brreg',
+    sourceUrl: profile.sourceUrl || company.sourceUrl || null,
+    errorType: profile.errorType || company.errorType || null,
+    matchStatus: profile.matchStatus || company.matchStatus || null,
+    matchConfidence: profile.matchConfidence ?? company.matchConfidence ?? null,
+    matchReasons: Array.isArray(profile.matchReasons) ? profile.matchReasons : (company.matchReasons || []),
+    warnings: Array.from(new Set([...(company.warnings || []), ...(profile.warnings || [])].filter(Boolean))),
+    candidates: Array.isArray(profile.candidates) && profile.candidates.length ? profile.candidates : (company.candidates || []),
+  }
+  return copy
+}
+
+function applyDeepEnrichmentV1(lead = {}, originalLead = {}, context = {}) {
+  const copy = JSON.parse(JSON.stringify(lead || {}))
+  const company = copy.company || {}
+  const contact = copy.contact || {}
+  const website = copy.website || {}
+  const ranking = copy.ranking || {}
+  const economy = copy.economy || { status: 'not_enabled', source: null, revenue: null, profit: null, employees: null }
+  const hasPhone = Boolean(contact.phone || copy.phone)
+  const hasEmail = Boolean(contact.email || copy.email)
+  const hasWebsite = Boolean(selectedWebsiteUrl(copy))
+  const contactability = hasPhone ? 'strong' : hasEmail || hasWebsite ? 'medium' : 'weak'
+  const brregStatus = company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : company.matchStatus || 'no_match'
+  const websiteStatus = context.websiteAuditStatus || website.auditStatus || (hasWebsite ? 'not_run' : 'skipped_no_website')
+  const modules = [
+    moduleStatus('company_identity', 'Brreg verification', brregStatus, brregSummary(company)),
+    moduleStatus('contactability', 'Contactability refresh', contactability, contactabilitySummaryV1({ hasPhone, hasEmail, hasWebsite })),
+    moduleStatus('website_audit', 'Website audit', websiteStatus, websiteSummaryV1(websiteStatus, hasWebsite)),
+    moduleStatus('seller_summary', 'Seller leverage summary', 'completed', 'Decision summary refreshed from identity, contact, location, source and audit signals.'),
+    moduleStatus('economy_proff', 'Economy / Proff', economy.status || 'not_enabled', 'Not enabled. Requires confirmed org.nr and Proff integration.'),
+    moduleStatus('social_sources', 'Social/source signals', 'not_enabled', 'Not enabled. Later module for Facebook, LinkedIn, news and public source links.'),
+    moduleStatus('decision_makers', 'Decision makers', 'not_enabled', 'Not enabled. Later module for public role/contact hints.'),
+    moduleStatus('recent_activity', 'Recent activity', 'not_enabled', 'Not enabled. Later module for hiring, news, website updates and public activity.'),
+  ]
+  copy.website = {
+    ...website,
+    auditStatus: websiteStatus,
+    contactability: website.contactability || contactability,
+    topEvidence: Array.from(new Set([...(website.topEvidence || []), deepEvidenceLine({ company, contact, websiteStatus, contactability })].filter(Boolean))),
+  }
+  copy.ranking = {
+    ...ranking,
+    whyRanked: Array.from(new Set([...(ranking.whyRanked || []), ...deepWhyRanked({ company, contact, contactability, websiteStatus })].filter(Boolean))),
+    caution: Array.from(new Set([...(ranking.caution || []), ...deepCaution({ company, websiteStatus, economy })].filter(Boolean))),
+  }
+  copy.economy = economy
+  copy.enrichmentStatus = 'deep_enriched'
+  copy.enrichmentModules = modules
+  copy.enrichment = {
+    status: 'deep_enriched',
+    mode: 'selected_lead',
+    enrichedAt: new Date().toISOString(),
+    modules,
+    summary: {
+      companyIdentity: brregStatus,
+      contactability,
+      websiteAudit: websiteStatus,
+      economy: economy.status || 'not_enabled',
+    },
+  }
+  copy.meta = {
+    ...(copy.meta || {}),
+    deepQualifiedFrom: originalLead.meta?.sourceRun || originalLead.meta?.deepQualifiedFrom || 'selected-fast-lead',
+    mode: 'deep',
+    enrichmentMode: 'selected_lead',
+    enrichedAt: copy.enrichment.enrichedAt,
+  }
+  return copy
+}
+
+function moduleStatus(id, name, status, summary, warnings = []) {
+  return { id, name, status: status || 'unknown', summary, warnings }
+}
+
+function brregSummary(company = {}) {
+  if (company.organizationNumber) return `Confirmed org.nr ${company.organizationNumber}.`
+  if (company.candidateOrganizationNumber) return `Candidate org.nr ${company.candidateOrganizationNumber}; manual verification required.`
+  if (company.matchStatus === 'error') return 'Brreg lookup failed; retry before export.'
+  if (company.matchStatus === 'no_match') return 'No official identity match found.'
+  return 'Company identity remains unverified.'
+}
+
+function contactabilitySummaryV1({ hasPhone, hasEmail, hasWebsite }) {
+  if (hasPhone) return 'Direct phone is available; usable for seller qualification.'
+  if (hasEmail) return 'Email is available, but phone is missing.'
+  if (hasWebsite) return 'Website exists, but direct contact data is limited.'
+  return 'No direct contact path found.'
+}
+
+function websiteSummaryV1(status, hasWebsite) {
+  if (!hasWebsite) return 'No website available, so website audit was skipped.'
+  if (status === 'skipped_no_website') return 'Website audit skipped because no website was available.'
+  if (status === 'completed') return 'Website audit completed for selected lead.'
+  if (status === 'error') return 'Website audit failed; review source manually.'
+  return 'Website audit status recorded for selected lead.'
+}
+
+function deepEvidenceLine({ company, contact, websiteStatus, contactability }) {
+  if (websiteStatus === 'skipped_no_website') return 'Deep enrichment skipped website audit because no website was available.'
+  if (company.organizationNumber && contact.phone) return 'Deep enrichment confirms usable company identity/contact context.'
+  if (contactability === 'strong') return 'Deep enrichment confirms strong contactability.'
+  return 'Deep enrichment refreshed selected-lead context.'
+}
+
+function deepWhyRanked({ company, contact, contactability, websiteStatus }) {
+  return [
+    'Deep enrichment ran on this selected lead only.',
+    company.organizationNumber ? 'Official company identity is confirmed.' : company.candidateOrganizationNumber ? 'Official company identity has a candidate match.' : null,
+    contact.phone ? 'Direct phone exists for seller qualification.' : null,
+    websiteStatus === 'completed' ? 'Website audit signals are attached.' : null,
+    contactability === 'strong' ? 'Contactability is strong.' : null,
+  ].filter(Boolean)
+}
+
+function deepCaution({ company, websiteStatus, economy }) {
+  return [
+    !company.organizationNumber && company.candidateOrganizationNumber ? 'Candidate org.nr must be manually verified before export.' : null,
+    !company.organizationNumber && !company.candidateOrganizationNumber ? 'Company identity is not confirmed; verify before sales use.' : null,
+    websiteStatus === 'skipped_no_website' ? 'Website audit was skipped because no website was available.' : null,
+    economy.status === 'not_enabled' ? 'Economy/Proff data is not enabled yet.' : null,
+  ].filter(Boolean)
 }
 
 function createDemoFixtureRun({ parsedQuery, maxResults, searchScope, enrichCompanyProfile, outputDir, runId }) {
