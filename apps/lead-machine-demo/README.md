@@ -152,6 +152,8 @@ Live runs are slower than the fixture because each included lead can trigger:
 
 Use `Fast scan` for broad automatic scans. The local demo uses an internal cap of 25 leads so the seller does not need to choose a technical max-results value. Use selected-lead `Deep enrich` when one candidate needs more context. Brreg runs by default for seller-ready identity context.
 
+Repeated Brreg/company-profile lookups use the local `.cache/company-profile/` file cache. Successful non-error matches are reused across runs for speed; failed Brreg lookups are not cached, so a later run can retry.
+
 ## Deep Enrichment Roadmap
 
 Deep is now the selected-lead intelligence layer, not just a website audit button. V1 attaches module statuses for identity, contactability, website audit, seller summary, and disabled future modules. The intended module stack is:

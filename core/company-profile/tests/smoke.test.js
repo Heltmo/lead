@@ -1,3 +1,6 @@
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
 const { enrichCompanyProfile, matchCompanyProfile, normalizeName } = require('../companyProfile')
 
 async function main() {
@@ -101,6 +104,22 @@ async function main() {
   await enrichCompanyProfile({ companyName: 'Glomma Tannklinikk', city: 'Fredrikstad' }, { fetchImpl: cachedFetch, cache })
   await enrichCompanyProfile({ companyName: 'Glomma Tannklinikk', city: 'Fredrikstad' }, { fetchImpl: cachedFetch, cache })
   assert(fetchCount === 2, 'cache should avoid duplicate endpoint fetches for identical lookup calls')
+
+  const fileCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'company-profile-cache-'))
+  let fileFetchCount = 0
+  const fileFetch = mockFetch({ enheter: [glomma], underenheter: [] }, () => { fileFetchCount += 1 })
+  await enrichCompanyProfile({ companyName: 'Glomma Tannklinikk', city: 'Fredrikstad' }, { fetchImpl: fileFetch, fileCache: true, fileCacheDir, cache: false })
+  await enrichCompanyProfile({ companyName: 'Glomma Tannklinikk', city: 'Fredrikstad' }, { fetchImpl: fileFetch, fileCache: true, fileCacheDir, cache: false })
+  assert(fileFetchCount === 2, 'file cache should avoid duplicate Brreg endpoint fetches across identical lookup calls')
+  fs.rmSync(fileCacheDir, { recursive: true, force: true })
+
+  const errorCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'company-profile-error-cache-'))
+  let errorFetchCount = 0
+  const errorFetch = async () => { errorFetchCount += 1; throw new Error('network down') }
+  await enrichCompanyProfile({ companyName: 'Cache Error AS' }, { fetchImpl: errorFetch, fileCache: true, fileCacheDir: errorCacheDir, cache: false, retries: 0 })
+  await enrichCompanyProfile({ companyName: 'Cache Error AS' }, { fetchImpl: errorFetch, fileCache: true, fileCacheDir: errorCacheDir, cache: false, retries: 0 })
+  assert(errorFetchCount === 2, 'file cache should not cache error profiles')
+  fs.rmSync(errorCacheDir, { recursive: true, force: true })
 
   const profile = await enrichCompanyProfile({ companyName: 'Glomma Tannklinikk', city: 'Fredrikstad' }, { fetchImpl: mockFetch({ enheter: [glomma], underenheter: [] }), cache: new Map() })
   assert(profile.matchStatus === 'strong_match' || profile.matchStatus === 'exact_match', 'mocked API search should return strong/exact match')

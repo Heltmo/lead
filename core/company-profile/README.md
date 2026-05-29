@@ -76,7 +76,22 @@ The module now exposes ambiguous Brreg results instead of hiding them:
 - Enhet/underenhet ambiguity adds `unit_subunit_ambiguity` and `branch_location_uncertain` unless one candidate clearly dominates with location/branch evidence.
 - Chain, brand, franchise, clinic group, and network cases add warnings such as `chain_ambiguity`, `branch_ambiguity`, and `brand_legal_name_mismatch`.
 - Timeout, network, API, and parse errors return `matchStatus: error` without confirming org.nr.
-- Repeated identical lookup calls can use an in-memory cache for the current process/run; there is no database or persistent storage.
+- Repeated identical lookup calls can use an in-memory cache for the current process/run.
+- Lead Machine integrations can enable a local file cache for repeated Brreg/company-profile lookups across runs.
+
+## Local File Cache
+
+`enrichCompanyProfile(input, { fileCache: true })` stores successful non-error profiles under `.cache/company-profile/brreg-company-profile-v1/` by default. The cache key uses normalized company name, website domain, phone digits, email, address, city, industry, Brreg base URL, and search size.
+
+Defaults:
+
+- TTL: 30 days
+- errors are not cached
+- no SQL database
+- no persistent cache outside the local workspace
+- `.cache/` is ignored by git
+
+This is meant to keep Fast scans quick when the same company appears in repeated searches, while preserving the conservative matching policy. If Brreg returns `error`, the next run can retry instead of reusing a stale failure.
 
 Confirmed `organizationNumber` remains reserved for exact/strong matches with enough support. Uncertain matches should use `candidateOrganizationNumber` and `candidates[]` for manual verification.
 

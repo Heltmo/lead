@@ -1,3 +1,6 @@
+const path = require('path')
+const { stableCacheKey, withFileCache } = require('../cache/localFileCache')
+
 const BRREG_BASE_URL = 'https://data.brreg.no/enhetsregisteret/api'
 
 const MATCH_STATUSES = new Set(['exact_match', 'strong_match', 'weak_match', 'manual_verify', 'no_match', 'error'])
@@ -6,9 +9,29 @@ const MARKETING_WORDS = new Set(['avd', 'avdeling', 'klinikk', 'tannklinikk', 't
 const CHAIN_WORDS = ['odontia', 'oris', 'vb', 'vvs eksperten', 'vvseksperten', 'kjede', 'franchise', 'gruppen', 'group', 'flow']
 const DEFAULT_TIMEOUT_MS = 8000
 const DEFAULT_RETRIES = 1
+const DEFAULT_FILE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000
+const DEFAULT_FILE_CACHE_DIR = path.resolve(__dirname, '..', '..', '.cache', 'company-profile')
 const requestCache = new Map()
 
 async function enrichCompanyProfile(input = {}, options = {}) {
+  if (options.fileCache) {
+    return withFileCache({
+      cacheDir: options.fileCacheDir || DEFAULT_FILE_CACHE_DIR,
+      namespace: 'brreg-company-profile-v1',
+      key: stableCacheKey({
+        input: normalizeCacheInput(input),
+        baseUrl: options.baseUrl || BRREG_BASE_URL,
+        size: Number(options.size || 10),
+      }),
+      ttlMs: Number(options.fileCacheTtlMs || DEFAULT_FILE_CACHE_TTL_MS),
+      shouldCache: (profile) => profile && profile.matchStatus !== 'error',
+      producer: () => enrichCompanyProfileUncached(input, { ...options, fileCache: false }),
+    })
+  }
+  return enrichCompanyProfileUncached(input, options)
+}
+
+async function enrichCompanyProfileUncached(input = {}, options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch
   if (typeof fetchImpl !== 'function') {
     return errorProfile(input, 'fetch_unavailable')
@@ -19,6 +42,19 @@ async function enrichCompanyProfile(input = {}, options = {}) {
     return matchCompanyProfile(input, candidates, options)
   } catch (error) {
     return errorProfile(input, error && error.message ? error.message : 'brreg_request_failed')
+  }
+}
+
+
+function normalizeCacheInput(input = {}) {
+  return {
+    companyName: String(input.companyName || input.name || '').trim().toLowerCase(),
+    website: normalizeDomain(input.website || ''),
+    phone: digitsOnly(input.phone || ''),
+    email: String(input.email || '').trim().toLowerCase(),
+    address: normalizeText(input.address || ''),
+    city: normalizeText(input.city || ''),
+    industry: normalizeText(input.industry || ''),
   }
 }
 
@@ -515,4 +551,5 @@ module.exports = {
   normalizeName,
   normalizeText,
   classifyError,
+  normalizeCacheInput,
 }

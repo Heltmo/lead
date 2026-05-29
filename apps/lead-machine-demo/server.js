@@ -258,6 +258,8 @@ async function safeSelectedCompanyProfile(lead = {}) {
       address: contact.address || lead.address,
       city: contact.city || lead.city,
       industry: lead.leadClass || lead.opportunityType,
+    }, {
+      fileCache: true,
     })
   } catch (error) {
     return {

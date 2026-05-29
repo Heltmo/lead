@@ -323,6 +323,8 @@ async function safeFastCompanyProfile(candidate) {
       address: candidate.address || candidate.location,
       city: candidate.candidateCity || extractCity(candidate.address || candidate.location || ''),
       industry: candidate.industry || candidate.canonicalIndustry,
+    }, {
+      fileCache: true,
     })
   } catch (error) {
     return {

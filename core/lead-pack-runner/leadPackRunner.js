@@ -177,6 +177,8 @@ async function safeCompanyProfile(item) {
       address: item.sourceMetadata?.address || item.location,
       city: extractCity(item.sourceMetadata?.address || item.location || ''),
       industry: item.sourceMetadata?.industry || item.industry,
+    }, {
+      fileCache: true,
     })
   } catch (error) {
     return {
