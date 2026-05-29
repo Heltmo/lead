@@ -40,6 +40,7 @@ async function discoverLocalBusinesses(options) {
     mockResultsPath: options.mockResultsPath,
     braveEndpoint: options.braveEndpoint,
     googlePlacesEndpoint: options.googlePlacesEndpoint,
+    brregEndpoint: options.brregEndpoint,
     languageCode: options.languageCode,
     regionCode: options.regionCode,
   })
@@ -126,6 +127,22 @@ function formatHandoffCandidate(candidate, report = {}) {
     locationQuality: candidate.locationQuality || null,
     discoveryQuality: candidate.discoveryQuality || null,
     discoveryConfidence: candidate.discoveryConfidence || '',
+    identitySource: candidate.identitySource || '',
+    presenceSource: candidate.presenceSource || '',
+    organizationNumber: candidate.organizationNumber || '',
+    candidateOrganizationNumber: candidate.candidateOrganizationNumber || '',
+    legalName: candidate.legalName || '',
+    candidateLegalName: candidate.candidateLegalName || '',
+    organizationForm: candidate.organizationForm || '',
+    registeredAddress: candidate.registeredAddress || '',
+    municipality: candidate.municipality || '',
+    unitType: candidate.unitType || '',
+    naceCode: candidate.naceCode || '',
+    naceDescription: candidate.naceDescription || '',
+    employees: candidate.employees ?? '',
+    registrationDate: candidate.registrationDate || '',
+    activeStatus: candidate.activeStatus || '',
+    sourceUrl: candidate.sourceUrl || '',
   })
 }
 
@@ -142,7 +159,7 @@ function shouldIncludeInFastLeadPack(candidate = {}) {
   if (candidate.locationMatchStatus === 'out_of_area' || reason.startsWith('out_of_area:')) return false
   if (['directory', 'social', 'governmentRegistry', 'publicSector'].includes(candidate.sourceType)) return false
   if (candidate.auditEligible !== false) return true
-  return reason === 'missing_website_for_audit' && Boolean(candidate.phone || candidate.placeId || candidate.address)
+  return reason === 'missing_website_for_audit' && Boolean(candidate.phone || candidate.placeId || candidate.address || candidate.organizationNumber || candidate.candidateOrganizationNumber)
 }
 
 function enrichDiscoveryQuality(candidate = {}) {
@@ -170,6 +187,11 @@ function buildDiscoveryQuality(candidate = {}) {
   if (candidate.reviewCount) { score += 7; reasons.push('reviews_available') }
   if (candidate.businessStatus === 'OPERATIONAL') { score += 5; reasons.push('operational') }
   if (candidate.sourceType === 'directBusiness') { score += 5; reasons.push('direct_business_target') }
+  if (candidate.organizationNumber) { score += 18; reasons.push('confirmed_org') }
+  else if (candidate.candidateOrganizationNumber) { score += 10; reasons.push('candidate_org') }
+  if (candidate.identitySource === 'brreg' || candidate.sourceType === 'officialRegistry') { score += 8; reasons.push('official_registry') }
+  if (candidate.naceCode) { score += 5; reasons.push('nace_available') }
+  if (candidate.employees !== '' && candidate.employees != null) { score += 4; reasons.push('employees_available') }
   if (candidate.auditEligible === false && candidate.auditExclusionReason !== 'missing_website_for_audit') warnings.push('not_audit_eligible')
 
   const capped = Math.max(0, Math.min(100, score))

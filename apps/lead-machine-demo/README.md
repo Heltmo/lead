@@ -85,7 +85,7 @@ Fast results are candidates, not fully qualified leads. Deep qualification is pe
 
 ## What It Does
 
-By default, the app uses Google Places with Brreg company-profile enrichment enabled automatically. A hidden fixture provider exists only for deterministic tests; it is not exposed as the seller workflow.
+By default, the app uses Balanced discovery: Brreg official identity first, plus Google Places public presence when available. Brreg company identity is enabled automatically. A hidden fixture provider exists only for deterministic tests; it is not exposed as the seller workflow.
 
 The browser sends the query to a local Node server. For live providers, the server calls the existing `core/lead-machine` module directly and returns:
 
@@ -131,7 +131,7 @@ No prepared pitch text, email templates, or automated outreach are included. The
 ## Limitations
 
 - Uses local server only.
-- Live Google Places runs require `GOOGLE_PLACES_API_KEY`.
+- Balanced runs can return Brreg identity rows without a Google key, but Google Places presence enrichment requires `GOOGLE_PLACES_API_KEY`.
 - Brreg firmaprofil uses `core/company-profile` automatically to enrich org.nr/legal identity conservatively because company identity is core seller context.
 - Fast mode treats website URLs as unverified until Deep confirms they are real and relevant.
 - The Brreg panel shows confirmed org.nr only for strong matches. Uncertain results stay as candidate org.nr/manual verify with legal name, organization form, address, municipality, NACE, employees, status, match confidence, warnings, and candidate records when available.
@@ -142,9 +142,10 @@ No prepared pitch text, email templates, or automated outreach are included. The
 
 Live runs are slower than the fixture because each included lead can trigger:
 
-1. Google Places discovery
-2. optional website audit in Deep mode
-3. lead-pack generation
-4. optional Brreg company-profile lookup
+1. Brreg official identity discovery
+2. Google Places presence enrichment when an API key is available
+3. optional website audit in Deep mode
+4. lead-pack generation
+5. automatic Brreg company-profile lookup for non-Brreg-first candidates
 
 Use `Fast` + `Max 10-25` for quick scans. Use selected-lead `Deep` when you want full website audit/scoring for one candidate. Brreg runs by default for seller-ready identity context.

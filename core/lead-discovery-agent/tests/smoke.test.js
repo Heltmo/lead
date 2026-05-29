@@ -223,6 +223,92 @@ async function main() {
   assert(googleRows[0].placeId === 'places/norfloss', 'Google Places handoff should preserve place id')
   assert(googleRows[0].locationMatchStatus === 'exact_location', 'Google Places handoff should preserve location match status')
 
+
+
+  const brregFixture = {
+    _embedded: {
+      enheter: [
+        {
+          organisasjonsnummer: '999111222',
+          navn: 'SARPSBORG RØR AS',
+          organisasjonsform: { kode: 'AS', beskrivelse: 'Aksjeselskap' },
+          forretningsadresse: { adresse: ['Testgata 1'], postnummer: '1700', poststed: 'SARPSBORG', kommune: 'SARPSBORG' },
+          naeringskode1: { kode: '43.220', beskrivelse: 'VVS-arbeid' },
+          antallAnsatte: 7,
+          hjemmeside: 'https://sarpsborgror.no',
+          registreringsdatoEnhetsregisteret: '2020-01-01',
+          _links: { self: { href: 'https://data.brreg.no/enhetsregisteret/api/enheter/999111222' } },
+        },
+        {
+          organisasjonsnummer: '999333444',
+          navn: 'SARPSBORG VVS UTEN NETTSIDE AS',
+          organisasjonsform: { kode: 'AS', beskrivelse: 'Aksjeselskap' },
+          forretningsadresse: { adresse: ['Rørgata 2'], postnummer: '1700', poststed: 'SARPSBORG', kommune: 'SARPSBORG' },
+          naeringskode1: { kode: '43.220', beskrivelse: 'VVS-arbeid' },
+          antallAnsatte: 3,
+          registreringsdatoEnhetsregisteret: '2021-02-02',
+          _links: { self: { href: 'https://data.brreg.no/enhetsregisteret/api/enheter/999333444' } },
+        },
+      ],
+    },
+  }
+
+  const brregReport = await discoverLocalBusinesses({
+    query: 'rørlegger i Sarpsborg',
+    provider: 'brreg',
+    mockResults: brregFixture,
+    maxResults: 5,
+    validate: false,
+  })
+  assert(brregReport.provider.provider === 'brreg', 'Brreg provider should be recorded in report')
+  assert(brregReport.provider.brreg.naceCodes.includes('43.220'), 'Brreg provider should map plumber query to VVS NACE')
+  assert(brregReport.totalRawCandidates === 2, 'Brreg fixture should count official registry rows')
+  const official = brregReport.candidates.find((candidate) => candidate.organizationNumber === '999111222')
+  assert(official, 'Brreg candidate should preserve organization number')
+  assert(official.legalName === 'SARPSBORG RØR AS', 'Brreg candidate should preserve legal name')
+  assert(official.naceCode === '43.220', 'Brreg candidate should preserve NACE code')
+  assert(official.employees === 7, 'Brreg candidate should preserve employees')
+  assert(official.identitySource === 'brreg', 'Brreg candidate should expose identity source')
+  assert(official.sourceType === 'officialRegistry', 'Brreg candidate should expose official registry source type')
+  assert(official.locationMatchStatus === 'exact_location', 'Brreg candidate should respect requested location')
+  assert(official.discoveryQuality.reasons.includes('confirmed_org'), 'Brreg candidate should improve discovery confidence with confirmed org')
+  const officialNoWebsite = brregReport.candidates.find((candidate) => candidate.organizationNumber === '999333444')
+  assert(officialNoWebsite.auditEligible === false, 'Brreg official row without website should not be audit eligible')
+  assert(shouldIncludeInFastLeadPack(officialNoWebsite) === true, 'Brreg official row without website should still be usable in Fast lead packs')
+
+  const balancedFixture = {
+    places: [
+      {
+        id: 'places/sarpsborg-ror',
+        displayName: { text: 'Sarpsborg Rør AS' },
+        websiteUri: 'https://sarpsborgror.no/kontakt',
+        nationalPhoneNumber: '+47 47 00 00 00',
+        formattedAddress: 'Testgata 1, 1700 Sarpsborg, Norway',
+        businessStatus: 'OPERATIONAL',
+        rating: 4.8,
+        userRatingCount: 12,
+        types: ['plumber'],
+      },
+    ],
+    _embedded: brregFixture._embedded,
+  }
+  const balancedReport = await discoverLocalBusinesses({
+    query: 'rørlegger i Sarpsborg',
+    provider: 'balanced',
+    mockResults: balancedFixture,
+    maxResults: 5,
+    validate: false,
+  })
+  assert(balancedReport.provider.provider === 'balanced', 'Balanced provider should be recorded in report')
+  const balancedCandidate = balancedReport.candidates.find((candidate) => candidate.organizationNumber === '999111222')
+  assert(balancedCandidate, 'Balanced provider should include Brreg identity')
+  assert(balancedCandidate.placeId === 'places/sarpsborg-ror', 'Balanced provider should merge Google place identity onto Brreg candidate')
+  assert(balancedCandidate.rating === 4.8, 'Balanced provider should preserve Google rating')
+  assert(balancedCandidate.identitySource === 'brreg', 'Balanced provider should keep Brreg as identity source')
+  assert(balancedCandidate.presenceSource === 'google-places', 'Balanced provider should expose Google as presence source when merged')
+  assert(balancedCandidate.sources.some((item) => item.provider === 'brreg'), 'Balanced candidate should preserve Brreg provenance')
+  assert(balancedCandidate.sources.some((item) => item.provider === 'google-places'), 'Balanced candidate should preserve Google provenance')
+
   const fallbackReport = await discoverLocalBusinesses({
     query: 'tannleger i Halden',
     provider: 'google-places',

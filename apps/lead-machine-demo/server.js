@@ -53,7 +53,7 @@ async function handleRun(req, res, context) {
   if (!parsedQuery.ok) return json(res, 400, { error: parsedQuery.error })
 
   const maxResults = normalizeMaxResults(body.maxResults, 5)
-  const provider = ['demo-fixture', 'google-places', 'mock'].includes(body.provider) ? body.provider : 'google-places'
+  const provider = ['demo-fixture', 'google-places', 'brreg', 'balanced', 'mock'].includes(body.provider) ? body.provider : 'balanced'
   const searchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'strict'
   const mode = ['fast', 'deep'].includes(body.mode) ? body.mode : 'fast'
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
@@ -165,6 +165,22 @@ async function deepQualifyLead({ lead, query, enrichCompanyProfile, runsDir }) {
     locationQuality: sourceQuality.locationQuality || null,
     discoveryQuality: sourceQuality.discoveryQuality || null,
     discoveryConfidence: sourceQuality.discoveryConfidence || sourceQuality.discoveryQuality?.level || '',
+    identitySource: sourceQuality.identitySource || company.source || '',
+    presenceSource: sourceQuality.presenceSource || places.provider || '',
+    organizationNumber: company.organizationNumber || '',
+    candidateOrganizationNumber: company.candidateOrganizationNumber || '',
+    legalName: company.legalName || '',
+    candidateLegalName: company.candidateLegalName || '',
+    organizationForm: company.organizationForm || '',
+    registeredAddress: company.registeredAddress || '',
+    municipality: company.municipality || '',
+    unitType: company.unitType || '',
+    naceCode: company.naceCode || '',
+    naceDescription: company.naceDescription || '',
+    employees: company.employees ?? '',
+    registrationDate: company.registrationDate || '',
+    activeStatus: company.activeStatus || '',
+    sourceUrl: company.sourceUrl || '',
   }
 
   const auditResult = await runAuditQueue({

@@ -70,9 +70,13 @@ This proves the seller-ready lead pack format before building a new end-to-end r
 
 ## Data Sources
 
+### Balanced Discovery
+
+Role: default source strategy. Use Brreg as the official company universe, then attach Google Places as public presence. This prevents the product from being only a Google wrapper and gives sellers org.nr, legal identity, NACE, employees and warnings before they decide what to qualify.
+
 ### Google Places
 
-Role: local discovery and business metadata.
+Role: local presence and business metadata.
 
 Use for:
 
@@ -160,7 +164,7 @@ Future architecture:
 ```text
 User Query
   -> Lead Run Controller
-  -> Discovery Providers
+  -> Discovery Providers (Balanced / Brreg / Google Places)
   -> Orchestrator / Website Audit
   -> Business Signals
   -> Opportunity Compression

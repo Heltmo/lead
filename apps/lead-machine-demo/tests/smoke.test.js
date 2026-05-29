@@ -132,7 +132,7 @@ async function main() {
   assert(lower.includes('locationinput'), 'UI should include structured location input')
   assert(lower.includes('ålesund'), 'UI should include Norway location autocomplete options')
   assert(lower.includes('fysioterapeut'), 'UI should include supported profession options')
-  assert(lower.includes('value="google-places"'), 'UI should default to Google Places provider')
+  assert(lower.includes('value="balanced"'), 'UI should default to balanced Brreg + Google provider')
   assert(lower.includes('id="companyprofile" type="hidden" value="true"'), 'UI should make Brreg automatic without a seller checkbox')
   assert(lower.includes('runmode'), 'UI should include fast/deep mode selector')
   assert(lower.includes('audit skipped'), 'Fast mode UI should show audit skipped state')
@@ -169,6 +169,9 @@ async function main() {
   assert(lower.includes('nace'), 'UI should expose NACE field')
   assert(lower.includes('employees'), 'UI should expose employees field')
   assert(lower.includes('brreg candidates'), 'UI should expose Brreg candidate list')
+  assert(lower.includes('source strategy'), 'UI should expose identity/presence source strategy')
+  assert(lower.includes('identity source'), 'UI should expose identity source')
+  assert(lower.includes('presence source'), 'UI should expose presence source')
   assert(lower.includes('confirmed_org'), 'UI should support confirmed org badge')
   assert(lower.includes('candidate_org'), 'UI should support candidate org badge')
 

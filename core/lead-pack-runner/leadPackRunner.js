@@ -15,7 +15,7 @@ const LEAD_PACK_COLUMNS = [
   'placeId', 'rating', 'reviewCount',
   'auditStatus', 'topEvidence', 'contactability',
   'whyRanked', 'caution', 'painScore', 'buyingLikelihood', 'salesEase',
-  'economyStatus', 'searchScope', 'requestedMaxResults', 'includedLeadCount', 'lowSupply', 'fallbackAvailable', 'recommendedExpansion', 'requestedLocation', 'candidateLocation', 'locationMatchStatus', 'locationConfidence', 'distanceKm', 'locationWarnings', 'fallbackUsed', 'sourceQuery', 'sourceRun', 'lastCheckedAt',
+  'economyStatus', 'identitySource', 'presenceSource', 'searchScope', 'requestedMaxResults', 'includedLeadCount', 'lowSupply', 'fallbackAvailable', 'recommendedExpansion', 'requestedLocation', 'candidateLocation', 'locationMatchStatus', 'locationConfidence', 'distanceKm', 'locationWarnings', 'fallbackUsed', 'sourceQuery', 'sourceRun', 'lastCheckedAt',
 ]
 
 async function runLeadPack(options = {}) {
@@ -118,30 +118,49 @@ function buildLeadPack({ item, leadInsight, compressedOpportunity, commercialPre
 }
 
 function companyFromProfile(item, profile) {
+  const meta = item.sourceMetadata || {}
+  const metadataConfirmed = Boolean(meta.organizationNumber)
+  const metadataCandidate = Boolean(meta.candidateOrganizationNumber)
+  const profileConfirmed = isConfirmedProfile(profile)
   return {
-    displayName: item.name || null,
-    legalName: profile?.legalName || null,
-    candidateLegalName: profile?.candidateLegalName || null,
-    organizationNumber: isConfirmedProfile(profile) ? profile.organizationNumber : null,
-    candidateOrganizationNumber: profile?.candidateOrganizationNumber || null,
-    organizationForm: profile?.organizationForm || null,
-    registeredAddress: profile?.registeredAddress || null,
-    municipality: profile?.municipality || null,
-    unitType: profile?.unitType || null,
-    naceCode: profile?.naceCode || null,
-    naceDescription: profile?.naceDescription || null,
-    employees: profile?.employees ?? null,
-    registrationDate: profile?.registrationDate || null,
-    activeStatus: profile?.activeStatus || null,
-    source: profile?.source || null,
-    sourceUrl: profile?.sourceUrl || null,
+    displayName: item.name || meta.businessName || null,
+    legalName: profile?.legalName || meta.legalName || null,
+    candidateLegalName: profile?.candidateLegalName || meta.candidateLegalName || meta.legalName || null,
+    organizationNumber: profileConfirmed ? profile.organizationNumber : (metadataConfirmed ? meta.organizationNumber : null),
+    candidateOrganizationNumber: profile?.candidateOrganizationNumber || meta.candidateOrganizationNumber || meta.organizationNumber || null,
+    organizationForm: profile?.organizationForm || meta.organizationForm || null,
+    registeredAddress: profile?.registeredAddress || meta.registeredAddress || null,
+    municipality: profile?.municipality || meta.municipality || null,
+    unitType: profile?.unitType || meta.unitType || null,
+    naceCode: profile?.naceCode || meta.naceCode || null,
+    naceDescription: profile?.naceDescription || meta.naceDescription || null,
+    employees: profile?.employees ?? numberOrNull(meta.employees),
+    registrationDate: profile?.registrationDate || meta.registrationDate || null,
+    activeStatus: profile?.activeStatus || meta.activeStatus || null,
+    source: profile?.source || meta.identitySource || null,
+    sourceUrl: profile?.sourceUrl || meta.sourceUrl || null,
     errorType: profile?.errorType || null,
-    matchStatus: profile?.matchStatus || null,
-    matchConfidence: profile?.matchConfidence ?? null,
-    matchReasons: normalizeArray(profile?.matchReasons),
+    matchStatus: profile?.matchStatus || (metadataConfirmed ? 'exact_match' : (metadataCandidate ? 'manual_verify' : null)),
+    matchConfidence: profile?.matchConfidence ?? (metadataConfirmed ? 1 : (metadataCandidate ? 0.7 : null)),
+    matchReasons: normalizeArray(profile?.matchReasons || (metadataConfirmed ? 'official_registry_identity' : '')),
     warnings: normalizeArray(profile?.warnings),
-    candidates: Array.isArray(profile?.candidates) ? profile.candidates : [],
+    candidates: Array.isArray(profile?.candidates) ? profile.candidates : metadataCandidates(meta),
   }
+}
+
+function metadataCandidates(meta = {}) {
+  if (!meta.candidateOrganizationNumber && !meta.organizationNumber) return []
+  return [{
+    candidateOrganizationNumber: meta.candidateOrganizationNumber || meta.organizationNumber,
+    candidateLegalName: meta.candidateLegalName || meta.legalName || null,
+    organizationForm: meta.organizationForm || null,
+    municipality: meta.municipality || null,
+    address: meta.registeredAddress || meta.address || null,
+    unitType: meta.unitType || null,
+    score: meta.organizationNumber ? 1 : 0.7,
+    matchReasons: meta.organizationNumber ? ['official_registry_identity'] : ['candidate_registry_identity'],
+    warnings: [],
+  }]
 }
 
 function isConfirmedProfile(profile) {
@@ -213,6 +232,8 @@ function buildLeadPacksCsv(leadPacks) {
     buyingLikelihood: pack.ranking.buyingLikelihood,
     salesEase: pack.ranking.salesEase,
     economyStatus: pack.economy.status,
+    identitySource: pack.sourceQuality.identitySource,
+    presenceSource: pack.sourceQuality.presenceSource,
     searchScope: pack.sourceQuality.searchScope,
     requestedMaxResults: pack.sourceQuality.requestedMaxResults,
     includedLeadCount: pack.sourceQuality.includedLeadCount,
@@ -252,6 +273,8 @@ function sourceQuality(item) {
     fallbackUsed: Boolean(item.sourceMetadata?.fallbackUsed || quality.fallbackUsed),
     discoveryQuality: item.sourceMetadata?.discoveryQuality || null,
     discoveryConfidence: item.sourceMetadata?.discoveryConfidence || item.sourceMetadata?.discoveryQuality?.level || null,
+    identitySource: item.sourceMetadata?.identitySource || null,
+    presenceSource: item.sourceMetadata?.presenceSource || item.sourceMetadata?.provenance?.provider || null,
   }
 }
 

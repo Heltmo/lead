@@ -10,7 +10,7 @@ const { normalizeSearchScope } = require('../lead-discovery-agent/normalizers/lo
 async function runLeadMachine(options = {}) {
   if (!options.query) throw new Error('query is required')
   const query = String(options.query).trim()
-  const provider = options.provider || 'google-places'
+  const provider = options.provider || 'balanced'
   const maxResults = normalizePositiveInteger(options.maxResults, 5)
   const searchScope = normalizeSearchScope(options.searchScope)
   const enrichCompanyProfileEnabled = parseBoolean(options.enrichCompanyProfile)
@@ -34,6 +34,7 @@ async function runLeadMachine(options = {}) {
     env: options.env,
     fetchImpl: options.fetchImpl,
     googlePlacesEndpoint: options.googlePlacesEndpoint,
+    brregEndpoint: options.brregEndpoint,
     braveEndpoint: options.braveEndpoint,
   })
   const discoveryOutputs = writeDiscoveryOutputs(discovery, {
@@ -250,6 +251,8 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
       fallbackUsed: Boolean(candidate.fallbackUsed),
       discoveryQuality: candidate.discoveryQuality || null,
       discoveryConfidence: candidate.discoveryConfidence || null,
+      identitySource: candidate.identitySource || null,
+      presenceSource: candidate.presenceSource || candidate.provenance?.provider || null,
     },
     meta: {
       sourceQuery: query,
@@ -261,30 +264,48 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
 }
 
 function companyFromFastProfile(candidate, profile) {
+  const profileConfirmed = isConfirmedFastProfile(profile)
+  const metadataConfirmed = Boolean(candidate.organizationNumber)
+  const metadataCandidate = Boolean(candidate.candidateOrganizationNumber)
   return {
     displayName: candidate.businessName || candidate.name || null,
-    legalName: profile?.legalName || null,
-    candidateLegalName: profile?.candidateLegalName || null,
-    organizationNumber: isConfirmedFastProfile(profile) ? profile.organizationNumber : null,
-    candidateOrganizationNumber: profile?.candidateOrganizationNumber || null,
-    organizationForm: profile?.organizationForm || null,
-    registeredAddress: profile?.registeredAddress || null,
-    municipality: profile?.municipality || null,
-    unitType: profile?.unitType || null,
-    naceCode: profile?.naceCode || null,
-    naceDescription: profile?.naceDescription || null,
-    employees: profile?.employees ?? null,
-    registrationDate: profile?.registrationDate || null,
-    activeStatus: profile?.activeStatus || null,
-    source: profile?.source || null,
-    sourceUrl: profile?.sourceUrl || null,
+    legalName: profile?.legalName || candidate.legalName || null,
+    candidateLegalName: profile?.candidateLegalName || candidate.candidateLegalName || candidate.legalName || null,
+    organizationNumber: profileConfirmed ? profile.organizationNumber : (metadataConfirmed ? candidate.organizationNumber : null),
+    candidateOrganizationNumber: profile?.candidateOrganizationNumber || candidate.candidateOrganizationNumber || candidate.organizationNumber || null,
+    organizationForm: profile?.organizationForm || candidate.organizationForm || null,
+    registeredAddress: profile?.registeredAddress || candidate.registeredAddress || null,
+    municipality: profile?.municipality || candidate.municipality || null,
+    unitType: profile?.unitType || candidate.unitType || null,
+    naceCode: profile?.naceCode || candidate.naceCode || null,
+    naceDescription: profile?.naceDescription || candidate.naceDescription || null,
+    employees: profile?.employees ?? numberOrNull(candidate.employees),
+    registrationDate: profile?.registrationDate || candidate.registrationDate || null,
+    activeStatus: profile?.activeStatus || candidate.activeStatus || null,
+    source: profile?.source || candidate.identitySource || null,
+    sourceUrl: profile?.sourceUrl || candidate.sourceUrl || null,
     errorType: profile?.errorType || null,
-    matchStatus: profile?.matchStatus || null,
-    matchConfidence: profile?.matchConfidence ?? null,
-    matchReasons: Array.isArray(profile?.matchReasons) ? profile.matchReasons : [],
+    matchStatus: profile?.matchStatus || (metadataConfirmed ? 'exact_match' : (metadataCandidate ? 'manual_verify' : null)),
+    matchConfidence: profile?.matchConfidence ?? (metadataConfirmed ? 1 : (metadataCandidate ? 0.7 : null)),
+    matchReasons: Array.isArray(profile?.matchReasons) ? profile.matchReasons : (metadataConfirmed ? ['official_registry_identity'] : []),
     warnings: Array.isArray(profile?.warnings) ? profile.warnings : [],
-    candidates: Array.isArray(profile?.candidates) ? profile.candidates : [],
+    candidates: Array.isArray(profile?.candidates) && profile.candidates.length ? profile.candidates : fastMetadataCandidates(candidate),
   }
+}
+
+function fastMetadataCandidates(candidate = {}) {
+  if (!candidate.candidateOrganizationNumber && !candidate.organizationNumber) return []
+  return [{
+    candidateOrganizationNumber: candidate.candidateOrganizationNumber || candidate.organizationNumber,
+    candidateLegalName: candidate.candidateLegalName || candidate.legalName || null,
+    organizationForm: candidate.organizationForm || null,
+    municipality: candidate.municipality || null,
+    address: candidate.registeredAddress || candidate.address || null,
+    unitType: candidate.unitType || null,
+    score: candidate.organizationNumber ? 1 : 0.7,
+    matchReasons: candidate.organizationNumber ? ['official_registry_identity'] : ['candidate_registry_identity'],
+    warnings: [],
+  }]
 }
 
 function isConfirmedFastProfile(profile) {
@@ -292,6 +313,7 @@ function isConfirmedFastProfile(profile) {
 }
 
 async function safeFastCompanyProfile(candidate) {
+  if (candidate.organizationNumber) return companyProfileFromCandidate(candidate)
   try {
     return await enrichCompanyProfile({
       companyName: candidate.businessName || candidate.name,
@@ -326,6 +348,32 @@ async function safeFastCompanyProfile(candidate) {
       warnings: [error && error.message ? error.message : 'company_profile_error'],
       candidates: [],
     }
+  }
+}
+
+
+function companyProfileFromCandidate(candidate = {}) {
+  return {
+    organizationNumber: candidate.organizationNumber || null,
+    candidateOrganizationNumber: candidate.candidateOrganizationNumber || candidate.organizationNumber || null,
+    legalName: candidate.legalName || null,
+    candidateLegalName: candidate.candidateLegalName || candidate.legalName || null,
+    organizationForm: candidate.organizationForm || null,
+    registeredAddress: candidate.registeredAddress || null,
+    municipality: candidate.municipality || null,
+    unitType: candidate.unitType || null,
+    naceCode: candidate.naceCode || null,
+    naceDescription: candidate.naceDescription || null,
+    employees: candidate.employees === '' ? null : candidate.employees,
+    registrationDate: candidate.registrationDate || null,
+    activeStatus: candidate.activeStatus || null,
+    source: candidate.identitySource || 'brreg',
+    sourceUrl: candidate.sourceUrl || null,
+    matchStatus: candidate.organizationNumber ? 'exact_match' : 'manual_verify',
+    matchConfidence: candidate.organizationNumber ? 1 : 0.7,
+    matchReasons: candidate.organizationNumber ? ['official_registry_identity'] : ['candidate_registry_identity'],
+    warnings: [],
+    candidates: fastMetadataCandidates(candidate),
   }
 }
 
@@ -389,12 +437,14 @@ function buildFastLeadPacksCsv(leadPacks) {
     whyRanked: pack.ranking.whyRanked.join('|'),
     caution: pack.ranking.caution.join('|'),
     economyStatus: pack.economy.status,
+    identitySource: pack.sourceQuality.identitySource,
+    presenceSource: pack.sourceQuality.presenceSource,
     searchScope: pack.sourceQuality.searchScope,
     locationMatchStatus: pack.sourceQuality.locationMatchStatus,
     sourceQuery: pack.meta.sourceQuery,
     mode: pack.meta.mode,
   }))
-  return renderCsv(rows, ['rank', 'callPriority', 'leadClass', 'opportunityType', 'companyDisplayName', 'legalName', 'candidateLegalName', 'organizationNumber', 'candidateOrganizationNumber', 'organizationForm', 'registeredAddress', 'municipality', 'unitType', 'naceCode', 'naceDescription', 'employees', 'registrationDate', 'activeStatus', 'sourceUrl', 'matchStatus', 'matchConfidence', 'website', 'phone', 'email', 'address', 'city', 'placeId', 'rating', 'reviewCount', 'auditStatus', 'contactability', 'whyRanked', 'caution', 'economyStatus', 'searchScope', 'locationMatchStatus', 'sourceQuery', 'mode'])
+  return renderCsv(rows, ['rank', 'callPriority', 'leadClass', 'opportunityType', 'companyDisplayName', 'legalName', 'candidateLegalName', 'organizationNumber', 'candidateOrganizationNumber', 'organizationForm', 'registeredAddress', 'municipality', 'unitType', 'naceCode', 'naceDescription', 'employees', 'registrationDate', 'activeStatus', 'sourceUrl', 'matchStatus', 'matchConfidence', 'website', 'phone', 'email', 'address', 'city', 'placeId', 'rating', 'reviewCount', 'auditStatus', 'contactability', 'whyRanked', 'caution', 'economyStatus', 'identitySource', 'presenceSource', 'searchScope', 'locationMatchStatus', 'sourceQuery', 'mode'])
 }
 
 function countPriority(leadPacks) {

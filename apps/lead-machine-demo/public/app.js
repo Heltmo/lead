@@ -214,6 +214,11 @@ function renderDetail(lead) {
         ['CTA profile', website.ctaProfile ? 'available' : 'unknown'],
       ])}
       ${brregSourceCard(company)}
+      ${sourceCard('Source strategy', sourceQuality.identitySource || sourceQuality.presenceSource || 'unknown', [
+        ['Identity source', sourceQuality.identitySource || company.source || 'unknown'],
+        ['Presence source', sourceQuality.presenceSource || places.provider || 'unknown'],
+        ['Strategy', sourceQuality.identitySource === 'brreg' ? 'Brreg-first identity with presence enrichment' : 'Presence-first discovery'],
+      ])}
       ${sourceCard('Economy / Proff', economy.status || 'not_enabled', [
         ['Revenue', economy.revenue ?? 'not enabled'],
         ['Employees', economy.employees ?? 'not enabled'],
@@ -260,6 +265,8 @@ function renderDetail(lead) {
       ['Location', readable(sourceQuality.locationMatchStatus || 'unknown')],
       ['Economy', readable(economy.status || 'not_enabled')],
       ['Discovery confidence', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown')],
+      ['Identity source', sourceQuality.identitySource || company.source || 'unknown'],
+      ['Presence source', sourceQuality.presenceSource || places.provider || 'unknown'],
     ]))}
     ${section('Evidence', bullets((website.topEvidence || lead.topEvidence || lead.evidence || []).map(humanizeEvidence)))}
     ${section('Caution', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}

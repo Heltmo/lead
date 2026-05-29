@@ -29,6 +29,8 @@ function normalizeLeadCandidate(raw, defaults = {}) {
     : { sourceType: 'directBusiness', auditEligible: false, auditExclusionReason: 'missing_website_for_audit' }
   const sourceType = firstClean(raw.sourceType) || target.sourceType
   const auditEligible = normalizeBoolean(raw.auditEligible, target.auditEligible)
+  const organizationNumber = firstClean(raw.organizationNumber, raw.organisasjonsnummer)
+  const candidateOrganizationNumber = firstClean(raw.candidateOrganizationNumber, organizationNumber)
   const address = firstClean(raw.address, raw.formattedAddress, raw.formatted_address)
   const hasExplicitLocation = Boolean(firstClean(raw.location) || address)
   const location = normalizeLocation(raw.location || address, raw.provider && !hasExplicitLocation ? '' : defaults.location)
@@ -52,6 +54,22 @@ function normalizeLeadCandidate(raw, defaults = {}) {
     providerTypes: Array.isArray(raw.providerTypes) ? raw.providerTypes.map(cleanString).filter(Boolean) : (Array.isArray(raw.types) ? raw.types.map(cleanString).filter(Boolean) : []),
     normalizedDomain: normalizeDomain(website),
     sourceType,
+    identitySource: firstClean(raw.identitySource),
+    presenceSource: firstClean(raw.presenceSource),
+    organizationNumber,
+    candidateOrganizationNumber,
+    legalName: firstClean(raw.legalName, raw.navn),
+    candidateLegalName: firstClean(raw.candidateLegalName, raw.legalName, raw.navn),
+    organizationForm: firstClean(raw.organizationForm, raw.organisasjonsform?.beskrivelse, raw.organisasjonsform?.kode),
+    registeredAddress: firstClean(raw.registeredAddress),
+    municipality: firstClean(raw.municipality, raw.kommune),
+    unitType: firstClean(raw.unitType),
+    naceCode: firstClean(raw.naceCode, raw.naeringskode1?.kode),
+    naceDescription: firstClean(raw.naceDescription, raw.naeringskode1?.beskrivelse),
+    employees: normalizeNumber(raw.employees, raw.antallAnsatte),
+    registrationDate: firstClean(raw.registrationDate, raw.registreringsdatoEnhetsregisteret),
+    activeStatus: firstClean(raw.activeStatus),
+    sourceUrl: firstClean(raw.sourceUrl),
     auditEligible,
     auditExclusionReason: auditEligible ? '' : cleanString(raw.auditExclusionReason || target.auditExclusionReason),
     searchScope,
@@ -71,58 +89,93 @@ function normalizeLeadCandidate(raw, defaults = {}) {
 
 function deduplicateCandidates(candidates) {
   const byIdentity = new Map()
+  const result = []
   for (const candidate of candidates) {
-    const key = candidateDedupeKey(candidate)
-    if (!candidate || !key) continue
-    const existing = byIdentity.get(key)
+    if (!candidate) continue
+    const keys = candidateDedupeKeys(candidate)
+    if (!keys.length) continue
+    const existing = keys.map((key) => byIdentity.get(key)).find(Boolean)
     if (!existing) {
       const sources = uniqueSources(candidate.sources || [])
-      byIdentity.set(key, { ...candidate, dedupeKey: key, sources, provenance: createProvenance(candidate.provenance || { source: candidate.source }, sources) })
+      const primaryKey = keys[0]
+      const stored = { ...candidate, dedupeKey: primaryKey, dedupeKeys: keys, sources, provenance: createProvenance(candidate.provenance || { source: candidate.source }, sources) }
+      result.push(stored)
+      for (const key of keys) byIdentity.set(key, stored)
       continue
     }
-    existing.sources = uniqueSources([...(existing.sources || []), ...(candidate.sources || [])])
-    existing.source = existing.sources.map((item) => item.source).filter(Boolean).join('|') || existing.source
-    existing.provenance = mergeProvenance(existing, candidate)
-    existing.businessName = bestBusinessName(existing.businessName, candidate.businessName, existing.website)
-    existing.location = existing.location || candidate.location
-    existing.industry = existing.industry || candidate.industry
-    existing.confidence = bestConfidence(existing.confidence, candidate.confidence)
-    existing.phone = existing.phone || candidate.phone || ''
-    existing.address = existing.address || candidate.address || ''
-    existing.candidateLocation = existing.candidateLocation || candidate.candidateLocation || ''
-    existing.candidateCity = existing.candidateCity || candidate.candidateCity || ''
-    if (betterLocationQuality(candidate.locationQuality, existing.locationQuality)) {
-      existing.searchScope = candidate.searchScope
-      existing.requestedLocation = candidate.requestedLocation
-      existing.locationMatchStatus = candidate.locationMatchStatus
-      existing.locationConfidence = candidate.locationConfidence
-      existing.distanceKm = candidate.distanceKm
-      existing.locationWarnings = candidate.locationWarnings || []
-      existing.fallbackUsed = candidate.fallbackUsed
-      existing.locationQuality = candidate.locationQuality
-    }
-    existing.placeId = existing.placeId || candidate.placeId || ''
-    existing.rating = existing.rating || candidate.rating || ''
-    existing.reviewCount = existing.reviewCount || candidate.reviewCount || ''
-    existing.businessStatus = existing.businessStatus || candidate.businessStatus || ''
-    existing.providerTypes = uniqueValues([...(existing.providerTypes || []), ...(candidate.providerTypes || [])])
-    existing.sourceType = strongestSourceType(existing.sourceType, candidate.sourceType)
-    existing.auditEligible = Boolean(existing.auditEligible || candidate.auditEligible)
-    existing.auditExclusionReason = existing.auditEligible ? '' : (existing.auditExclusionReason || candidate.auditExclusionReason || '')
+    mergeCandidate(existing, candidate)
+    existing.dedupeKeys = uniqueValues([...(existing.dedupeKeys || []), ...keys])
+    for (const key of existing.dedupeKeys) byIdentity.set(key, existing)
   }
-  return [...byIdentity.values()]
+  return result
+}
+
+function mergeCandidate(existing, candidate) {
+  existing.sources = uniqueSources([...(existing.sources || []), ...(candidate.sources || [])])
+  existing.source = existing.sources.map((item) => item.source).filter(Boolean).join('|') || existing.source
+  existing.provenance = mergeProvenance(existing, candidate)
+  existing.businessName = bestBusinessName(existing.businessName, candidate.businessName, existing.website || candidate.website)
+  existing.website = existing.website || candidate.website || ''
+  existing.normalizedDomain = existing.normalizedDomain || candidate.normalizedDomain || ''
+  existing.location = existing.location || candidate.location
+  existing.industry = existing.industry || candidate.industry
+  existing.confidence = bestConfidence(existing.confidence, candidate.confidence)
+  existing.phone = existing.phone || candidate.phone || ''
+  existing.address = existing.address || candidate.address || ''
+  existing.candidateLocation = existing.candidateLocation || candidate.candidateLocation || ''
+  existing.candidateCity = existing.candidateCity || candidate.candidateCity || ''
+  if (betterLocationQuality(candidate.locationQuality, existing.locationQuality)) {
+    existing.searchScope = candidate.searchScope
+    existing.requestedLocation = candidate.requestedLocation
+    existing.locationMatchStatus = candidate.locationMatchStatus
+    existing.locationConfidence = candidate.locationConfidence
+    existing.distanceKm = candidate.distanceKm
+    existing.locationWarnings = candidate.locationWarnings || []
+    existing.fallbackUsed = candidate.fallbackUsed
+    existing.locationQuality = candidate.locationQuality
+  }
+  existing.placeId = existing.placeId || candidate.placeId || ''
+  if (candidate.placeId && candidate.presenceSource) existing.presenceSource = candidate.presenceSource
+  existing.rating = existing.rating || candidate.rating || ''
+  existing.reviewCount = existing.reviewCount || candidate.reviewCount || ''
+  existing.businessStatus = existing.businessStatus || candidate.businessStatus || ''
+  existing.providerTypes = uniqueValues([...(existing.providerTypes || []), ...(candidate.providerTypes || [])])
+  existing.sourceType = strongestSourceType(existing.sourceType, candidate.sourceType)
+  existing.auditEligible = Boolean(existing.auditEligible || candidate.auditEligible)
+  existing.auditExclusionReason = existing.auditEligible ? '' : (existing.auditExclusionReason || candidate.auditExclusionReason || '')
+  mergeIdentityFields(existing, candidate)
+}
+
+function mergeIdentityFields(existing, candidate) {
+  const preferIncoming = candidate.identitySource === 'brreg'
+  const fields = [
+    'identitySource', 'presenceSource', 'organizationNumber', 'candidateOrganizationNumber', 'legalName', 'candidateLegalName',
+    'organizationForm', 'registeredAddress', 'municipality', 'unitType', 'naceCode', 'naceDescription', 'employees',
+    'registrationDate', 'activeStatus', 'sourceUrl',
+  ]
+  for (const field of fields) {
+    if (preferIncoming && candidate[field] !== '' && candidate[field] != null) existing[field] = candidate[field]
+    else if ((existing[field] === '' || existing[field] == null) && candidate[field] !== '' && candidate[field] != null) existing[field] = candidate[field]
+  }
 }
 
 function candidateDedupeKey(candidate = {}) {
-  if (candidate.normalizedDomain) return 'domain:' + candidate.normalizedDomain
-  if (candidate.placeId) return 'place:' + normalizeKey(candidate.placeId)
+  return candidateDedupeKeys(candidate)[0] || ''
+}
+
+function candidateDedupeKeys(candidate = {}) {
+  const keys = []
+  if (candidate.organizationNumber) keys.push('org:' + normalizeKey(candidate.organizationNumber))
+  if (candidate.candidateOrganizationNumber) keys.push('org-candidate:' + normalizeKey(candidate.candidateOrganizationNumber))
+  if (candidate.normalizedDomain) keys.push('domain:' + candidate.normalizedDomain)
+  if (candidate.placeId) keys.push('place:' + normalizeKey(candidate.placeId))
   const phone = normalizePhone(candidate.phone)
   const city = normalizeKey(candidate.candidateCity || candidate.location || '')
-  if (phone && city) return 'phone-city:' + phone + ':' + city
+  if (phone && city) keys.push('phone-city:' + phone + ':' + city)
   const name = normalizeKey(candidate.businessName)
   const address = normalizeKey(candidate.address || candidate.location || '')
-  if (name && address) return 'name-address:' + name + ':' + address
-  return ''
+  if (name && address) keys.push('name-address:' + name + ':' + address)
+  return uniqueValues(keys)
 }
 
 function hasLocalBusinessIdentity(raw = {}, defaults = {}) {
@@ -132,7 +185,8 @@ function hasLocalBusinessIdentity(raw = {}, defaults = {}) {
   const phone = firstClean(raw.phone, raw.nationalPhoneNumber, raw.internationalPhoneNumber)
   const address = firstClean(raw.address, raw.formattedAddress, raw.formatted_address, raw.location)
   const placeId = firstClean(raw.placeId, raw.place_id, raw.id)
-  return Boolean(name && (phone || address || placeId))
+  const organizationNumber = firstClean(raw.organizationNumber, raw.organisasjonsnummer, raw.candidateOrganizationNumber)
+  return Boolean((name && (phone || address || placeId)) || (name && organizationNumber))
 }
 
 function normalizePhone(value = '') {
@@ -181,7 +235,7 @@ function normalizeConfidence(value) {
 }
 
 function strongestSourceType(left, right) {
-  const order = { directBusiness: 6, unknown: 5, directory: 4, publicSector: 3, governmentRegistry: 2, social: 1 }
+  const order = { directBusiness: 7, officialRegistry: 6, unknown: 5, directory: 4, publicSector: 3, governmentRegistry: 2, social: 1 }
   return (order[right] || 0) > (order[left] || 0) ? right : left
 }
 
@@ -347,6 +401,7 @@ module.exports = {
   normalizeLeadCandidate,
   deduplicateCandidates,
   candidateDedupeKey,
+  candidateDedupeKeys,
   normalizeWebsiteUrl,
   normalizeDomain,
   uniqueSources,

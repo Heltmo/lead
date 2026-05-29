@@ -39,6 +39,22 @@ function createQueue(urls, options = {}) {
       locationQuality: item.locationQuality,
       discoveryQuality: item.discoveryQuality,
       discoveryConfidence: item.discoveryConfidence,
+      identitySource: item.identitySource,
+      presenceSource: item.presenceSource,
+      organizationNumber: item.organizationNumber,
+      candidateOrganizationNumber: item.candidateOrganizationNumber,
+      legalName: item.legalName,
+      candidateLegalName: item.candidateLegalName,
+      organizationForm: item.organizationForm,
+      registeredAddress: item.registeredAddress,
+      municipality: item.municipality,
+      unitType: item.unitType,
+      naceCode: item.naceCode,
+      naceDescription: item.naceDescription,
+      employees: item.employees,
+      registrationDate: item.registrationDate,
+      activeStatus: item.activeStatus,
+      sourceUrl: item.sourceUrl,
       sourceMetadata: item.sourceMetadata,
       status: 'pending',
       attempts: 0,
@@ -102,6 +118,22 @@ function normalizeQueueInput(input) {
   const locationQuality = raw.locationQuality && typeof raw.locationQuality === 'object' && !Array.isArray(raw.locationQuality) ? raw.locationQuality : null
   const discoveryQuality = raw.discoveryQuality && typeof raw.discoveryQuality === 'object' && !Array.isArray(raw.discoveryQuality) ? raw.discoveryQuality : null
   const discoveryConfidence = clean(raw.discoveryConfidence || discoveryQuality?.level)
+  const identitySource = clean(raw.identitySource)
+  const presenceSource = clean(raw.presenceSource)
+  const organizationNumber = clean(raw.organizationNumber)
+  const candidateOrganizationNumber = clean(raw.candidateOrganizationNumber)
+  const legalName = clean(raw.legalName)
+  const candidateLegalName = clean(raw.candidateLegalName)
+  const organizationForm = clean(raw.organizationForm)
+  const registeredAddress = clean(raw.registeredAddress)
+  const municipality = clean(raw.municipality)
+  const unitType = clean(raw.unitType)
+  const naceCode = clean(raw.naceCode)
+  const naceDescription = clean(raw.naceDescription)
+  const employees = normalizeOptionalNumber(raw.employees)
+  const registrationDate = clean(raw.registrationDate)
+  const activeStatus = clean(raw.activeStatus)
+  const sourceUrl = clean(raw.sourceUrl)
   const sourceMetadata = {
     businessName,
     source,
@@ -137,8 +169,24 @@ function normalizeQueueInput(input) {
     locationQuality,
     discoveryQuality,
     discoveryConfidence,
+    identitySource,
+    presenceSource,
+    organizationNumber,
+    candidateOrganizationNumber,
+    legalName,
+    candidateLegalName,
+    organizationForm,
+    registeredAddress,
+    municipality,
+    unitType,
+    naceCode,
+    naceDescription,
+    employees,
+    registrationDate,
+    activeStatus,
+    sourceUrl,
   }
-  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, phone, address, placeId, rating, reviewCount, businessStatus, providerTypes, searchScope, requestedMaxResults, includedLeadCount, lowSupply, fallbackAvailable, recommendedExpansion, requestedLocation, candidateLocation, candidateCity, locationMatchStatus, locationConfidence, distanceKm, locationWarnings, fallbackUsed, locationQuality, discoveryQuality, discoveryConfidence, sourceMetadata }
+  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, phone, address, placeId, rating, reviewCount, businessStatus, providerTypes, searchScope, requestedMaxResults, includedLeadCount, lowSupply, fallbackAvailable, recommendedExpansion, requestedLocation, candidateLocation, candidateCity, locationMatchStatus, locationConfidence, distanceKm, locationWarnings, fallbackUsed, locationQuality, discoveryQuality, discoveryConfidence, identitySource, presenceSource, organizationNumber, candidateOrganizationNumber, legalName, candidateLegalName, organizationForm, registeredAddress, municipality, unitType, naceCode, naceDescription, employees, registrationDate, activeStatus, sourceUrl, sourceMetadata }
 }
 
 function clean(value) {

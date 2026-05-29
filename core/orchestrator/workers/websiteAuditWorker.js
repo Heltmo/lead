@@ -49,6 +49,22 @@ function sourceMetadataFromItem(item) {
     locationQuality: item.locationQuality || item.sourceMetadata?.locationQuality || null,
     discoveryQuality: item.discoveryQuality || item.sourceMetadata?.discoveryQuality || null,
     discoveryConfidence: item.discoveryConfidence || item.sourceMetadata?.discoveryConfidence || '',
+    identitySource: item.identitySource || item.sourceMetadata?.identitySource || '',
+    presenceSource: item.presenceSource || item.sourceMetadata?.presenceSource || '',
+    organizationNumber: item.organizationNumber || item.sourceMetadata?.organizationNumber || '',
+    candidateOrganizationNumber: item.candidateOrganizationNumber || item.sourceMetadata?.candidateOrganizationNumber || '',
+    legalName: item.legalName || item.sourceMetadata?.legalName || '',
+    candidateLegalName: item.candidateLegalName || item.sourceMetadata?.candidateLegalName || '',
+    organizationForm: item.organizationForm || item.sourceMetadata?.organizationForm || '',
+    registeredAddress: item.registeredAddress || item.sourceMetadata?.registeredAddress || '',
+    municipality: item.municipality || item.sourceMetadata?.municipality || '',
+    unitType: item.unitType || item.sourceMetadata?.unitType || '',
+    naceCode: item.naceCode || item.sourceMetadata?.naceCode || '',
+    naceDescription: item.naceDescription || item.sourceMetadata?.naceDescription || '',
+    employees: item.employees || item.sourceMetadata?.employees || '',
+    registrationDate: item.registrationDate || item.sourceMetadata?.registrationDate || '',
+    activeStatus: item.activeStatus || item.sourceMetadata?.activeStatus || '',
+    sourceUrl: item.sourceUrl || item.sourceMetadata?.sourceUrl || '',
   }
   return Object.fromEntries(Object.entries(metadata).filter(([, value]) => hasMetadataValue(value)))
 }

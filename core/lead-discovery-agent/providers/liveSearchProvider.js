@@ -1,18 +1,22 @@
 const fs = require('fs')
 const { normalizeBusinessName, normalizeLocation } = require('../normalizers/leadCandidate')
+const { findNaceForIndustry, municipalityCodeFor } = require('../normalizers/naceMapping')
 
 const BRAVE_ENDPOINT = 'https://api.search.brave.com/res/v1/web/search'
 const GOOGLE_PLACES_ENDPOINT = 'https://places.googleapis.com/v1/places:searchText'
+const BRREG_ENDPOINT = 'https://data.brreg.no/enhetsregisteret/api/enheter'
 
 async function loadLiveSearchResults(options = {}) {
   const provider = normalizeProvider(options.provider)
   if (!provider) return createEmptyProviderResult(options)
   const plan = createProviderPlan(options)
   if (options.dryRun) return { plan, rows: [] }
-  if (options.mockResults || options.mockResultsPath) return { plan, rows: loadMockRows(options, plan) }
+  if ((options.mockResults || options.mockResultsPath) && !['brreg', 'balanced'].includes(provider)) return { plan, rows: loadMockRows(options, plan) }
   if (provider === 'mock') return { plan, rows: loadMockRows(options, plan) }
   if (provider === 'brave') return fetchBraveRows(options, plan)
   if (provider === 'google-places') return fetchGooglePlacesRows(options, plan)
+  if (provider === 'brreg') return fetchBrregRows(options, plan)
+  if (provider === 'balanced') return fetchBalancedRows(options, plan)
   throw new Error('Unsupported discovery provider: ' + provider)
 }
 
@@ -20,11 +24,17 @@ function createProviderPlan(options = {}) {
   const provider = normalizeProvider(options.provider)
   const maxResults = normalizeMaxResults(options.maxResults)
   const queries = createSearchQueries(options).slice(0, normalizeMaxProviderQueries(options.maxProviderQueries))
+  const nace = findNaceForIndustry({ canonicalIndustry: options.canonicalIndustry, industry: options.industry, query: options.query })
   return {
     provider,
     dryRun: Boolean(options.dryRun),
     maxResults,
     queries,
+    brreg: {
+      naceCodes: nace.map((item) => item.code),
+      municipalityCode: municipalityCodeFor(options.location),
+      location: options.location || '',
+    },
   }
 }
 
@@ -56,7 +66,35 @@ function loadMockRows(options, plan) {
   }))
 }
 
+async function fetchBalancedRows(options, plan) {
+  const rows = []
+  const providerPlan = { ...plan, provider: 'balanced', providers: ['brreg', 'google-places'] }
+  const brregPlan = { ...plan, provider: 'brreg', maxResults: plan.maxResults }
+  const googlePlan = { ...plan, provider: 'google-places', maxResults: plan.maxResults }
+  const errors = []
+
+  try {
+    const brregResult = await fetchBrregRows({ ...options, provider: 'brreg' }, brregPlan)
+    rows.push(...brregResult.rows)
+  } catch (error) {
+    errors.push('brreg:' + (error?.message || 'failed'))
+  }
+
+  try {
+    const googleResult = await fetchGooglePlacesRows({ ...options, provider: 'google-places' }, googlePlan)
+    rows.push(...googleResult.rows)
+  } catch (error) {
+    if (options.mockResults || options.mockResultsPath) throw error
+    errors.push('google-places:' + (error?.message || 'failed'))
+  }
+
+  return { plan: { ...providerPlan, errors }, rows: rows.slice(0, plan.maxResults * 2) }
+}
+
 async function fetchGooglePlacesRows(options, plan) {
+  if (options.mockResults || options.mockResultsPath) {
+    return { plan, rows: loadMockRows(options, { ...plan, provider: 'google-places' }) }
+  }
   const apiKey = (options.env || process.env).GOOGLE_PLACES_API_KEY
   if (!apiKey) throw new Error('GOOGLE_PLACES_API_KEY is required for --provider google-places. Use --dry-run true to inspect queries without calling Google Places.')
   const fetchImpl = options.fetchImpl || globalThis.fetch
@@ -84,7 +122,7 @@ async function fetchGooglePlacesRows(options, plan) {
     for (const result of results) {
       if (rows.length >= plan.maxResults) break
       rows.push(normalizeProviderResult(result, {
-        provider: plan.provider,
+        provider: 'google-places',
         query,
         location: options.location,
         industry: options.canonicalIndustry || options.industry,
@@ -112,6 +150,93 @@ function googlePlacesFieldMask() {
     'places.primaryTypeDisplayName',
     'places.location',
   ].join(',')
+}
+
+async function fetchBrregRows(options, plan) {
+  if (options.mockResults || options.mockResultsPath) {
+    const payload = options.mockResults || readJson(options.mockResultsPath)
+    return { plan, rows: normalizeBrregRows(extractBrregResults(payload), options, plan) }
+  }
+  const fetchImpl = options.fetchImpl || globalThis.fetch
+  if (typeof fetchImpl !== 'function') throw new Error('A fetch implementation is required for the Brreg provider.')
+  const rows = []
+  const naceCodes = plan.brreg?.naceCodes?.length ? plan.brreg.naceCodes : ['']
+  for (const naceCode of naceCodes) {
+    if (rows.length >= plan.maxResults) break
+    const url = new URL(options.brregEndpoint || BRREG_ENDPOINT)
+    url.searchParams.set('size', String(Math.min(100, Math.max(20, plan.maxResults))))
+    if (naceCode) url.searchParams.set('naeringskode', naceCode)
+    if (plan.brreg?.municipalityCode) url.searchParams.set('kommunenummer', plan.brreg.municipalityCode)
+    if (!naceCode) url.searchParams.set('navn', plan.queries[0] || options.query || '')
+    const response = await fetchImpl(url, { headers: { Accept: 'application/json' } })
+    if (!response.ok) throw new Error('Brreg provider failed with HTTP ' + response.status)
+    const payload = await response.json()
+    const entities = extractBrregResults(payload)
+    rows.push(...normalizeBrregRows(entities, options, plan, rows.length))
+  }
+  return { plan, rows: rows.slice(0, plan.maxResults) }
+}
+
+function normalizeBrregRows(entities, options = {}, plan = {}, offset = 0) {
+  return entities.slice(0, Math.max(1, plan.maxResults || 10)).map((entity, index) => normalizeBrregEntity(entity, {
+    provider: 'brreg',
+    query: plan.queries?.[0] || options.query || '',
+    location: options.location,
+    industry: options.canonicalIndustry || options.industry,
+    rank: offset + index + 1,
+  }))
+}
+
+function normalizeBrregEntity(entity = {}, defaults = {}) {
+  const address = normalizeBrregAddress(entity.forretningsadresse || entity.postadresse || {})
+  const website = cleanText(entity.hjemmeside || entity.homepage || '')
+  const orgNumber = cleanText(entity.organisasjonsnummer)
+  const legalName = cleanText(entity.navn)
+  const nace = entity.naeringskode1 || {}
+  const sourceUrl = cleanText(entity._links?.self?.href || (orgNumber ? `${BRREG_ENDPOINT}/${orgNumber}` : ''))
+  return {
+    businessName: legalName,
+    legalName,
+    candidateLegalName: legalName,
+    organizationNumber: orgNumber,
+    candidateOrganizationNumber: orgNumber,
+    organizationForm: cleanText(entity.organisasjonsform?.beskrivelse || entity.organisasjonsform?.kode),
+    registeredAddress: address.full,
+    municipality: cleanText(address.municipality || entity.forretningsadresse?.kommune || entity.postadresse?.kommune),
+    unitType: 'enhet',
+    naceCode: cleanText(nace.kode),
+    naceDescription: cleanText(nace.beskrivelse),
+    employees: normalizeNumber(entity.antallAnsatte),
+    registrationDate: cleanText(entity.registreringsdatoEnhetsregisteret),
+    activeStatus: entity.konkurs ? 'bankrupt' : (entity.underAvvikling ? 'winding_down' : 'active'),
+    sourceUrl,
+    website,
+    source: 'brreg:' + (defaults.query || defaults.industry || 'official-registry'),
+    sourceFormat: 'provider',
+    provider: 'brreg',
+    searchQuery: defaults.query,
+    rank: defaults.rank,
+    location: address.full || defaults.location || '',
+    industry: defaults.industry || '',
+    confidence: 'high',
+    description: [nace.kode, nace.beskrivelse].filter(Boolean).join(' - '),
+    phone: cleanText(entity.telefon || entity.mobil),
+    address: address.full,
+    sourceType: 'officialRegistry',
+    auditEligible: Boolean(website),
+    auditExclusionReason: website ? '' : 'missing_website_for_audit',
+    identitySource: 'brreg',
+    presenceSource: website ? 'brreg_homepage' : '',
+  }
+}
+
+function normalizeBrregAddress(address = {}) {
+  const lines = Array.isArray(address.adresse) ? address.adresse : [address.adresse].filter(Boolean)
+  const postnummer = cleanText(address.postnummer)
+  const poststed = cleanText(address.poststed)
+  const municipality = cleanText(address.kommune)
+  const full = [...lines.map(cleanText).filter(Boolean), [postnummer, poststed].filter(Boolean).join(' '), municipality].filter(Boolean).join(', ')
+  return { full, municipality }
 }
 
 async function fetchBraveRows(options, plan) {
@@ -178,6 +303,7 @@ function normalizeProviderResult(result, defaults = {}) {
     providerTypes: Array.isArray(result.types) ? result.types.filter(Boolean).map(cleanText).filter(Boolean) : [],
     providerTitle: cleanText(result.title || result.name || ''),
     providerDisplayUrl: cleanText(result.displayUrl || result.display_url || result.meta_url?.netloc || result.meta_url?.hostname || ''),
+    presenceSource: provider,
   }
 }
 
@@ -204,6 +330,15 @@ function extractProviderResults(payload) {
   if (Array.isArray(payload.places)) return payload.places
   if (payload.web && Array.isArray(payload.web.results)) return payload.web.results
   if (payload.response && Array.isArray(payload.response.results)) return payload.response.results
+  return []
+}
+
+function extractBrregResults(payload) {
+  if (!payload) return []
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload.enheter)) return payload.enheter
+  if (payload._embedded && Array.isArray(payload._embedded.enheter)) return payload._embedded.enheter
+  if (Array.isArray(payload.results)) return payload.results
   return []
 }
 
@@ -259,11 +394,14 @@ function readJson(filePath) {
 module.exports = {
   BRAVE_ENDPOINT,
   GOOGLE_PLACES_ENDPOINT,
+  BRREG_ENDPOINT,
   loadLiveSearchResults,
   createProviderPlan,
   createSearchQueries,
   extractProviderResults,
+  extractBrregResults,
   normalizeProviderResult,
+  normalizeBrregEntity,
   googlePlacesFieldMask,
   stripSearchTitle,
 }
