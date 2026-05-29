@@ -126,7 +126,7 @@ For each lead, a seller can save:
 
 Workflow state is stored locally in `.cache/lead-machine-demo/lead-workflow.json` and is appended to JSON/CSV downloads. It is manual tracking only: the app does not call, send email, schedule calendar events, or generate outreach wording.
 
-Workflow queue controls now show not-contacted leads, due follow-ups, interested leads, and contacted/not-contacted filters. Phone numbers render as `tel:` links so a seller can click from the browser when their device supports it, but no call is placed by the app itself. Each workflow save appends a small local activity timeline, and exports include full call-list CSV views for all leads, not-contacted leads, due follow-ups, and interested leads. This keeps the demo close to a call-ready sales desk while still avoiding CRM/telephony/email integration.
+Workflow queue controls now show a Today call queue, not-contacted leads, due follow-ups, interested leads, and contacted/not-contacted filters. The Today call queue prioritizes due follow-ups first, then new phone-ready leads, then interested leads. Phone numbers render as `tel:` links so a seller can click from the browser when their device supports it, but no call is placed by the app itself. Each workflow save appends a small local activity timeline, and exports include full call-list CSV views for all leads, today call queue, not-contacted leads, due follow-ups, and interested leads. This keeps the demo close to a call-ready sales desk while still avoiding CRM/telephony/email integration.
 
 ## Product Boundary
 

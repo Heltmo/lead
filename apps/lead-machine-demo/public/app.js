@@ -140,6 +140,7 @@ function renderSummary(result) {
     ${metric('Low supply', summary.lowSupply ? 'Yes' : 'No')}
     ${metric('Fallback', summary.fallbackUsed ? 'Used' : (summary.fallbackAvailable ? 'Available' : 'No'))}
     ${metric('Priority counts', formatCounts(summary.callPriorityCounts || summary.priorityCounts || {}))}
+    ${metric('Today calls', todayCallQueue(result?.leadPacks || []).length)}
     ${metric('Workflow', workflowCountsLabel(result?.leadPacks || []))}
     ${metric('Next action', modeGuidance(summary))}
   `
@@ -154,14 +155,31 @@ function renderWorkflowBoard(result) {
     return
   }
   const counts = workflowCounts(leads)
-  const due = leads.filter(isFollowUpDue).slice(0, 3)
-  els.workflowBoard.className = 'workflow-board'
+  const queue = todayCallQueue(leads).slice(0, 5)
+  els.workflowBoard.className = 'workflow-board call-queue-board'
   els.workflowBoard.innerHTML = `
-    <div><span>Seller queue</span><strong>${counts.notContacted} not contacted</strong></div>
-    <div><span>Follow-up due</span><strong>${counts.followUpDue}</strong></div>
-    <div><span>Interested</span><strong>${counts.interested}</strong></div>
-    <p>${due.length ? `Due: ${due.map((lead) => escapeHtml(lead.company?.displayName || lead.companyName || 'Unknown')).join(', ')}` : 'No due follow-ups yet.'} Use filters and call-list exports to build today's calling queue.</p>
+    <div class="queue-stat"><span>Today call queue</span><strong>${queue.length}</strong></div>
+    <div class="queue-stat"><span>Follow-up due</span><strong>${counts.followUpDue}</strong></div>
+    <div class="queue-stat"><span>New to call</span><strong>${counts.notContacted}</strong></div>
+    <div class="queue-list">
+      ${queue.length ? queue.map(({ lead, index, reason }) => callQueueRow(lead, index, reason)).join('') : '<p class="muted">No call-ready leads yet. Run a search with phone data or clear filters.</p>'}
+    </div>
+    <p>Today call queue uses phone, follow-up date, workflow status and source quality. It does not place calls or send messages.</p>
   `
+  els.workflowBoard.querySelectorAll('.queue-select').forEach((button) => button.addEventListener('click', () => {
+    state.selectedIndex = Number(button.dataset.index)
+    state.selectedLeadId = leadId(leads[state.selectedIndex], state.selectedIndex)
+    renderAll()
+  }))
+}
+
+function callQueueRow(lead, index, reason) {
+  const name = lead.company?.displayName || lead.companyName || 'Unknown company'
+  const phone = lead.contact?.phone || lead.phone || ''
+  return `<article class="queue-row">
+    <div><strong>${escapeHtml(name)}</strong><span>${escapeHtml(reason)}</span></div>
+    <div>${phoneLink(phone)}<button type="button" class="queue-select" data-index="${index}">Inspect</button></div>
+  </article>`
 }
 
 function renderLeads(visibleLeads) {
@@ -272,6 +290,31 @@ function workflowCounts(leads) {
 function workflowCountsLabel(leads) {
   const counts = workflowCounts(leads)
   return `new:${counts.notContacted} contacted:${counts.contacted} follow-up:${counts.followUpDue} interested:${counts.interested}`
+}
+
+function todayCallQueue(leads) {
+  return (Array.isArray(leads) ? leads : [])
+    .map((lead, index) => ({ lead, index, reason: todayCallReason(lead) }))
+    .filter(({ lead, reason }) => Boolean(reason) && Boolean(lead.contact?.phone || lead.phone))
+    .sort((a, b) => todayCallScore(b.lead) - todayCallScore(a.lead))
+}
+
+function todayCallReason(lead) {
+  const workflow = lead.workflow || {}
+  if (workflow.status === 'rejected') return ''
+  if (isFollowUpDue(lead)) return `Follow-up due ${workflow.followUpDate}`
+  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return 'Interested lead'
+  if (!workflow.contacted && !['contacted', 'follow_up'].includes(workflow.status)) return 'Not contacted yet'
+  return ''
+}
+
+function todayCallScore(lead) {
+  const workflow = lead.workflow || {}
+  let score = bestLeadScore(lead)
+  if (isFollowUpDue(lead)) score += 1000
+  if (!workflow.contacted && !['contacted', 'follow_up', 'interested'].includes(workflow.status)) score += 500
+  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') score += 300
+  return score
 }
 
 function isFollowUpDue(lead) {
@@ -1076,7 +1119,7 @@ function updateSummaryAfterLeadReplacement(summary, leads) {
 
 function callListLinks(downloads) {
   if (!downloads.callList) return ''
-  return `<p class="export-actions">call-list.csv includes lastActivityAt. <a href="${escapeAttr(downloads.callList)}">All</a> · <a href="${escapeAttr(downloads.callListNotContacted)}">Not contacted</a> · <a href="${escapeAttr(downloads.callListFollowUps)}">Follow-ups due</a> · <a href="${escapeAttr(downloads.callListInterested)}">Interested</a></p>`
+  return `<p class="export-actions">call-list.csv includes lastActivityAt. <a href="${escapeAttr(downloads.callList)}">All</a> · <a href="${escapeAttr(downloads.callListToday)}">Today call queue</a> · <a href="${escapeAttr(downloads.callListNotContacted)}">Not contacted</a> · <a href="${escapeAttr(downloads.callListFollowUps)}">Follow-ups due</a> · <a href="${escapeAttr(downloads.callListInterested)}">Interested</a></p>`
 }
 
 function phoneHref(value) {

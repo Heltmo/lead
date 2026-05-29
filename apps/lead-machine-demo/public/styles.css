@@ -169,3 +169,12 @@ a { color: var(--blue); }
 .activity-timeline li span { color: var(--muted); font-size: 12px; }
 .activity-timeline li p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
 .export-actions { margin: 8px 0 12px; }
+
+.call-queue-board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.call-queue-board .queue-list { grid-column: 1 / -1; display: grid; gap: 7px; padding: 0; border: 0; background: transparent; }
+.queue-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px; border: 1px solid #d5e4dc; border-radius: 8px; background: rgba(255,255,255,.86); }
+.queue-row strong { display: block; font-size: 13px; line-height: 1.2; overflow-wrap: anywhere; }
+.queue-row span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; text-transform: none; font-weight: 650; }
+.queue-row > div:last-child { display: inline-flex; align-items: center; justify-content: end; gap: 8px; }
+.queue-select { border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 6px 8px; font-size: 12px; font-weight: 800; cursor: pointer; }
+@media (max-width: 1180px) { .call-queue-board { grid-template-columns: 1fr; } .queue-row { grid-template-columns: 1fr; } .queue-row > div:last-child { justify-content: start; } }

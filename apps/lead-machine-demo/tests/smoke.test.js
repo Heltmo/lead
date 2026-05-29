@@ -135,6 +135,8 @@ async function main() {
   assert(workflowCsv.body.includes('follow up after call'), 'CSV should include workflow next action')
   const callListCsv = await get(port, response.body.downloads.callListNotContacted)
   assert(callListCsv.status === 200 && callListCsv.body.includes('rank,company'), 'call-list export should return a CSV')
+  const todayCallListCsv = await get(port, response.body.downloads.callListToday)
+  assert(todayCallListCsv.status === 200 && todayCallListCsv.body.includes('rank,company'), 'today call queue export should return a CSV')
   response = await post(port, '/api/runs', { query: 'rørlegger i Kristiansand; rm -rf /', provider: 'google-places', searchScope: 'strict', enrichCompanyProfile: false })
   assert(response.body.leadPacks[0].workflow.status === 'contacted', 'workflow should attach to later returned lead packs')
 
@@ -270,6 +272,11 @@ async function main() {
   assert(lower.includes('tel:'), 'UI should render phone numbers as tel links')
   assert(lower.includes('activity timeline'), 'UI should show local activity timeline')
   assert(lower.includes('call-list.csv'), 'UI should include call-list CSV export links')
+  assert(lower.includes('today call queue'), 'UI should expose a today call queue')
+  assert(lower.includes('todaycallqueue'), 'UI should calculate today call queue leads')
+  assert(lower.includes('not contacted yet'), 'UI should explain why new phone leads are in the queue')
+  assert(lower.includes('follow-up due'), 'UI should include follow-up due leads in the queue')
+  assert(lower.includes('inspect'), 'UI should allow inspecting a queued lead')
   assert(lower.includes('lastactivityat'), 'CSV should expose last activity timestamp')
 
   server.close()

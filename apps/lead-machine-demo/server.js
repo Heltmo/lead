@@ -110,6 +110,7 @@ async function handleRun(req, res, context) {
       json: `/api/runs/${runId}/lead-packs.json`,
       summary: `/api/runs/${runId}/summary.json`,
       callList: `/api/runs/${runId}/call-list.csv`,
+      callListToday: `/api/runs/${runId}/call-list.csv?view=today`,
       callListNotContacted: `/api/runs/${runId}/call-list.csv?view=notContacted`,
       callListFollowUps: `/api/runs/${runId}/call-list.csv?view=followUpDue`,
       callListInterested: `/api/runs/${runId}/call-list.csv?view=interested`,
@@ -735,6 +736,7 @@ function createWorkflowActivity(previous = {}, workflow = {}) {
 function filterCallListLeads(leads, view) {
   const normalizedView = String(view || 'all')
   const list = Array.isArray(leads) ? leads : []
+  if (normalizedView === 'today') return list.filter(serverIsTodayCallLead).sort(serverCompareTodayCallLeads)
   if (normalizedView === 'notContacted') return list.filter((lead) => !serverWorkflowContacted(lead.workflow || {}))
   if (normalizedView === 'followUpDue') return list.filter(serverIsFollowUpDue)
   if (normalizedView === 'interested') return list.filter((lead) => {
@@ -742,6 +744,31 @@ function filterCallListLeads(leads, view) {
     return workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked'
   })
   return list
+}
+
+function serverIsTodayCallLead(lead = {}) {
+  const workflow = lead.workflow || {}
+  const phone = lead.contact && lead.contact.phone || lead.phone
+  if (!phone || workflow.status === 'rejected') return false
+  return serverIsFollowUpDue(lead) || !serverWorkflowContacted(workflow) || workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked'
+}
+
+function serverCompareTodayCallLeads(a = {}, b = {}) {
+  return serverTodayCallScore(b) - serverTodayCallScore(a)
+}
+
+function serverTodayCallScore(lead = {}) {
+  const workflow = lead.workflow || {}
+  let score = 0
+  if (serverIsFollowUpDue(lead)) score += 1000
+  if (!serverWorkflowContacted(workflow)) score += 500
+  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') score += 300
+  if (lead.company && lead.company.organizationNumber) score += 80
+  if (lead.company && lead.company.candidateOrganizationNumber) score += 40
+  if (lead.sourceQuality && lead.sourceQuality.locationMatchStatus === 'exact_location') score += 50
+  if (lead.places && lead.places.rating) score += Number(lead.places.rating || 0) * 5
+  if (lead.places && lead.places.reviewCount) score += Math.min(Number(lead.places.reviewCount || 0), 100) / 5
+  return score
 }
 
 function serverWorkflowContacted(workflow = {}) {
