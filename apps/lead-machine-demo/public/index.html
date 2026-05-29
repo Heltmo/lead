@@ -49,6 +49,27 @@
     <section class="desk-grid">
       <aside class="lead-list">
         <div class="panel-title">Lead packs</div>
+        <div class="lead-controls">
+          <label><span>Sort</span><select id="leadSort">
+            <option value="best">Best first</option>
+            <option value="phone">Phone first</option>
+            <option value="confirmed">Confirmed org.nr</option>
+            <option value="reviews">Google reviews</option>
+            <option value="employees">Employees</option>
+            <option value="discovery">Discovery confidence</option>
+          </select></label>
+          <div class="filter-chips" aria-label="Lead filters">
+            <label><input type="checkbox" class="lead-filter" value="phone"> Phone</label>
+            <label><input type="checkbox" class="lead-filter" value="confirmed"> Confirmed org.nr</label>
+            <label><input type="checkbox" class="lead-filter" value="candidate"> Candidate org.nr</label>
+            <label><input type="checkbox" class="lead-filter" value="website"> Website</label>
+            <label><input type="checkbox" class="lead-filter" value="exact"> Exact location</label>
+            <label><input type="checkbox" class="lead-filter" value="needsDeep"> Needs Deep</label>
+            <label><input type="checkbox" class="lead-filter" value="brregIssue"> Brreg issue</label>
+          </div>
+          <button type="button" id="clearLeadFilters">Clear filters</button>
+          <p id="leadFilterSummary" class="filter-summary">No filters applied.</p>
+        </div>
         <div id="leadCards"></div>
       </aside>
       <section class="lead-detail">

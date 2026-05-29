@@ -99,7 +99,8 @@ The frontend displays:
 
 - query/run status
 - summary counts
-- lead cards
+- lead cards with filters for phone, org.nr, website, exact location, Deep qualification need, and Brreg issues
+- lead sorting by best first, phone, confirmed org.nr, Google reviews, employees, and discovery confidence
 - a Seller Command card with call readiness, best first contact, company fit, verification status, main risk, next action, and source confidence
 - a compact Seller Desk V2 layer with company identity, contactability, market proof, and action/risk
 - secondary qualification, verification, source intelligence, and raw source data collapsed below the decision layer

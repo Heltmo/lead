@@ -21,7 +21,7 @@ const LOCATIONS = [
   'Namsos', 'Steinkjer', 'Levanger', 'Stjørdal', 'Mo i Rana', 'Mosjøen', 'Brønnøysund', 'Sortland', 'Svolvær', 'Hammerfest',
 ]
 
-const state = { result: null, selectedIndex: 0 }
+const state = { result: null, selectedIndex: 0, selectedLeadId: null }
 
 const els = {
   profession: document.getElementById('professionSelect'),
@@ -39,6 +39,10 @@ const els = {
   leadCards: document.getElementById('leadCards'),
   leadDetail: document.getElementById('leadDetail'),
   exportPanel: document.getElementById('exportPanel'),
+  leadSort: document.getElementById('leadSort'),
+  leadFilters: Array.from(document.querySelectorAll('.lead-filter')),
+  clearLeadFilters: document.getElementById('clearLeadFilters'),
+  leadFilterSummary: document.getElementById('leadFilterSummary'),
 }
 
 initStructuredSearch()
@@ -48,6 +52,9 @@ els.location.addEventListener('keydown', (event) => { if (event.key === 'Enter')
 els.profession.addEventListener('change', syncQueryFromStructuredSearch)
 els.location.addEventListener('input', syncQueryFromStructuredSearch)
 els.runMode.addEventListener('change', () => renderSummary(state.result))
+els.leadSort.addEventListener('change', () => { state.selectedLeadId = null; renderAll() })
+els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { state.selectedLeadId = null; renderAll() }))
+els.clearLeadFilters.addEventListener('click', () => { els.leadFilters.forEach((filter) => { filter.checked = false }); state.selectedLeadId = null; renderAll() })
 renderSummary(null)
 renderExport(null)
 
@@ -71,6 +78,7 @@ async function runSearch() {
   els.runButton.disabled = true
   state.result = null
   state.selectedIndex = 0
+  state.selectedLeadId = null
   renderSummary(null)
   renderLeads([])
   renderDetail(null)
@@ -107,8 +115,16 @@ async function runSearch() {
 
 function renderAll() {
   const leads = state.result?.leadPacks || []
+  const visibleLeads = getVisibleLeads(leads)
+  if (visibleLeads.length) {
+    const selectedStillVisible = visibleLeads.some(({ id }) => id === state.selectedLeadId)
+    if (!state.selectedLeadId || !selectedStillVisible) state.selectedLeadId = visibleLeads[0].id
+    state.selectedIndex = visibleLeads.find(({ id }) => id === state.selectedLeadId)?.index ?? 0
+  } else {
+    state.selectedIndex = 0
+  }
   renderSummary(state.result)
-  renderLeads(leads)
+  renderLeads(visibleLeads)
   renderDetail(leads[state.selectedIndex] || null)
   renderExport(state.result)
 }
@@ -126,18 +142,20 @@ function renderSummary(result) {
   `
 }
 
-function renderLeads(leads) {
-  if (!leads.length) {
-    els.leadCards.innerHTML = '<div class="empty-state">No lead packs yet.</div>'
+function renderLeads(visibleLeads) {
+  const total = state.result?.leadPacks?.length || 0
+  updateFilterSummary(visibleLeads.length, total)
+  if (!visibleLeads.length) {
+    els.leadCards.innerHTML = '<div class="empty-state">No leads match these filters.</div>'
     return
   }
-  els.leadCards.innerHTML = leads.map((lead, index) => {
+  els.leadCards.innerHTML = visibleLeads.map(({ lead, index, id }) => {
     const contact = lead.contact || {}
     const places = lead.places || {}
     const company = lead.company || {}
     const primarySignal = sellerSignals(lead)[0] || humanize(lead.opportunityType || 'Lead pack')
     return `
-      <button class="lead-card ${index === state.selectedIndex ? 'active' : ''}" type="button" data-index="${index}">
+      <button class="lead-card ${id === state.selectedLeadId ? 'active' : ''}" type="button" data-index="${index}" data-id="${escapeAttr(id)}">
         <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
@@ -148,8 +166,82 @@ function renderLeads(leads) {
   }).join('')
   els.leadCards.querySelectorAll('.lead-card').forEach((button) => button.addEventListener('click', () => {
     state.selectedIndex = Number(button.dataset.index)
+    state.selectedLeadId = button.dataset.id
     renderAll()
   }))
+}
+
+function getVisibleLeads(leads) {
+  const activeFilters = new Set(els.leadFilters.filter((filter) => filter.checked).map((filter) => filter.value))
+  const wrapped = leads.map((lead, index) => ({ lead, index, id: leadId(lead, index) }))
+    .filter(({ lead }) => matchesLeadFilters(lead, activeFilters))
+  return wrapped.sort((a, b) => compareLeads(a.lead, b.lead, els.leadSort.value))
+}
+
+function matchesLeadFilters(lead, filters) {
+  if (!filters.size) return true
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const sourceQuality = lead.sourceQuality || {}
+  if (filters.has('phone') && !(contact.phone || lead.phone)) return false
+  if (filters.has('confirmed') && !company.organizationNumber) return false
+  if (filters.has('candidate') && !company.candidateOrganizationNumber) return false
+  if (filters.has('website') && !websiteValue(contact.website || lead.website)) return false
+  if (filters.has('exact') && sourceQuality.locationMatchStatus !== 'exact_location') return false
+  if (filters.has('needsDeep') && !isFastLead(lead)) return false
+  if (filters.has('brregIssue') && !['candidate_org', 'no_match', 'brreg_unavailable', 'not_run'].includes(brregStatusLabel(company))) return false
+  return true
+}
+
+function compareLeads(a, b, sortKey) {
+  const rankDiff = leadSortScore(b, sortKey) - leadSortScore(a, sortKey)
+  if (rankDiff) return rankDiff
+  return priorityScore(b) - priorityScore(a)
+}
+
+function leadSortScore(lead, sortKey) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const places = lead.places || {}
+  const discovery = lead.sourceQuality?.discoveryQuality || {}
+  if (sortKey === 'phone') return contact.phone || lead.phone ? 1 : 0
+  if (sortKey === 'confirmed') return company.organizationNumber ? 1 : 0
+  if (sortKey === 'reviews') return Number(places.reviewCount || 0)
+  if (sortKey === 'employees') return Number(company.employees || 0)
+  if (sortKey === 'discovery') return Number(discovery.score || 0)
+  return bestLeadScore(lead)
+}
+
+function bestLeadScore(lead) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const places = lead.places || {}
+  const sourceQuality = lead.sourceQuality || {}
+  let score = priorityScore(lead) * 10
+  if (contact.phone || lead.phone) score += 8
+  if (company.organizationNumber) score += 7
+  else if (company.candidateOrganizationNumber) score += 4
+  if (websiteValue(contact.website || lead.website)) score += 3
+  if (sourceQuality.locationMatchStatus === 'exact_location') score += 5
+  score += Math.min(Number(places.reviewCount || 0), 100) / 20
+  score += Number(places.rating || 0)
+  if (isFastLead(lead)) score += 1
+  return score
+}
+
+function priorityScore(lead) {
+  return { high: 4, medium: 3, verify: 2, low: 1 }[String(lead.callPriority || lead.priority || '').toLowerCase()] || 0
+}
+
+function leadId(lead, index) {
+  return [lead.company?.organizationNumber, lead.company?.candidateOrganizationNumber, lead.places?.placeId, lead.company?.displayName, index].filter(Boolean).join('::')
+}
+
+function updateFilterSummary(visible, total) {
+  if (!els.leadFilterSummary) return
+  const active = els.leadFilters.filter((filter) => filter.checked).map((filter) => filter.parentElement.textContent.trim())
+  const prefix = total ? `${visible}/${total} leads shown` : 'No leads yet'
+  els.leadFilterSummary.textContent = active.length ? `${prefix} · ${active.join(', ')}` : `${prefix} · no filters applied`
 }
 
 function renderDetail(lead) {

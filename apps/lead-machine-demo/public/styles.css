@@ -39,6 +39,13 @@ button, input, select { font: inherit; }
 .metric strong { font-size: 18px; }
 .desk-grid { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 14px; align-items: start; }
 .lead-list, .lead-detail, .export-panel { padding: 14px; }
+.lead-controls { display: grid; gap: 9px; margin: 10px 0 12px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; }
+.lead-controls select { width: 100%; height: 38px; border: 1px solid #b8c8c0; border-radius: 8px; padding: 0 10px; background: #fff; }
+.filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-chips label { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; }
+.filter-chips input { width: auto; height: auto; margin: 0; }
+.lead-controls button { justify-self: start; border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 7px 10px; font-weight: 800; cursor: pointer; }
+.filter-summary { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
 .lead-card { width: 100%; display: grid; gap: 8px; margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); text-align: left; cursor: pointer; }
 .lead-card.active, .lead-card:hover, .lead-card:focus-visible { border-color: var(--green); outline: none; background: var(--green-soft); }
 .lead-card h3 { margin: 0; font-size: 17px; }
