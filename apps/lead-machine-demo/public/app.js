@@ -28,8 +28,8 @@ const QUICK_WORKFLOW_ACTIONS = [
   { id: 'no_answer', label: 'No answer', tone: 'warning' },
   { id: 'interested', label: 'Interested', tone: 'positive' },
   { id: 'not_relevant', label: 'Not relevant', tone: 'negative' },
-  { id: 'follow_up_tomorrow', label: 'Follow up tomorrow', tone: 'warning' },
-  { id: 'follow_up_next_week', label: 'Follow up next week', tone: 'warning' },
+  { id: 'follow_up_tomorrow', label: 'Follow up tomorrow', shortLabel: 'Tomorrow', tone: 'warning' },
+  { id: 'follow_up_next_week', label: 'Follow up next week', shortLabel: 'Next week', tone: 'warning' },
 ]
 
 
@@ -204,7 +204,8 @@ function renderWorkflowBoard(result) {
 function callQueueRow(lead, index, reason) {
   const name = lead.company?.displayName || lead.companyName || 'Unknown company'
   const phone = lead.contact?.phone || lead.phone || ''
-  return `<article class="queue-row">
+  const followUpClass = followUpTiming(lead.workflow?.followUpDate)
+  return `<article class="queue-row ${followUpClass !== 'none' ? `follow-up-${followUpClass}` : ''}">
     <div><strong>${escapeHtml(name)}</strong><span>${escapeHtml(reason)}</span></div>
     <div class="queue-row-actions">${phoneLink(phone)}<button type="button" class="queue-select" data-index="${index}">Inspect</button></div>
     ${quickActionsHtml(index, 'queue')}
@@ -222,7 +223,7 @@ function workflowColumns(leads) {
     } else if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') {
       columns.interested.push({ ...item, reason: workflow.response === 'meeting_booked' ? 'Meeting booked' : 'Interested lead' })
     } else if (isFollowUpDue(lead) || workflow.status === 'follow_up') {
-      columns.followUp.push({ ...item, reason: workflow.followUpDate ? `Follow-up ${workflow.followUpDate}` : 'Follow-up needed' })
+      columns.followUp.push({ ...item, reason: followUpQueueReason(lead) })
     } else if (phone && !workflow.contacted && !['contacted'].includes(workflow.status)) {
       columns.callNow.push({ ...item, reason: 'Not contacted yet' })
     }
@@ -247,10 +248,10 @@ function workflowColumn(title, items, subtitle) {
 
 function quickActionsHtml(index, variant = 'full') {
   const actions = variant === 'queue'
-    ? QUICK_WORKFLOW_ACTIONS.filter((action) => ['mark_called', 'no_answer', 'interested'].includes(action.id))
+    ? QUICK_WORKFLOW_ACTIONS.filter((action) => ['mark_called', 'no_answer', 'interested', 'follow_up_tomorrow', 'follow_up_next_week'].includes(action.id))
     : QUICK_WORKFLOW_ACTIONS
   return `<div class="quick-actions ${variant === 'queue' ? 'compact' : ''}" aria-label="Quick workflow actions">
-    ${actions.map((action) => `<button type="button" class="quick-action ${escapeAttr(action.tone)}" data-workflow-action="${escapeAttr(action.id)}" data-index="${index}">${escapeHtml(action.label)}</button>`).join('')}
+    ${actions.map((action) => `<button type="button" class="quick-action ${escapeAttr(action.tone)}" data-workflow-action="${escapeAttr(action.id)}" data-index="${index}">${escapeHtml(variant === 'queue' ? (action.shortLabel || action.label) : action.label)}</button>`).join('')}
   </div>`
 }
 
@@ -427,7 +428,7 @@ function todayCallQueue(leads) {
 function todayCallReason(lead) {
   const workflow = lead.workflow || {}
   if (workflow.status === 'rejected') return ''
-  if (isFollowUpDue(lead)) return `Follow-up due ${workflow.followUpDate}`
+  if (isFollowUpDue(lead)) return followUpQueueReason(lead)
   if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return 'Interested lead'
   if (!workflow.contacted && !['contacted', 'follow_up'].includes(workflow.status)) return 'Not contacted yet'
   return ''
@@ -447,6 +448,23 @@ function isFollowUpDue(lead) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return false
   const today = new Date().toISOString().slice(0, 10)
   return date <= today && !['rejected'].includes(lead.workflow?.status)
+}
+
+function followUpTiming(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return 'none'
+  const today = new Date().toISOString().slice(0, 10)
+  if (date < today) return 'overdue'
+  if (date === today) return 'today'
+  return 'future'
+}
+
+function followUpQueueReason(lead) {
+  const date = lead.workflow?.followUpDate
+  const timing = followUpTiming(date)
+  if (timing === 'overdue') return `Overdue: ${date}`
+  if (timing === 'today') return `Due today: ${date}`
+  if (timing === 'future') return `Future follow-up: ${date}`
+  return 'Follow-up needed'
 }
 
 function followUpSortScore(lead) {

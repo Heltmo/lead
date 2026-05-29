@@ -196,5 +196,10 @@ a { color: var(--blue); }
 .queue-row span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; text-transform: none; font-weight: 650; }
 .queue-row > div:last-child, .queue-row-actions { display: inline-flex; align-items: center; justify-content: end; gap: 8px; }
 .queue-select { border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 6px 8px; font-size: 12px; font-weight: 800; cursor: pointer; }
+
+.queue-row.follow-up-overdue { border-color: #efb6b0; background: #fff7f6; }
+.queue-row.follow-up-today { border-color: #ecd098; background: #fffaf0; }
+.queue-row.follow-up-future { border-color: #c7d8e8; background: #f7fbff; }
+.quick-actions.compact .quick-action { padding: 5px 8px; font-size: 11px; }
 @media (max-width: 1180px) { .call-queue-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } .queue-row { grid-template-columns: 1fr; } .queue-row > div:last-child { justify-content: start; } }
 @media (max-width: 620px) { .queue-presets, .call-queue-board { grid-template-columns: 1fr; } }
