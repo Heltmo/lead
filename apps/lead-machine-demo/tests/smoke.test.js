@@ -93,6 +93,8 @@ async function main() {
   assert(lower.includes('seller leverage'), 'UI should expose seller leverage section')
   assert(lower.includes('quick-facts'), 'UI should include quick facts cards')
   assert(lower.includes('source-grid'), 'UI should include source intelligence cards')
+  assert(lower.includes('discovery quality'), 'UI should expose discovery quality source card')
+  assert(lower.includes('discovery confidence'), 'UI should expose discovery confidence')
 
   server.close()
   failing.close()

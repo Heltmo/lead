@@ -135,6 +135,14 @@ npm run discover -- --query "tannleger i Halden" --provider google-places --dry-
 ```
 
 Google Places tests use mocked fixtures. Verification never calls Google APIs and never requires `GOOGLE_PLACES_API_KEY`.
+
+### Fast Mode Candidate Preservation
+
+Google Places businesses without websites are preserved when they still have local business identity such as business name plus phone, address, or placeId. These candidates are marked `auditEligible: false` with `auditExclusionReason: missing_website_for_audit`, so they do not enter Deep website audit handoff.
+
+They can still appear in Fast mode lead packs because a seller can use phone, address, rating/reviews, and placeId to qualify the business manually.
+
+Discovery now also exposes `discoveryQuality`, `discoveryConfidence`, and `discoveryCoverage` so operators can see whether a run produced strong contact/source coverage or thin candidate data.
 ## Discovery Target Filtering
 
 Discovery classifies candidate domains before handoff:

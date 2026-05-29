@@ -9,6 +9,7 @@ function createDiscoveryReport({ query, industry, canonicalIndustry, industryTer
     location,
     locationIntent: locationIntent || null,
     locationQuality: summarizeLocationQuality(candidates),
+    discoveryCoverage: summarizeDiscoveryCoverage(candidates),
     searchScope,
     searchSupply: summarizeSearchSupply(candidates, requestedMaxResults, searchScope),
     sourceFile: sourceFile || sources[0] || '',
@@ -40,6 +41,26 @@ function summarizeLocationQuality(candidates) {
     if (candidate.fallbackUsed || candidate.locationQuality?.fallbackUsed) fallbackUsed = true
   }
   return { counts, fallbackUsed }
+}
+
+function summarizeDiscoveryCoverage(candidates) {
+  const total = candidates.length
+  const count = (predicate) => candidates.filter(predicate).length
+  return {
+    total,
+    withWebsite: count((candidate) => Boolean(candidate.website)),
+    withoutWebsite: count((candidate) => !candidate.website),
+    withPhone: count((candidate) => Boolean(candidate.phone)),
+    withAddress: count((candidate) => Boolean(candidate.address || candidate.location)),
+    withPlaceId: count((candidate) => Boolean(candidate.placeId)),
+    withRating: count((candidate) => Boolean(candidate.rating)),
+    withReviews: count((candidate) => Boolean(candidate.reviewCount)),
+    exactLocation: count((candidate) => candidate.locationMatchStatus === 'exact_location'),
+    regionalFallback: count((candidate) => candidate.locationMatchStatus === 'regional_fallback'),
+    outOfArea: count((candidate) => candidate.locationMatchStatus === 'out_of_area'),
+    auditEligible: count((candidate) => candidate.auditEligible !== false),
+    fastEligible: count((candidate) => candidate.auditEligible !== false || candidate.auditExclusionReason === 'missing_website_for_audit'),
+  }
 }
 
 function summarizeSearchSupply(candidates, requestedMaxResults, searchScope = 'strict') {
@@ -91,4 +112,4 @@ function countBySource(candidates) {
   return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)))
 }
 
-module.exports = { createDiscoveryReport, summarizeLocationQuality, summarizeSearchSupply, countBySource, countBySourceType, excludedTargets }
+module.exports = { createDiscoveryReport, summarizeLocationQuality, summarizeDiscoveryCoverage, summarizeSearchSupply, countBySource, countBySourceType, excludedTargets }

@@ -47,7 +47,9 @@ async function discoverLocalBusinesses(options) {
   const normalized = rawResults
     .map((row) => normalizeLeadCandidate(row, { industry, canonicalIndustry, location, searchScope, source: row.source || options.sourceName || 'fixed-sample', sourceFile: row.sourceFile, sourceFormat: row.sourceFormat }))
     .filter(Boolean)
-  const candidates = deduplicateCandidates(normalized).map((candidate) => applyLocationQuality(candidate, { searchScope, includeOutOfArea: options.includeOutOfArea === true || options.includeOutOfArea === 'true' }))
+  const candidates = deduplicateCandidates(normalized)
+    .map((candidate) => applyLocationQuality(candidate, { searchScope, includeOutOfArea: options.includeOutOfArea === true || options.includeOutOfArea === 'true' }))
+    .map(enrichDiscoveryQuality)
   if (options.validate !== false && !options.dryRun) {
     for (const candidate of candidates) {
       candidate.reachability = await validateWebsiteReachability(candidate.website, { timeoutMs: options.timeoutMs })
@@ -122,6 +124,8 @@ function formatHandoffCandidate(candidate, report = {}) {
     locationWarnings: candidate.locationWarnings || [],
     fallbackUsed: Boolean(candidate.fallbackUsed),
     locationQuality: candidate.locationQuality || null,
+    discoveryQuality: candidate.discoveryQuality || null,
+    discoveryConfidence: candidate.discoveryConfidence || '',
   })
 }
 
@@ -129,6 +133,52 @@ function shouldIncludeInHandoff(candidate, options = {}) {
   if (candidate.websiteReachable === false) return false
   if (options.includeNonAuditTargets) return true
   return candidate.auditEligible !== false
+}
+
+function shouldIncludeInFastLeadPack(candidate = {}) {
+  if (!candidate) return false
+  if (candidate.websiteReachable === false) return false
+  const reason = String(candidate.auditExclusionReason || '')
+  if (candidate.locationMatchStatus === 'out_of_area' || reason.startsWith('out_of_area:')) return false
+  if (['directory', 'social', 'governmentRegistry', 'publicSector'].includes(candidate.sourceType)) return false
+  if (candidate.auditEligible !== false) return true
+  return reason === 'missing_website_for_audit' && Boolean(candidate.phone || candidate.placeId || candidate.address)
+}
+
+function enrichDiscoveryQuality(candidate = {}) {
+  const quality = buildDiscoveryQuality(candidate)
+  return { ...candidate, discoveryQuality: quality, discoveryConfidence: quality.level }
+}
+
+function buildDiscoveryQuality(candidate = {}) {
+  let score = 0
+  const reasons = []
+  const warnings = []
+  if (candidate.locationMatchStatus === 'exact_location') { score += 25; reasons.push('exact_location') }
+  else if (candidate.locationMatchStatus === 'regional_fallback') { score += 12; warnings.push('regional_fallback') }
+  else if (candidate.locationMatchStatus === 'unknown') warnings.push('location_unknown')
+  else if (candidate.locationMatchStatus === 'out_of_area') warnings.push('out_of_area')
+
+  if (candidate.website) { score += 18; reasons.push('website_available') }
+  else warnings.push('missing_website')
+  if (candidate.phone) { score += 18; reasons.push('phone_available') }
+  else warnings.push('missing_phone')
+  if (candidate.address || candidate.location) { score += 12; reasons.push('address_available') }
+  else warnings.push('missing_address')
+  if (candidate.placeId) { score += 12; reasons.push('place_id_available') }
+  if (candidate.rating) { score += 8; reasons.push('rating_available') }
+  if (candidate.reviewCount) { score += 7; reasons.push('reviews_available') }
+  if (candidate.businessStatus === 'OPERATIONAL') { score += 5; reasons.push('operational') }
+  if (candidate.sourceType === 'directBusiness') { score += 5; reasons.push('direct_business_target') }
+  if (candidate.auditEligible === false && candidate.auditExclusionReason !== 'missing_website_for_audit') warnings.push('not_audit_eligible')
+
+  const capped = Math.max(0, Math.min(100, score))
+  return {
+    score: capped,
+    level: capped >= 75 ? 'high' : capped >= 45 ? 'medium' : 'low',
+    reasons,
+    warnings,
+  }
 }
 
 function toSummary(report) {
@@ -165,6 +215,8 @@ function toSummary(report) {
     excludedCandidates: report.excludedCandidates,
     excludedTargets: report.excludedTargets,
     handoffReadyCandidates: report.candidates.filter((candidate) => shouldIncludeInHandoff(candidate)).length,
+    fastEligibleCandidates: report.candidates.filter((candidate) => shouldIncludeInFastLeadPack(candidate)).length,
+    discoveryCoverage: report.discoveryCoverage,
   }
 }
 
@@ -175,4 +227,4 @@ function normalizeSourceFiles(value) {
     .filter(Boolean)
 }
 
-module.exports = { discoverLocalBusinesses, writeDiscoveryOutputs, toSummary, normalizeSourceFiles, formatHandoffCandidate, shouldIncludeInHandoff }
+module.exports = { discoverLocalBusinesses, writeDiscoveryOutputs, toSummary, normalizeSourceFiles, formatHandoffCandidate, shouldIncludeInHandoff, shouldIncludeInFastLeadPack, buildDiscoveryQuality }

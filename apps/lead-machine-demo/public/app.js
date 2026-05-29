@@ -164,6 +164,7 @@ function renderDetail(lead) {
   const sourceQuality = lead.sourceQuality || {}
   const places = lead.places || {}
   const economy = lead.economy || {}
+  const discoveryQuality = sourceQuality.discoveryQuality || {}
   const leverage = sellerSignals(lead)
   const nextStep = nextSellerStep(lead)
   els.leadDetail.innerHTML = `
@@ -183,6 +184,7 @@ function renderDetail(lead) {
       ${factCard('Company ID', company.organizationNumber || company.candidateOrganizationNumber || 'not verified', company.matchStatus || 'not_run')}
       ${factCard('Location', readable(sourceQuality.locationMatchStatus || 'unknown'), contact.address || contact.city || 'unknown')}
       ${factCard('Priority', readable(lead.callPriority || lead.priority || 'unknown'), nextStep)}
+      ${factCard('Discovery', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown'), discoveryQuality.score == null ? 'Source confidence unknown' : `Score ${discoveryQuality.score}/100`)}
     </div>
 
     <section class="leverage-panel">
@@ -216,6 +218,11 @@ function renderDetail(lead) {
         ['Employees', economy.employees ?? 'not enabled'],
         ['Source', economy.source || 'not enabled'],
       ])}
+      ${sourceCard('Discovery quality', discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown', [
+        ['Score', discoveryQuality.score == null ? 'unknown' : `${discoveryQuality.score}/100`],
+        ['Reasons', (discoveryQuality.reasons || []).slice(0, 3).map(humanize).join(', ') || 'unknown'],
+        ['Warnings', (discoveryQuality.warnings || []).slice(0, 3).map(humanize).join(', ') || 'none'],
+      ])}
     </div>
 
     ${section('Company and contact', kv([
@@ -235,6 +242,7 @@ function renderDetail(lead) {
       ['Pain score', ranking.painScore ?? 'unknown'],
       ['Location', readable(sourceQuality.locationMatchStatus || 'unknown')],
       ['Economy', readable(economy.status || 'not_enabled')],
+      ['Discovery confidence', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown')],
     ]))}
     ${section('Evidence', bullets((website.topEvidence || lead.topEvidence || lead.evidence || []).map(humanizeEvidence)))}
     ${section('Caution', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}

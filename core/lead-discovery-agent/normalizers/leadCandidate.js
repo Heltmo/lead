@@ -8,7 +8,8 @@ function parseDiscoveryQuery(query = '') {
 
 function normalizeLeadCandidate(raw, defaults = {}) {
   const website = normalizeWebsiteUrl(raw.website || raw.url || raw.link)
-  if (!website) return null
+  const hasProviderIdentity = hasLocalBusinessIdentity(raw, defaults)
+  if (!website && !hasProviderIdentity) return null
   const source = firstClean(raw.source, defaults.source, 'sample')
   const sourceFile = firstClean(raw.sourceFile, defaults.sourceFile)
   const sourceFormat = firstClean(raw.sourceFormat, defaults.sourceFormat)
@@ -23,7 +24,9 @@ function normalizeLeadCandidate(raw, defaults = {}) {
       rank: raw.rank || defaults.rank,
     },
   ])
-  const target = classifyDiscoveryTarget(website)
+  const target = website
+    ? classifyDiscoveryTarget(website)
+    : { sourceType: 'directBusiness', auditEligible: false, auditExclusionReason: 'missing_website_for_audit' }
   const sourceType = firstClean(raw.sourceType) || target.sourceType
   const auditEligible = normalizeBoolean(raw.auditEligible, target.auditEligible)
   const address = firstClean(raw.address, raw.formattedAddress, raw.formatted_address)
@@ -67,13 +70,14 @@ function normalizeLeadCandidate(raw, defaults = {}) {
 }
 
 function deduplicateCandidates(candidates) {
-  const byDomain = new Map()
+  const byIdentity = new Map()
   for (const candidate of candidates) {
-    if (!candidate || !candidate.normalizedDomain) continue
-    const existing = byDomain.get(candidate.normalizedDomain)
+    const key = candidateDedupeKey(candidate)
+    if (!candidate || !key) continue
+    const existing = byIdentity.get(key)
     if (!existing) {
       const sources = uniqueSources(candidate.sources || [])
-      byDomain.set(candidate.normalizedDomain, { ...candidate, sources, provenance: createProvenance(candidate.provenance || { source: candidate.source }, sources) })
+      byIdentity.set(key, { ...candidate, dedupeKey: key, sources, provenance: createProvenance(candidate.provenance || { source: candidate.source }, sources) })
       continue
     }
     existing.sources = uniqueSources([...(existing.sources || []), ...(candidate.sources || [])])
@@ -106,7 +110,43 @@ function deduplicateCandidates(candidates) {
     existing.auditEligible = Boolean(existing.auditEligible || candidate.auditEligible)
     existing.auditExclusionReason = existing.auditEligible ? '' : (existing.auditExclusionReason || candidate.auditExclusionReason || '')
   }
-  return [...byDomain.values()]
+  return [...byIdentity.values()]
+}
+
+function candidateDedupeKey(candidate = {}) {
+  if (candidate.normalizedDomain) return 'domain:' + candidate.normalizedDomain
+  if (candidate.placeId) return 'place:' + normalizeKey(candidate.placeId)
+  const phone = normalizePhone(candidate.phone)
+  const city = normalizeKey(candidate.candidateCity || candidate.location || '')
+  if (phone && city) return 'phone-city:' + phone + ':' + city
+  const name = normalizeKey(candidate.businessName)
+  const address = normalizeKey(candidate.address || candidate.location || '')
+  if (name && address) return 'name-address:' + name + ':' + address
+  return ''
+}
+
+function hasLocalBusinessIdentity(raw = {}, defaults = {}) {
+  const provider = firstClean(raw.provider, defaults.provider)
+  if (!provider) return false
+  const name = firstClean(raw.businessName, raw.name, raw.title, raw.displayName?.text, raw.displayName)
+  const phone = firstClean(raw.phone, raw.nationalPhoneNumber, raw.internationalPhoneNumber)
+  const address = firstClean(raw.address, raw.formattedAddress, raw.formatted_address, raw.location)
+  const placeId = firstClean(raw.placeId, raw.place_id, raw.id)
+  return Boolean(name && (phone || address || placeId))
+}
+
+function normalizePhone(value = '') {
+  return String(value || '').replace(/[^0-9+]+/g, '')
+}
+
+function normalizeKey(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9æøå+]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function betterLocationQuality(incoming, current) {
@@ -306,6 +346,7 @@ module.exports = {
   parseDiscoveryQuery,
   normalizeLeadCandidate,
   deduplicateCandidates,
+  candidateDedupeKey,
   normalizeWebsiteUrl,
   normalizeDomain,
   uniqueSources,

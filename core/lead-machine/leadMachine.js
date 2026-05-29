@@ -1,6 +1,6 @@
 const fs = require('fs')
 const path = require('path')
-const { discoverLocalBusinesses, writeDiscoveryOutputs, shouldIncludeInHandoff, formatHandoffCandidate } = require('../lead-discovery-agent/discoverLocalBusinesses')
+const { discoverLocalBusinesses, writeDiscoveryOutputs, shouldIncludeInHandoff, shouldIncludeInFastLeadPack, formatHandoffCandidate } = require('../lead-discovery-agent/discoverLocalBusinesses')
 const { runAuditQueue } = require('../orchestrator/pipelines/auditQueue')
 const { runLeadPack } = require('../lead-pack-runner/leadPackRunner')
 const { enrichCompanyProfile } = require('../company-profile/companyProfile')
@@ -56,7 +56,7 @@ async function runLeadMachine(options = {}) {
       query,
       runId,
       discovery,
-      candidates: discovery.candidates.filter((candidate) => shouldIncludeInHandoff(candidate)),
+      candidates: discovery.candidates.filter((candidate) => shouldIncludeInFastLeadPack(candidate)),
       enrichCompanyProfile: enrichCompanyProfileEnabled,
     })
     leadPackSummary = readJson(leadPackResult.summaryPath)
@@ -145,6 +145,7 @@ function buildLeadMachineSummary({ runId, query, provider, maxResults, searchSco
     includedLeadCount,
     totalExcludedByLocation,
     locationQualityCounts,
+    discoveryCoverage: leadPackSummary.discoveryCoverage || discovery.discoveryCoverage || {},
     callPriorityCounts,
     lowSupply,
     fallbackAvailable,
@@ -186,6 +187,7 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
     candidate.phone ? 'Phone available from discovery source.' : null,
     candidate.website ? 'Website available for later deep audit.' : null,
     candidate.rating ? `Google rating ${candidate.rating}${candidate.reviewCount ? ` from ${candidate.reviewCount} reviews` : ''}.` : null,
+    candidate.discoveryQuality?.level ? `Discovery confidence: ${candidate.discoveryQuality.level}.` : null,
     companyProfile?.matchStatus ? `companyProfile:${companyProfile.matchStatus}` : null,
   ].filter(Boolean)
   const caution = [
@@ -245,6 +247,8 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
       distanceKm: numberOrNull(candidate.distanceKm),
       locationWarnings: Array.isArray(candidate.locationWarnings) ? candidate.locationWarnings : [],
       fallbackUsed: Boolean(candidate.fallbackUsed),
+      discoveryQuality: candidate.discoveryQuality || null,
+      discoveryConfidence: candidate.discoveryConfidence || null,
     },
     meta: {
       sourceQuery: query,
@@ -308,6 +312,7 @@ function buildFastLeadPackSummary({ outputDir, query, runId, discovery, leadPack
     fallbackUsed: Boolean(discovery.searchSupply?.fallbackUsed),
     recommendedExpansion: discovery.searchSupply?.recommendedExpansion || null,
     locationQualityCounts: discovery.locationQuality?.counts || {},
+    discoveryCoverage: discovery.discoveryCoverage || {},
   }
 }
 
