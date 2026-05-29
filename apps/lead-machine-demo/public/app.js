@@ -200,6 +200,7 @@ function renderWorkflowBoard(result) {
     state.selectedIndex = Number(button.dataset.index)
     state.selectedLeadId = leadId(leads[state.selectedIndex], state.selectedIndex)
     renderAll()
+    focusLeadDetail()
   }))
 }
 
@@ -250,7 +251,13 @@ function renderLeads(visibleLeads) {
     state.selectedIndex = Number(button.dataset.index)
     state.selectedLeadId = button.dataset.id
     renderAll()
+    focusLeadDetail({ block: 'nearest' })
   }))
+}
+
+function focusLeadDetail(options = {}) {
+  if (!els.leadDetail) return
+  els.leadDetail.scrollIntoView({ behavior: 'smooth', block: options.block || 'start', inline: 'nearest' })
 }
 
 function applyQueuePreset(preset) {
@@ -1179,6 +1186,7 @@ async function runWorkflowQuickAction(button) {
   const action = button.dataset.workflowAction
   const workflow = buildQuickWorkflow(action, lead.workflow || {})
   if (!workflow) return setStatus('failed: unknown quick action', 'failed')
+  const advanceQueue = Boolean(button.closest('.queue-row'))
   state.selectedIndex = index
   state.selectedLeadId = leadId(lead, index)
   const originalText = button.textContent
@@ -1200,13 +1208,24 @@ async function runWorkflowQuickAction(button) {
     if (!response.ok) throw new Error(payload.error || 'Workflow quick action failed')
     lead.workflow = payload.workflow
     setStatus(`workflow updated: ${readable(payload.workflow.status || 'new')}`, '')
+    if (advanceQueue) selectNextQueueLead(lead)
     renderAll()
+    if (advanceQueue) focusLeadDetail({ block: 'nearest' })
   } catch (error) {
     setStatus(`failed: ${error.message || 'Workflow quick action failed'}`, 'failed')
   } finally {
     button.disabled = false
     button.textContent = originalText
   }
+}
+
+function selectNextQueueLead(previousLead) {
+  const leads = state.result?.leadPacks || []
+  const previousId = leadId(previousLead, state.selectedIndex)
+  const next = todayCallQueue(leads).find(({ lead, index }) => leadId(lead, index) !== previousId)
+  if (!next) return
+  state.selectedIndex = next.index
+  state.selectedLeadId = leadId(next.lead, next.index)
 }
 
 function buildQuickWorkflow(action, current = {}) {

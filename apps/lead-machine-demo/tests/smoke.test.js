@@ -319,6 +319,9 @@ async function main() {
   assert(lower.includes('needs verification'), 'UI should include a verification queue preset')
   assert(lower.includes('follow-ups'), 'UI should include a follow-up queue preset')
   assert(lower.includes('queue-action'), 'Lead cards should show a next queue action')
+  assert(lower.includes('focusleaddetail'), 'UI should focus lead detail when a queued lead is inspected')
+  assert(lower.includes('selectnextqueuelead'), 'Queue quick actions should support advancing to the next call-ready lead')
+  assert(lower.includes('advancequeue'), 'Queue quick actions should track whether auto-advance is needed')
 
   server.close()
   noWebsiteServer.close()
