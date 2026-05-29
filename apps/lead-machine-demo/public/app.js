@@ -36,6 +36,7 @@ const els = {
   runButton: document.getElementById('runButton'),
   status: document.getElementById('statusPanel'),
   summary: document.getElementById('summaryPanel'),
+  workflowBoard: document.getElementById('workflowBoard'),
   leadCards: document.getElementById('leadCards'),
   leadDetail: document.getElementById('leadDetail'),
   exportPanel: document.getElementById('exportPanel'),
@@ -124,6 +125,7 @@ function renderAll() {
     state.selectedIndex = 0
   }
   renderSummary(state.result)
+  renderWorkflowBoard(state.result)
   renderLeads(visibleLeads)
   renderDetail(leads[state.selectedIndex] || null)
   renderExport(state.result)
@@ -138,7 +140,27 @@ function renderSummary(result) {
     ${metric('Low supply', summary.lowSupply ? 'Yes' : 'No')}
     ${metric('Fallback', summary.fallbackUsed ? 'Used' : (summary.fallbackAvailable ? 'Available' : 'No'))}
     ${metric('Priority counts', formatCounts(summary.callPriorityCounts || summary.priorityCounts || {}))}
+    ${metric('Workflow', workflowCountsLabel(result?.leadPacks || []))}
     ${metric('Next action', modeGuidance(summary))}
+  `
+}
+
+function renderWorkflowBoard(result) {
+  if (!els.workflowBoard) return
+  const leads = result?.leadPacks || []
+  if (!leads.length) {
+    els.workflowBoard.className = 'workflow-board empty'
+    els.workflowBoard.textContent = 'Run a search to build seller queue.'
+    return
+  }
+  const counts = workflowCounts(leads)
+  const due = leads.filter(isFollowUpDue).slice(0, 3)
+  els.workflowBoard.className = 'workflow-board'
+  els.workflowBoard.innerHTML = `
+    <div><span>Seller queue</span><strong>${counts.notContacted} not contacted</strong></div>
+    <div><span>Follow-up due</span><strong>${counts.followUpDue}</strong></div>
+    <div><span>Interested</span><strong>${counts.interested}</strong></div>
+    <p>${due.length ? `Due: ${due.map((lead) => escapeHtml(lead.company?.displayName || lead.companyName || 'Unknown')).join(', ')}` : 'No due follow-ups yet.'}</p>
   `
 }
 
@@ -190,6 +212,11 @@ function matchesLeadFilters(lead, filters) {
   if (filters.has('exact') && sourceQuality.locationMatchStatus !== 'exact_location') return false
   if (filters.has('needsDeep') && !isFastLead(lead)) return false
   if (filters.has('brregIssue') && !['candidate_org', 'no_match', 'brreg_unavailable', 'not_run'].includes(brregStatusLabel(company))) return false
+  const workflow = lead.workflow || {}
+  if (filters.has('notContacted') && (workflow.contacted || ['contacted', 'follow_up', 'interested'].includes(workflow.status))) return false
+  if (filters.has('contacted') && !(workflow.contacted || ['contacted', 'follow_up', 'interested'].includes(workflow.status))) return false
+  if (filters.has('followUpDue') && !isFollowUpDue(lead)) return false
+  if (filters.has('interested') && workflow.status !== 'interested' && workflow.response !== 'interested' && workflow.response !== 'meeting_booked') return false
   return true
 }
 
@@ -209,6 +236,7 @@ function leadSortScore(lead, sortKey) {
   if (sortKey === 'reviews') return Number(places.reviewCount || 0)
   if (sortKey === 'employees') return Number(company.employees || 0)
   if (sortKey === 'discovery') return Number(discovery.score || 0)
+  if (sortKey === 'followUp') return followUpSortScore(lead)
   return bestLeadScore(lead)
 }
 
@@ -227,6 +255,37 @@ function bestLeadScore(lead) {
   score += Number(places.rating || 0)
   if (isFastLead(lead)) score += 1
   return score
+}
+
+function workflowCounts(leads) {
+  return (Array.isArray(leads) ? leads : []).reduce((counts, lead) => {
+    const workflow = lead.workflow || {}
+    const contacted = workflow.contacted || ['contacted', 'follow_up', 'interested'].includes(workflow.status)
+    if (!contacted) counts.notContacted += 1
+    if (contacted) counts.contacted += 1
+    if (isFollowUpDue(lead)) counts.followUpDue += 1
+    if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') counts.interested += 1
+    return counts
+  }, { notContacted: 0, contacted: 0, followUpDue: 0, interested: 0 })
+}
+
+function workflowCountsLabel(leads) {
+  const counts = workflowCounts(leads)
+  return `new:${counts.notContacted} contacted:${counts.contacted} follow-up:${counts.followUpDue} interested:${counts.interested}`
+}
+
+function isFollowUpDue(lead) {
+  const date = lead.workflow?.followUpDate
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return false
+  const today = new Date().toISOString().slice(0, 10)
+  return date <= today && !['rejected'].includes(lead.workflow?.status)
+}
+
+function followUpSortScore(lead) {
+  if (!lead.workflow?.followUpDate) return 0
+  const date = lead.workflow.followUpDate
+  const today = new Date().toISOString().slice(0, 10)
+  return date <= today ? 1000000 : Math.max(1, 1000000 - Number(date.replace(/-/g, '')))
 }
 
 function priorityScore(lead) {

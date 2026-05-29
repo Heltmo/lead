@@ -51,6 +51,7 @@
     <section class="desk-grid">
       <aside class="lead-list">
         <div class="panel-title">Lead packs</div>
+        <div id="workflowBoard" class="workflow-board empty">Run a search to build seller queue.</div>
         <div class="lead-controls">
           <label><span>Sort</span><select id="leadSort">
             <option value="best">Best first</option>
@@ -59,6 +60,7 @@
             <option value="reviews">Google reviews</option>
             <option value="employees">Employees</option>
             <option value="discovery">Discovery confidence</option>
+            <option value="followUp">Follow-up due</option>
           </select></label>
           <div class="filter-chips" aria-label="Lead filters">
             <label><input type="checkbox" class="lead-filter" value="phone"> Phone</label>
@@ -68,6 +70,10 @@
             <label><input type="checkbox" class="lead-filter" value="exact"> Exact location</label>
             <label><input type="checkbox" class="lead-filter" value="needsDeep"> Needs enrichment</label>
             <label><input type="checkbox" class="lead-filter" value="brregIssue"> Brreg issue</label>
+            <label><input type="checkbox" class="lead-filter" value="notContacted"> Not contacted</label>
+            <label><input type="checkbox" class="lead-filter" value="contacted"> Contacted</label>
+            <label><input type="checkbox" class="lead-filter" value="followUpDue"> Follow-up due</label>
+            <label><input type="checkbox" class="lead-filter" value="interested"> Interested</label>
           </div>
           <button type="button" id="clearLeadFilters">Clear filters</button>
           <p id="leadFilterSummary" class="filter-summary">No filters applied.</p>

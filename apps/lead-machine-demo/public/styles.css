@@ -36,7 +36,7 @@ button, input, select { font: inherit; }
 .status-panel { padding: 12px 14px; color: var(--muted); }
 .status-panel.running { color: #174b38; background: var(--green-soft); }
 .status-panel.failed { color: var(--red); background: var(--red-soft); }
-.summary-panel { padding: 12px; display: grid; grid-template-columns: repeat(6, minmax(100px, 1fr)); gap: 8px; }
+.summary-panel { padding: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .metric { min-height: 64px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fbfcfb; }
 .metric span { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; }
 .metric strong { font-size: 18px; }
@@ -148,3 +148,11 @@ a { color: var(--blue); }
 .badge.rejected, .badge.negative { background: var(--red-soft); color: var(--red); }
 @media (max-width: 1180px) { .workflow-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .workflow-form { grid-template-columns: 1fr; } .workflow-head, .workflow-actions { flex-direction: column; align-items: stretch; } }
+
+.workflow-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; padding: 10px; border: 1px solid #c7e5d6; border-radius: 8px; background: #f3faf7; }
+.workflow-board.empty { display: block; color: var(--muted); border-color: var(--line); background: #fbfcfb; }
+.workflow-board div { min-height: 54px; padding: 8px; border: 1px solid #d5e4dc; border-radius: 8px; background: rgba(255,255,255,.78); }
+.workflow-board span { display: block; margin-bottom: 5px; color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 780; }
+.workflow-board strong { font-size: 16px; line-height: 1.2; }
+.workflow-board p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+@media (max-width: 1180px) { .workflow-board { grid-template-columns: 1fr; } }

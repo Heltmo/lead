@@ -126,6 +126,8 @@ For each lead, a seller can save:
 
 Workflow state is stored locally in `.cache/lead-machine-demo/lead-workflow.json` and is appended to JSON/CSV downloads. It is manual tracking only: the app does not call, send email, schedule calendar events, or generate outreach wording.
 
+Workflow queue controls now show not-contacted leads, due follow-ups, interested leads, and contacted/not-contacted filters. This keeps the demo close to a call-ready sales desk while still avoiding CRM/telephony/email integration.
+
 ## Product Boundary
 
 Machine provides:

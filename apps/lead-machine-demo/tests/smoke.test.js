@@ -131,6 +131,8 @@ async function main() {
   const workflowCsv = await get(port, response.body.downloads.csv)
   assert(workflowCsv.body.includes('workflowStatus'), 'CSV should include workflow status column')
   assert(workflowCsv.body.includes('follow up after call'), 'CSV should include workflow next action')
+  response = await post(port, '/api/runs', { query: 'rørlegger i Kristiansand; rm -rf /', provider: 'google-places', searchScope: 'strict', enrichCompanyProfile: false })
+  assert(response.body.leadPacks[0].workflow.status === 'contacted', 'workflow should attach to later returned lead packs')
 
   const deepResponse = await post(port, '/api/deep-qualify', { query: 'rørlegger i Kristiansand', lead: response.body.leadPacks[0], enrichCompanyProfile: true })
   assert(deepResponse.status === 200, 'selected lead deep qualification should complete')
@@ -255,6 +257,11 @@ async function main() {
   assert(lower.includes('/api/workflow'), 'UI should save workflow through the workflow API')
   assert(lower.includes('follow-up date'), 'UI should track follow-up date')
   assert(lower.includes('contacted'), 'UI should track contacted state')
+  assert(lower.includes('workflowboard'), 'UI should include workflow queue board')
+  assert(lower.includes('follow-up due'), 'UI should filter follow-up due leads')
+  assert(lower.includes('notcontacted'), 'UI should filter not-contacted leads')
+  assert(lower.includes('seller queue'), 'UI should summarize seller queue')
+  assert(lower.includes('followupsortscore'), 'UI should sort by follow-up due')
 
   server.close()
   noWebsiteServer.close()
