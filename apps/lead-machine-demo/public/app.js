@@ -70,6 +70,7 @@ els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { st
 els.clearLeadFilters.addEventListener('click', () => { els.leadFilters.forEach((filter) => { filter.checked = false }); state.selectedLeadId = null; renderAll() })
 renderSummary(null)
 renderExport(null)
+clearStatus()
 loadLatestRun()
 
 function initStructuredSearch() {
@@ -95,7 +96,7 @@ async function loadLatestRun() {
     state.selectedIndex = 0
     state.selectedLeadId = null
     if (payload.parsedQuery?.normalizedQuery) els.query.value = payload.parsedQuery.normalizedQuery
-    setStatus(`loaded latest run: ${payload.runId}`, '')
+    clearStatus()
     renderAll()
   } catch (error) {
     setStatus('Ready. Previous run could not be loaded; run a new search.', '')
@@ -135,7 +136,7 @@ async function runSearch() {
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || 'Run failed')
     state.result = payload
-    setStatus('completed', '')
+    clearStatus()
     renderAll()
   } catch (error) {
     setStatus(`failed: ${error.message || 'Run failed'}`, 'failed')
@@ -187,23 +188,15 @@ function renderWorkflowBoard(result) {
   const leads = result?.leadPacks || []
   if (!leads.length) {
     els.workflowBoard.className = 'workflow-board empty'
-    els.workflowBoard.textContent = 'Run a search to build seller queue.'
+    els.workflowBoard.textContent = 'Run a search to build the next call.'
     return
   }
-  const counts = workflowCounts(leads)
-  const queue = todayCallQueue(leads).slice(0, 7)
-  els.workflowBoard.className = 'workflow-board call-queue-board simple-call-board'
-  els.workflowBoard.innerHTML = `
-    <div class="queue-stats">
-      <div class="queue-stat"><span>Call now</span><strong>${queue.length}</strong></div>
-      <div class="queue-stat"><span>Follow-up due</span><strong>${counts.followUpDue}</strong></div>
-      <div class="queue-stat"><span>Interested</span><strong>${counts.interested}</strong></div>
-    </div>
-    <div class="queue-list">
-      ${queue.length ? queue.map(({ lead, index, reason }) => callQueueRow(lead, index, reason)).join('') : '<p class="muted">No call-ready leads yet. Use filters below or run a new search.</p>'}
-    </div>
-    <p>Manual call queue only. No calls, messages or calendar events are sent.</p>
-  `
+  const queue = todayCallQueue(leads)
+  const next = queue[0]
+  els.workflowBoard.className = 'workflow-board current-call-board'
+  els.workflowBoard.innerHTML = next
+    ? currentCallCard(next.lead, next.index, next.reason, queue.length)
+    : '<div class="empty-state compact-empty">No phone-ready lead in the current filters. Clear filters or run a new search.</div>'
   els.workflowBoard.querySelectorAll('.queue-select').forEach((button) => button.addEventListener('click', () => {
     state.selectedIndex = Number(button.dataset.index)
     state.selectedLeadId = leadId(leads[state.selectedIndex], state.selectedIndex)
@@ -212,13 +205,24 @@ function renderWorkflowBoard(result) {
   }))
 }
 
-function callQueueRow(lead, index, reason) {
+function currentCallCard(lead, index, reason, queueCount) {
   const name = lead.company?.displayName || lead.companyName || 'Unknown company'
   const phone = lead.contact?.phone || lead.phone || ''
+  const city = lead.contact?.city || lead.city || 'unknown'
   const followUpClass = followUpTiming(lead.workflow?.followUpDate)
-  return `<article class="queue-row ${followUpClass !== 'none' ? `follow-up-${followUpClass}` : ''}">
-    <div><strong>${escapeHtml(name)}</strong><span>${escapeHtml(reason)}</span></div>
-    <div class="queue-row-actions">${phoneLink(phone)}<button type="button" class="queue-select" data-index="${index}">Inspect</button></div>
+  return `<article class="current-call-card queue-row ${followUpClass !== 'none' ? `follow-up-${followUpClass}` : ''}">
+    <div class="current-call-head">
+      <div>
+        <span>Next call</span>
+        <strong>${escapeHtml(name)}</strong>
+        <small>${escapeHtml(city)} · ${escapeHtml(reason)}</small>
+      </div>
+      <div class="queue-count"><span>In queue</span><strong>${queueCount}</strong></div>
+    </div>
+    <div class="current-call-phone">
+      ${phoneLink(phone)}
+      <button type="button" class="queue-select" data-index="${index}">Inspect</button>
+    </div>
     ${quickActionsHtml(index, 'queue')}
   </article>`
 }
@@ -1234,7 +1238,7 @@ async function runWorkflowQuickAction(button) {
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || 'Workflow quick action failed')
     lead.workflow = payload.workflow
-    setStatus(`workflow updated: ${readable(payload.workflow.status || 'new')}`, '')
+    clearStatus()
     if (advanceQueue) selectNextQueueLead(lead)
     renderAll()
     if (advanceQueue) focusLeadDetail({ block: 'nearest' })
@@ -1351,7 +1355,14 @@ function phoneLink(value) {
   return `<a href="${escapeAttr(href)}" class="phone-link">${escapeHtml(raw)}</a>`
 }
 
+function clearStatus() {
+  els.status.hidden = true
+  els.status.className = 'status-panel'
+  els.status.textContent = ''
+}
 function setStatus(text, cls) {
+  if (!text) return clearStatus()
+  els.status.hidden = false
   els.status.className = `status-panel ${cls || ''}`
   els.status.textContent = text
 }
