@@ -81,7 +81,7 @@ Recommended workflow:
 3. Use `Run Deep qualification for this lead` on one promising candidate. This audits only the selected lead and replaces that card while the rest of the list stays as Fast candidates.
 4. Export the lead pack once the lead is qualified enough for seller review.
 
-Fast results are candidates, not fully qualified leads. Deep qualification is per lead: it upgrades one selected candidate with website audit/scoring signals without rerunning the full search.
+Fast results are candidates, not fully qualified leads. Deep qualification is per lead: it upgrades one selected candidate with website audit/scoring signals without rerunning the full search. Deep may raise or lower website opportunity, but seller readiness is separate: a contactable, active, correctly located company can still be a useful B2B lead even when website opportunity is low.
 
 ## What It Does
 

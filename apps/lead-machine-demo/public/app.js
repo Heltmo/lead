@@ -396,15 +396,16 @@ function sellerCommandCard(command) {
         <h3>${escapeHtml(command.headline)}</h3>
         <p>${escapeHtml(command.summary)}</p>
       </div>
-      <div class="command-score ${escapeAttr(command.readinessKey)}">
-        <span>Call readiness</span>
-        <strong>${escapeHtml(command.callReadiness)}</strong>
+      <div class="command-score ${escapeAttr(command.sellerReadinessKey)}">
+        <span>Seller readiness</span>
+        <strong>${escapeHtml(command.sellerReadiness)}</strong>
       </div>
     </div>
     <div class="command-grid">
       ${commandMetric('Best first contact', command.bestContact, command.bestContactNote)}
       ${commandMetric('Company fit', command.companyFit, command.companyFitNote)}
       ${commandMetric('Verification', command.verification, command.verificationNote)}
+      ${commandMetric('Website opportunity', command.websiteOpportunity, command.websiteOpportunityNote)}
       ${commandMetric('Main risk', command.mainRisk, command.mainRiskNote)}
       ${commandMetric('Next action', command.nextAction, command.nextActionNote)}
       ${commandMetric('Source confidence', command.sourceConfidence, command.sourceConfidenceNote)}
@@ -446,21 +447,22 @@ function sellerDeskCards(lead, command) {
     ['Presence', sourceQuality.presenceSource || places.provider || 'unknown'],
   ]
   const actionRows = [
-    ['Readiness', command.callReadiness],
+    ['Seller readiness', command.sellerReadiness],
+    ['Website opportunity', command.websiteOpportunity],
     ['Next action', command.nextAction],
     ['Main risk', command.mainRisk],
-    ['Export state', company.organizationNumber ? 'identity ready' : company.candidateOrganizationNumber ? 'verify candidate org.nr' : 'identity not confirmed'],
   ]
   const qualificationRows = [
     ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Deep qualified'],
-    ['Priority', readable(lead.callPriority || lead.priority || 'unknown')],
-    ['Lead class', humanize(lead.leadClass || 'unknown')],
-    ['Opportunity', humanize(lead.opportunityType || 'unknown')],
+    ['Seller readiness', command.sellerReadiness],
+    ['Website opportunity', command.websiteOpportunity],
+    ['Opportunity type', humanize(lead.opportunityType || 'unknown')],
   ]
   const riskRows = [
     ['Verification', command.verification],
     ['Warnings', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
     ['Economy', readable(economy.status || 'not_enabled')],
+    ['Export state', company.organizationNumber ? 'identity ready' : company.candidateOrganizationNumber ? 'verify candidate org.nr' : 'identity not confirmed'],
     ['Why', command.nextActionNote],
   ]
 
@@ -468,13 +470,13 @@ function sellerDeskCards(lead, command) {
     ${sellerDeskCard('Company identity', orgStatus, identityRows, company.sourceUrl ? link(company.sourceUrl) : '')}
     ${sellerDeskCard('Contactability', contact.phone ? 'phone_available' : 'contact_missing', contactRows, command.bestContactNote)}
     ${sellerDeskCard('Market proof', sourceQuality.locationMatchStatus || 'unknown', marketRows, places.placeId ? `Place ID: ${places.placeId}` : '')}
-    ${sellerDeskCard('Action and risk', command.readinessKey, actionRows, 'No script generated; seller owns angle and wording.')}
+    ${sellerDeskCard('Action and risk', command.sellerReadinessKey, actionRows, 'No script generated; seller owns angle and wording.')}
   </section>
   <details class="detail-collapse lead-brief-details">
     <summary>Qualification and verification details</summary>
     <div class="seller-desk-v2 secondary-brief-grid">
       ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Candidate until Deep runs.' : 'Audit/scoring included.')}
-      ${sellerDeskCard('Verification and caution', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : command.readinessKey, riskRows, command.mainRiskNote)}
+      ${sellerDeskCard('Verification and caution', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : command.sellerReadinessKey, riskRows, command.mainRiskNote)}
     </div>
   </details>`
 }
@@ -502,24 +504,11 @@ function sellerCommand(lead) {
   const hasPhone = Boolean(contact.phone || lead.phone)
   const hasWebsite = Boolean(contact.website || lead.website)
   const rating = Number(places.rating || 0)
+  const reviewCount = Number(places.reviewCount || 0)
   const employees = Number(company.employees || 0)
+  const active = !company.activeStatus || String(company.activeStatus).toLowerCase() === 'active'
   const discoveryLevel = String(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown').toLowerCase()
-
-  let readinessKey = 'verify'
-  if (!hasPhone) readinessKey = 'weak'
-  else if (fast || priority === 'verify' || candidateOrg || !confirmedOrg) readinessKey = 'verify'
-  else if (priority === 'high') readinessKey = 'strong'
-  else readinessKey = 'good'
-
-  const callReadiness = {
-    strong: 'Strong',
-    good: 'Good',
-    verify: 'Verify first',
-    weak: 'Weak',
-  }[readinessKey]
-
-  const bestContact = hasPhone ? (contact.phone || lead.phone) : (contact.email || lead.email || 'unknown')
-  const bestContactNote = hasPhone ? 'Direct phone is available.' : contact.email ? 'Email exists, phone missing.' : 'Find a direct contact before sales work.'
+  const brregUnavailable = isBrregUnavailable(company)
 
   let fitScore = 0
   if (exactLocation) fitScore += 2
@@ -528,6 +517,7 @@ function sellerCommand(lead) {
   if (confirmedOrg) fitScore += 2
   if (candidateOrg) fitScore += 1
   if (rating >= 4.3) fitScore += 1
+  if (reviewCount >= 10) fitScore += 1
   if (employees >= 5) fitScore += 1
   const companyFit = fitScore >= 7 ? 'Strong fit' : fitScore >= 5 ? 'Good fit' : fitScore >= 3 ? 'Review fit' : 'Weak fit'
   const companyFitNote = [
@@ -536,46 +526,91 @@ function sellerCommand(lead) {
     hasPhone ? 'phone available' : 'phone missing',
   ].join(' · ')
 
-  const brregUnavailable = isBrregUnavailable(company)
+  let sellerScore = 0
+  if (active) sellerScore += 2
+  if (exactLocation) sellerScore += 2
+  if (hasPhone) sellerScore += 3
+  if (confirmedOrg) sellerScore += 3
+  else if (candidateOrg) sellerScore += 1
+  if (employees > 0) sellerScore += 1
+  if (employees >= 5) sellerScore += 1
+  if (rating >= 4) sellerScore += 1
+  if (reviewCount >= 5) sellerScore += 1
+  if (brregUnavailable) sellerScore -= 1
+  if (!hasPhone) sellerScore -= 3
+  if (!exactLocation) sellerScore -= 2
+
+  const sellerReadinessKey = sellerScore >= 10 ? 'strong' : sellerScore >= 7 ? 'good' : sellerScore >= 4 ? 'verify' : 'weak'
+  const sellerReadiness = {
+    strong: 'Strong seller lead',
+    good: 'Good seller lead',
+    verify: 'Verify first',
+    weak: 'Weak seller lead',
+  }[sellerReadinessKey]
+
+  const websiteOpportunity = {
+    high: 'High website opportunity',
+    medium: 'Medium website opportunity',
+    low: 'Low website opportunity',
+    verify: fast ? 'Not checked yet' : 'Needs review',
+  }[priority] || 'Needs review'
+  const websiteOpportunityNote = fast
+    ? 'Fast mode has not audited the website yet.'
+    : priority === 'low'
+      ? 'Deep did not find strong website pain; this can still be a usable B2B lead.'
+      : 'Website/audit signals can inform the sales angle if relevant.'
+
+  const bestContact = hasPhone ? (contact.phone || lead.phone) : (contact.email || lead.email || 'unknown')
+  const bestContactNote = hasPhone ? 'Direct phone is available.' : contact.email ? 'Email exists, phone missing.' : 'Find a direct contact before sales work.'
+
   const verification = confirmedOrg ? 'Confirmed org.nr' : candidateOrg ? 'Candidate org.nr' : brregUnavailable ? 'Identity pending' : 'Not verified'
   const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : brregUnavailable ? 'Brreg is unavailable right now; retry before export.' : 'Brreg returned no confirmed identity.'
 
   let mainRisk = 'Low data risk'
   let mainRiskNote = 'Core contact and identity fields look usable.'
-  if (fast) {
-    mainRisk = contact.website ? 'Website unverified' : 'Fast mode only'
-    mainRiskNote = contact.website ? 'Google supplied a URL, but Deep must verify it is real and relevant.' : 'Website audit and full scoring are skipped.'
+  if (!hasPhone) {
+    mainRisk = 'No direct phone'
+    mainRiskNote = 'This is harder to use for calling until contact data is improved.'
   } else if (!confirmedOrg && candidateOrg) {
     mainRisk = 'Identity uncertain'
     mainRiskNote = 'Candidate org.nr must be verified.'
   } else if (!exactLocation) {
     mainRisk = 'Location fallback'
     mainRiskNote = 'Do not treat this as an exact local lead.'
+  } else if (fast) {
+    mainRisk = contact.website ? 'Website unverified' : 'Fast mode only'
+    mainRiskNote = contact.website ? 'Google supplied a URL, but Deep must verify it is real and relevant.' : 'Website audit and full scoring are skipped.'
   } else if ((ranking.caution || []).length) {
     mainRisk = 'Review caution'
     mainRiskNote = humanizeEvidence((ranking.caution || [])[0])
   }
 
-  let nextAction = nextSellerStep(lead)
-  let nextActionNote = 'Use the lead pack evidence before sales work.'
-  if (fast) {
-    nextAction = confirmedOrg && hasPhone ? 'Run Deep qualification' : candidateOrg ? 'Verify org.nr, then Deep' : brregUnavailable ? 'Run Deep; retry Brreg before export' : 'Run Deep qualification'
-    nextActionNote = 'Fast scan found the candidate; qualify before call-first.'
+  let nextAction = 'Use as B2B lead'
+  let nextActionNote = 'Contactability and company context decide sales usability; website pain is separate.'
+  if (!hasPhone) {
+    nextAction = 'Find contact first'
+    nextActionNote = 'Do not prioritize for calling until a direct contact is found.'
+  } else if (fast) {
+    nextAction = confirmedOrg ? 'Run Deep if website angle matters' : candidateOrg ? 'Verify org.nr, then Deep if needed' : brregUnavailable ? 'Retry Brreg before export' : 'Run Deep if needed'
+    nextActionNote = 'Fast found a usable candidate; Deep only qualifies website/audit opportunity.'
+  } else if (priority === 'low' && sellerReadinessKey !== 'weak') {
+    nextAction = 'Usable lead; weak website angle'
+    nextActionNote = 'Do not treat LOW website opportunity as a bad business lead.'
   } else if (priority === 'high') {
     nextAction = 'Review first'
-    nextActionNote = 'Deep evidence supports high priority.'
+    nextActionNote = 'Deep evidence supports website/opportunity urgency.'
   }
 
   const sourceConfidence = discoveryLevel === 'unknown' ? 'Unknown' : readable(discoveryLevel)
   const sourceConfidenceNote = discoveryQuality.score == null ? 'No discovery score available.' : `Discovery score ${discoveryQuality.score}/100.`
 
-  const headline = `${companyFit} · ${verification}`
-  const summary = buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority })
+  const headline = `${sellerReadiness} · ${verification}`
+  const summary = buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority, websiteOpportunity })
 
-  return { headline, summary, callReadiness, readinessKey, bestContact, bestContactNote, companyFit, companyFitNote, verification, verificationNote, mainRisk, mainRiskNote, nextAction, nextActionNote, sourceConfidence, sourceConfidenceNote }
+  return { headline, summary, callReadiness: sellerReadiness, readinessKey: sellerReadinessKey, sellerReadiness, sellerReadinessKey, websiteOpportunity, websiteOpportunityNote, bestContact, bestContactNote, companyFit, companyFitNote, verification, verificationNote, mainRisk, mainRiskNote, nextAction, nextActionNote, sourceConfidence, sourceConfidenceNote }
 }
 
-function buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority }) {
+function buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority, websiteOpportunity }) {
   const parts = []
   if (confirmedOrg) parts.push(`Legal identity is confirmed${company.organizationNumber ? ` (${company.organizationNumber})` : ''}`)
   else if (candidateOrg) parts.push('Legal identity has a candidate match but needs manual verification')
@@ -585,7 +620,7 @@ function buildCommandSummary({ company, contact, places, confirmedOrg, candidate
   if (places.rating) parts.push(`Google rating ${places.rating}/5`)
   if (exactLocation) parts.push('location matches the search')
   if (fast) parts.push(contact.website ? 'website URL is unverified until Deep runs' : 'full website audit is not run yet')
-  else parts.push(`priority is ${String(priority || 'unknown').toUpperCase()}`)
+  else parts.push(`website opportunity is ${websiteOpportunity || String(priority || 'unknown').toUpperCase()}`)
   return `${parts.join('; ')}.`
 }
 
@@ -747,7 +782,7 @@ function nextSellerStep(lead) {
   if (match === 'manual_verify' || match === 'weak_match') return 'Verify company identity first'
   if (priority === 'high') return 'Review first'
   if (priority === 'medium') return 'Shortlist and inspect evidence'
-  if (priority === 'low') return 'Keep as low-urgency reference'
+  if (priority === 'low') return 'Usable lead; weak website angle'
   if (priority === 'verify') return 'Manual verification required'
   return 'Review source data'
 }
