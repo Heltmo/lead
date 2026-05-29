@@ -163,17 +163,23 @@ function renderAll() {
 
 function renderSummary(result) {
   const summary = result?.summary || {}
+  const leads = result?.leadPacks || []
+  const counts = workflowCounts(leads)
   els.summary.innerHTML = `
-    ${metric('Included', summary.includedLeadCount ?? summary.totalLeads ?? 0)}
-    ${metric('Mode', readable(summary.mode || 'fast'))}
-    ${metric('Discovered', summary.totalDiscovered ?? 'unknown')}
-    ${metric('Low supply', summary.lowSupply ? 'Yes' : 'No')}
-    ${metric('Fallback', summary.fallbackUsed ? 'Used' : (summary.fallbackAvailable ? 'Available' : 'No'))}
-    ${metric('Priority counts', formatCounts(summary.callPriorityCounts || summary.priorityCounts || {}))}
-    ${metric('Today calls', todayCallQueue(result?.leadPacks || []).length)}
-    ${metric('Workflow', workflowCountsLabel(result?.leadPacks || []))}
-    ${metric('Next action', modeGuidance(summary))}
+    ${metric('Leads', summary.includedLeadCount ?? summary.totalLeads ?? 0)}
+    ${metric('Call today', todayCallQueue(leads).length)}
+    ${metric('Follow-up', counts.followUpDue)}
+    ${metric('Interested', counts.interested)}
+    ${metric('Status', compactRunStatus(summary))}
   `
+}
+
+function compactRunStatus(summary = {}) {
+  const mode = readable(summary.mode || 'fast')
+  if (!summary || Object.keys(summary).length === 0) return 'Ready'
+  if (summary.lowSupply) return `${mode} · low supply`
+  if (summary.fallbackUsed) return `${mode} · fallback used`
+  return mode
 }
 
 function renderWorkflowBoard(result) {
