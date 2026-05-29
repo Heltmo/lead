@@ -56,6 +56,8 @@ async function main() {
   assert(packs[0].sourceQuality.fallbackAvailable === true, 'lead pack should include fallback available')
   assert(packs[0].sourceQuality.requestedLocation === 'Testby', 'lead pack should include requested location')
   assert(packs[0].sourceQuality.locationMatchStatus === 'exact_location', 'lead pack should include location match status')
+  assert(packs[0].sourceQuality.discoveryConfidence === 'high', 'lead pack should include discovery confidence')
+  assert(packs[0].sourceQuality.discoveryQuality.score === 92, 'lead pack should include discovery quality score')
   assert(packs[0].company.organizationNumber === null, 'company profile disabled should not set organizationNumber')
   assert(packs[0].ranking.caution.some((note) => note.includes('Seller owns angle')), 'seller-owned angle rule should be present')
   assert(!JSON.stringify(packs[0]).toLowerCase().includes('call opener'), 'lead pack should not generate sales scripts')
@@ -126,6 +128,8 @@ function summaryFixture(reportPath) {
           locationWarnings: [],
           fallbackUsed: false,
           locationQuality: { requestedLocation: 'Testby', candidateLocation: 'Testgata 1, 1600 Testby', candidateCity: 'Testby', locationMatchStatus: 'exact_location', locationConfidence: 0.95, distanceKm: null, locationWarnings: [], fallbackUsed: false },
+          discoveryQuality: { score: 92, level: 'high', reasons: ['exact_location', 'phone_available'], warnings: [] },
+          discoveryConfidence: 'high',
           sourceType: 'directBusiness',
           provenance: { provider: 'google-places', searchQuery: 'tannleger i Testby' },
         },
@@ -191,6 +195,8 @@ function reportFixture() {
       locationWarnings: [],
       fallbackUsed: false,
       locationQuality: { requestedLocation: 'Testby', candidateLocation: 'Testgata 1, 1600 Testby', candidateCity: 'Testby', locationMatchStatus: 'exact_location', locationConfidence: 0.95, distanceKm: null, locationWarnings: [], fallbackUsed: false },
+      discoveryQuality: { score: 92, level: 'high', reasons: ['exact_location', 'phone_available'], warnings: [] },
+      discoveryConfidence: 'high',
       rating: '4.8',
       reviewCount: '44',
       placeId: 'place-123',

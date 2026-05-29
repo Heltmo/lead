@@ -32,6 +32,23 @@ function sourceMetadataFromItem(item) {
     reviewCount: item.reviewCount || item.sourceMetadata?.reviewCount || '',
     businessStatus: item.businessStatus || item.sourceMetadata?.businessStatus || '',
     providerTypes: item.providerTypes || item.sourceMetadata?.providerTypes || [],
+    searchScope: item.searchScope || item.sourceMetadata?.searchScope || '',
+    requestedMaxResults: item.requestedMaxResults || item.sourceMetadata?.requestedMaxResults || '',
+    includedLeadCount: item.includedLeadCount || item.sourceMetadata?.includedLeadCount || '',
+    lowSupply: item.lowSupply ?? item.sourceMetadata?.lowSupply,
+    fallbackAvailable: item.fallbackAvailable ?? item.sourceMetadata?.fallbackAvailable,
+    recommendedExpansion: item.recommendedExpansion || item.sourceMetadata?.recommendedExpansion || '',
+    requestedLocation: item.requestedLocation || item.sourceMetadata?.requestedLocation || '',
+    candidateLocation: item.candidateLocation || item.sourceMetadata?.candidateLocation || '',
+    candidateCity: item.candidateCity || item.sourceMetadata?.candidateCity || '',
+    locationMatchStatus: item.locationMatchStatus || item.sourceMetadata?.locationMatchStatus || '',
+    locationConfidence: item.locationConfidence || item.sourceMetadata?.locationConfidence || '',
+    distanceKm: item.distanceKm || item.sourceMetadata?.distanceKm || '',
+    locationWarnings: item.locationWarnings || item.sourceMetadata?.locationWarnings || [],
+    fallbackUsed: item.fallbackUsed ?? item.sourceMetadata?.fallbackUsed,
+    locationQuality: item.locationQuality || item.sourceMetadata?.locationQuality || null,
+    discoveryQuality: item.discoveryQuality || item.sourceMetadata?.discoveryQuality || null,
+    discoveryConfidence: item.discoveryConfidence || item.sourceMetadata?.discoveryConfidence || '',
   }
   return Object.fromEntries(Object.entries(metadata).filter(([, value]) => hasMetadataValue(value)))
 }

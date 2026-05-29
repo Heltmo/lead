@@ -79,7 +79,7 @@ async function runSearch() {
   try {
     const statusText = els.runMode.value === 'fast'
       ? 'running: fast discovery and lead-pack build'
-      : 'running: discovery, website audit and lead-pack build'
+      : 'running: deep website audit and scoring; this can take a few minutes'
     setStatus(statusText, 'running')
     const response = await fetch('/api/runs', {
       method: 'POST',
@@ -413,7 +413,17 @@ function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
 function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
-function link(value) { return value && value !== 'unknown' ? `<a href="${escapeAttr(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>` : 'unknown' }
+function link(value) { return value && value !== 'unknown' ? `<a href="${escapeAttr(value)}" target="_blank" rel="noreferrer" title="${escapeAttr(value)}">${escapeHtml(displayUrl(value))}</a>` : 'unknown' }
+function displayUrl(value) {
+  const text = String(value || '')
+  try {
+    const url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`)
+    const clean = `${url.hostname.replace(/^www\./, '')}${url.pathname === '/' ? '' : url.pathname}`
+    return clean.length > 58 ? `${clean.slice(0, 55)}...` : clean
+  } catch {
+    return text.length > 58 ? `${text.slice(0, 55)}...` : text
+  }
+}
 function isHtml(value) { return typeof value === 'string' && value.trim().startsWith('<') }
 function escapeHtml(value) { return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;') }
 function escapeAttr(value) { return escapeHtml(value).replace(/`/g, '&#096;') }

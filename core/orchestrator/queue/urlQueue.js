@@ -37,6 +37,8 @@ function createQueue(urls, options = {}) {
       locationWarnings: item.locationWarnings,
       fallbackUsed: item.fallbackUsed,
       locationQuality: item.locationQuality,
+      discoveryQuality: item.discoveryQuality,
+      discoveryConfidence: item.discoveryConfidence,
       sourceMetadata: item.sourceMetadata,
       status: 'pending',
       attempts: 0,
@@ -98,6 +100,8 @@ function normalizeQueueInput(input) {
   const locationWarnings = Array.isArray(raw.locationWarnings) ? raw.locationWarnings.map(clean).filter(Boolean) : []
   const fallbackUsed = normalizeOptionalBoolean(raw.fallbackUsed) === true
   const locationQuality = raw.locationQuality && typeof raw.locationQuality === 'object' && !Array.isArray(raw.locationQuality) ? raw.locationQuality : null
+  const discoveryQuality = raw.discoveryQuality && typeof raw.discoveryQuality === 'object' && !Array.isArray(raw.discoveryQuality) ? raw.discoveryQuality : null
+  const discoveryConfidence = clean(raw.discoveryConfidence || discoveryQuality?.level)
   const sourceMetadata = {
     businessName,
     source,
@@ -131,8 +135,10 @@ function normalizeQueueInput(input) {
     locationWarnings,
     fallbackUsed,
     locationQuality,
+    discoveryQuality,
+    discoveryConfidence,
   }
-  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, phone, address, placeId, rating, reviewCount, businessStatus, providerTypes, searchScope, requestedMaxResults, includedLeadCount, lowSupply, fallbackAvailable, recommendedExpansion, requestedLocation, candidateLocation, candidateCity, locationMatchStatus, locationConfidence, distanceKm, locationWarnings, fallbackUsed, locationQuality, sourceMetadata }
+  return { url, businessName, source, location, industry, confidence, sources, sourceType, auditEligible, auditExclusionReason, provenance, phone, address, placeId, rating, reviewCount, businessStatus, providerTypes, searchScope, requestedMaxResults, includedLeadCount, lowSupply, fallbackAvailable, recommendedExpansion, requestedLocation, candidateLocation, candidateCity, locationMatchStatus, locationConfidence, distanceKm, locationWarnings, fallbackUsed, locationQuality, discoveryQuality, discoveryConfidence, sourceMetadata }
 }
 
 function clean(value) {

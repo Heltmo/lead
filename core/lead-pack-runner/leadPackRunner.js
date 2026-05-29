@@ -226,6 +226,8 @@ function sourceQuality(item) {
     distanceKm: numberOrNull(item.sourceMetadata?.distanceKm ?? quality.distanceKm),
     locationWarnings: warnings,
     fallbackUsed: Boolean(item.sourceMetadata?.fallbackUsed || quality.fallbackUsed),
+    discoveryQuality: item.sourceMetadata?.discoveryQuality || null,
+    discoveryConfidence: item.sourceMetadata?.discoveryConfidence || item.sourceMetadata?.discoveryQuality?.level || null,
   }
 }
 
@@ -252,6 +254,7 @@ function buildSummary({ leadPacks, artifacts, outputDir, sourceQuery, lastChecke
     fallbackUsed: leadPacks.some((lead) => lead.sourceQuality.fallbackUsed),
     recommendedExpansion: leadPacks[0]?.sourceQuality.recommendedExpansion || null,
     locationQualityCounts: leadPacks.reduce((acc, lead) => { const key = lead.sourceQuality.locationMatchStatus || 'unknown'; acc[key] = (acc[key] || 0) + 1; return acc }, {}),
+    discoveryConfidenceCounts: leadPacks.reduce((acc, lead) => { const key = lead.sourceQuality.discoveryConfidence || lead.sourceQuality.discoveryQuality?.level || 'unknown'; acc[key] = (acc[key] || 0) + 1; return acc }, {}),
     productBoundary: 'machine_generates_ranked_lead_packs_seller_owns_angle_wording_outreach_timing_relationship_close',
   }
 }

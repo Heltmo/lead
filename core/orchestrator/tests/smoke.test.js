@@ -17,6 +17,9 @@ assert(jsonQueue[0].location === 'Halden', 'JSONL handoff should preserve locati
 assert(jsonQueue[0].sourceType === 'directBusiness', 'JSONL handoff should preserve sourceType')
 assert(jsonQueue[0].auditEligible === true, 'JSONL handoff should preserve audit eligibility')
 assert(jsonQueue[0].provenance.provider === 'mock', 'JSONL handoff should preserve provenance')
+const qualityQueue = createQueue([parseQueueInputLine('{"url":"https://quality-clinic.no","businessName":"Quality Clinic","discoveryQuality":{"score":88,"level":"high","reasons":["phone_available"],"warnings":[]},"discoveryConfidence":"high"}')])
+assert(qualityQueue[0].discoveryQuality.score === 88, 'JSONL handoff should preserve discovery quality')
+assert(qualityQueue[0].sourceMetadata.discoveryConfidence === 'high', 'sourceMetadata should preserve discovery confidence')
 
 const runs = path.join(__dirname, 'runs-smoke')
 fs.rmSync(runs, { recursive: true, force: true })
