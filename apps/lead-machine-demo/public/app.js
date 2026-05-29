@@ -166,7 +166,8 @@ function renderDetail(lead) {
   const economy = lead.economy || {}
   const discoveryQuality = sourceQuality.discoveryQuality || {}
   const leverage = sellerSignals(lead)
-  const nextStep = nextSellerStep(lead)
+  const command = sellerCommand(lead)
+  const nextStep = command.nextAction
   els.leadDetail.innerHTML = `
     <div class="detail-title">
       <div>
@@ -177,7 +178,9 @@ function renderDetail(lead) {
       <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
     </div>
 
-    <div class="quick-facts">
+    ${sellerCommandCard(command)}
+
+    <div class="quick-facts secondary-facts">
       ${factCard('Phone', contact.phone || lead.phone || 'unknown', 'Best first contact field')}
       ${factCard('Website', contact.website ? 'available' : 'unknown', contact.website ? link(contact.website) : 'No website in lead pack')}
       ${factCard('Google', formatRating(places), places.placeId ? `Place ID: ${places.placeId}` : 'No place ID')}
@@ -187,10 +190,10 @@ function renderDetail(lead) {
       ${factCard('Discovery', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown'), discoveryQuality.score == null ? 'Source confidence unknown' : `Score ${discoveryQuality.score}/100`)}
     </div>
 
-    <section class="leverage-panel">
+    <section class="leverage-panel compact">
       <div>
         <p class="eyebrow">Seller leverage</p>
-        <h3>What makes this worth a look</h3>
+        <h3>Supporting reasons</h3>
       </div>
       ${bullets(leverage)}
     </section>
@@ -282,6 +285,136 @@ function fastQualificationPanel(lead) {
     <div><strong>Needs Deep qualification</strong><span>Fast mode found this candidate quickly. Full audit and scoring are not run yet.</span></div>
     <button type="button" id="runDeepQualification">Run Deep qualification</button>
   </section>`
+}
+
+
+function sellerCommandCard(command) {
+  return `<section class="command-card">
+    <div class="command-main">
+      <div>
+        <p class="eyebrow">Seller command</p>
+        <h3>${escapeHtml(command.headline)}</h3>
+        <p>${escapeHtml(command.summary)}</p>
+      </div>
+      <div class="command-score ${escapeAttr(command.readinessKey)}">
+        <span>Call readiness</span>
+        <strong>${escapeHtml(command.callReadiness)}</strong>
+      </div>
+    </div>
+    <div class="command-grid">
+      ${commandMetric('Best first contact', command.bestContact, command.bestContactNote)}
+      ${commandMetric('Company fit', command.companyFit, command.companyFitNote)}
+      ${commandMetric('Verification', command.verification, command.verificationNote)}
+      ${commandMetric('Main risk', command.mainRisk, command.mainRiskNote)}
+      ${commandMetric('Next action', command.nextAction, command.nextActionNote)}
+      ${commandMetric('Source confidence', command.sourceConfidence, command.sourceConfidenceNote)}
+    </div>
+  </section>`
+}
+
+function commandMetric(label, value, note) {
+  return `<div class="command-metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(note)}</small></div>`
+}
+
+function sellerCommand(lead) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const places = lead.places || {}
+  const sourceQuality = lead.sourceQuality || {}
+  const discoveryQuality = sourceQuality.discoveryQuality || {}
+  const ranking = lead.ranking || {}
+  const priority = String(lead.callPriority || lead.priority || 'verify').toLowerCase()
+  const fast = isFastLead(lead)
+  const confirmedOrg = Boolean(company.organizationNumber && ['exact_match', 'strong_match'].includes(String(company.matchStatus || '').toLowerCase()))
+  const candidateOrg = Boolean(company.candidateOrganizationNumber || ['manual_verify', 'weak_match'].includes(String(company.matchStatus || '').toLowerCase()))
+  const exactLocation = sourceQuality.locationMatchStatus === 'exact_location'
+  const hasPhone = Boolean(contact.phone || lead.phone)
+  const hasWebsite = Boolean(contact.website || lead.website)
+  const rating = Number(places.rating || 0)
+  const employees = Number(company.employees || 0)
+  const discoveryLevel = String(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown').toLowerCase()
+
+  let readinessKey = 'verify'
+  if (!hasPhone) readinessKey = 'weak'
+  else if (fast || priority === 'verify' || candidateOrg || !confirmedOrg) readinessKey = 'verify'
+  else if (priority === 'high') readinessKey = 'strong'
+  else readinessKey = 'good'
+
+  const callReadiness = {
+    strong: 'Strong',
+    good: 'Good',
+    verify: 'Verify first',
+    weak: 'Weak',
+  }[readinessKey]
+
+  const bestContact = hasPhone ? (contact.phone || lead.phone) : (contact.email || lead.email || 'unknown')
+  const bestContactNote = hasPhone ? 'Direct phone is available.' : contact.email ? 'Email exists, phone missing.' : 'Find a direct contact before sales work.'
+
+  let fitScore = 0
+  if (exactLocation) fitScore += 2
+  if (hasPhone) fitScore += 2
+  if (hasWebsite) fitScore += 1
+  if (confirmedOrg) fitScore += 2
+  if (candidateOrg) fitScore += 1
+  if (rating >= 4.3) fitScore += 1
+  if (employees >= 5) fitScore += 1
+  const companyFit = fitScore >= 7 ? 'Strong fit' : fitScore >= 5 ? 'Good fit' : fitScore >= 3 ? 'Review fit' : 'Weak fit'
+  const companyFitNote = [
+    exactLocation ? 'right location' : 'location needs review',
+    confirmedOrg ? 'confirmed identity' : candidateOrg ? 'candidate identity' : 'identity not verified',
+    hasPhone ? 'phone available' : 'phone missing',
+  ].join(' · ')
+
+  const verification = confirmedOrg ? 'Confirmed org.nr' : candidateOrg ? 'Candidate org.nr' : 'Not verified'
+  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : 'Turn on Brreg or verify manually.'
+
+  let mainRisk = 'Low data risk'
+  let mainRiskNote = 'Core contact and identity fields look usable.'
+  if (fast) {
+    mainRisk = 'Fast mode only'
+    mainRiskNote = 'Website audit and full scoring are skipped.'
+  } else if (!confirmedOrg && candidateOrg) {
+    mainRisk = 'Identity uncertain'
+    mainRiskNote = 'Candidate org.nr must be verified.'
+  } else if (!exactLocation) {
+    mainRisk = 'Location fallback'
+    mainRiskNote = 'Do not treat this as an exact local lead.'
+  } else if ((ranking.caution || []).length) {
+    mainRisk = 'Review caution'
+    mainRiskNote = humanizeEvidence((ranking.caution || [])[0])
+  }
+
+  let nextAction = nextSellerStep(lead)
+  let nextActionNote = 'Use the lead pack evidence before sales work.'
+  if (fast) {
+    nextAction = confirmedOrg && hasPhone ? 'Run Deep qualification' : candidateOrg ? 'Verify org.nr, then Deep' : 'Enable Brreg or run Deep'
+    nextActionNote = 'Fast scan found the candidate; qualify before call-first.'
+  } else if (priority === 'high') {
+    nextAction = 'Review first'
+    nextActionNote = 'Deep evidence supports high priority.'
+  }
+
+  const sourceConfidence = discoveryLevel === 'unknown' ? 'Unknown' : readable(discoveryLevel)
+  const sourceConfidenceNote = discoveryQuality.score == null ? 'No discovery score available.' : `Discovery score ${discoveryQuality.score}/100.`
+
+  const headline = `${companyFit} · ${verification}`
+  const summary = buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority })
+
+  return { headline, summary, callReadiness, readinessKey, bestContact, bestContactNote, companyFit, companyFitNote, verification, verificationNote, mainRisk, mainRiskNote, nextAction, nextActionNote, sourceConfidence, sourceConfidenceNote }
+}
+
+function buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority }) {
+  const parts = []
+  if (confirmedOrg) parts.push(`Legal identity is confirmed${company.organizationNumber ? ` (${company.organizationNumber})` : ''}`)
+  else if (candidateOrg) parts.push('Legal identity has a candidate match but needs manual verification')
+  else parts.push('Legal identity is not verified')
+  if (contact.phone) parts.push(`phone ${contact.phone} is available`)
+  if (employees) parts.push(`${employees} employees registered`)
+  if (places.rating) parts.push(`Google rating ${places.rating}/5`)
+  if (exactLocation) parts.push('location matches the search')
+  if (fast) parts.push('full website audit is not run yet')
+  else parts.push(`priority is ${String(priority || 'unknown').toUpperCase()}`)
+  return `${parts.join('; ')}.`
 }
 
 function factCard(label, value, note) {
@@ -464,7 +597,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run' }[value] || String(value).toUpperCase() }
+function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { return value && value !== 'unknown' ? `<a href="${escapeAttr(value)}" target="_blank" rel="noreferrer" title="${escapeAttr(value)}">${escapeHtml(displayUrl(value))}</a>` : 'unknown' }
 function displayUrl(value) {

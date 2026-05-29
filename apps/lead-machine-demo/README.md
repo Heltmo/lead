@@ -101,6 +101,7 @@ The frontend displays:
 - query/run status
 - summary counts
 - lead cards
+- a Seller Command card with call readiness, best first contact, company fit, verification status, main risk, next action, and source confidence
 - selected lead detail
 - evidence and caution
 - export links
@@ -125,7 +126,7 @@ Seller owns:
 - relationship
 - close
 
-No prepared pitch text, email templates, or automated outreach are included.
+No prepared pitch text, email templates, or automated outreach are included. The Seller Command card is a decision brief, not a script.
 
 ## Limitations
 
