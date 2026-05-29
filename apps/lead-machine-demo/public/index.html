@@ -50,10 +50,17 @@
 
     <section class="desk-grid">
       <aside class="lead-list">
-        <div class="panel-title">Lead packs</div>
+        <div class="panel-title">Seller call queue</div>
         <div id="workflowBoard" class="workflow-board empty">Run a search to build seller queue.</div>
         <div class="lead-controls">
+          <div class="queue-presets" aria-label="Queue presets">
+            <button type="button" class="queue-preset" data-queue-preset="callNow">Call now</button>
+            <button type="button" class="queue-preset" data-queue-preset="verify">Needs verification</button>
+            <button type="button" class="queue-preset" data-queue-preset="followUp">Follow-ups</button>
+            <button type="button" class="queue-preset" data-queue-preset="interested">Interested</button>
+          </div>
           <label><span>Sort</span><select id="leadSort">
+            <option value="callQueue" selected>Call queue first</option>
             <option value="best">Best first</option>
             <option value="phone">Phone first</option>
             <option value="confirmed">Confirmed org.nr</option>

@@ -46,6 +46,9 @@ button, input, select { font: inherit; }
 .lead-detail { width: 100%; min-width: 0; position: sticky; top: 14px; max-height: calc(100vh - 28px); overflow: auto; }
 .lead-controls { display: grid; gap: 9px; margin: 10px 0 12px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; }
 .lead-controls select { width: 100%; height: 38px; border: 1px solid #b8c8c0; border-radius: 8px; padding: 0 10px; background: #fff; }
+.queue-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.queue-preset { min-height: 34px; border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 7px 9px; font-size: 12px; font-weight: 850; cursor: pointer; text-align: left; }
+.queue-preset:hover, .queue-preset:focus-visible { border-color: var(--green); outline: none; background: var(--green-soft); }
 .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-chips label { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; }
 .filter-chips input { width: auto; height: auto; margin: 0; }
@@ -58,6 +61,8 @@ button, input, select { font: inherit; }
 .lead-card p { grid-column: 1; }
 .lead-card .card-meta { grid-column: 2; grid-row: 2 / span 2; justify-self: end; text-align: right; white-space: nowrap; }
 .lead-card p, .muted { margin: 0; color: var(--muted); line-height: 1.4; font-size: 13px; }
+.queue-action { grid-column: 1 / -1 !important; display: inline-flex; gap: 5px; align-items: center; width: fit-content; max-width: 100%; padding: 5px 8px; border-radius: 8px; background: #f3faf7; color: #174b38 !important; font-weight: 800; font-size: 12px !important; }
+.queue-action strong { color: var(--green); }
 .card-signal { color: var(--ink) !important; font-weight: 650; }
 .card-meta { font-size: 12px !important; }
 .badge-row { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -186,3 +191,4 @@ a { color: var(--blue); }
 .queue-row > div:last-child, .queue-row-actions { display: inline-flex; align-items: center; justify-content: end; gap: 8px; }
 .queue-select { border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 6px 8px; font-size: 12px; font-weight: 800; cursor: pointer; }
 @media (max-width: 1180px) { .call-queue-board { grid-template-columns: 1fr; } .queue-row { grid-template-columns: 1fr; } .queue-row > div:last-child { justify-content: start; } }
+@media (max-width: 620px) { .queue-presets { grid-template-columns: 1fr; } }

@@ -51,6 +51,7 @@ const els = {
   leadDetail: document.getElementById('leadDetail'),
   exportPanel: document.getElementById('exportPanel'),
   leadSort: document.getElementById('leadSort'),
+  queuePresets: Array.from(document.querySelectorAll('.queue-preset')),
   leadFilters: Array.from(document.querySelectorAll('.lead-filter')),
   clearLeadFilters: document.getElementById('clearLeadFilters'),
   leadFilterSummary: document.getElementById('leadFilterSummary'),
@@ -64,6 +65,7 @@ els.profession.addEventListener('change', syncQueryFromStructuredSearch)
 els.location.addEventListener('input', syncQueryFromStructuredSearch)
 els.runMode.addEventListener('change', () => renderSummary(state.result))
 els.leadSort.addEventListener('change', () => { state.selectedLeadId = null; renderAll() })
+els.queuePresets.forEach((button) => button.addEventListener('click', () => applyQueuePreset(button.dataset.queuePreset)))
 els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { state.selectedLeadId = null; renderAll() }))
 els.clearLeadFilters.addEventListener('click', () => { els.leadFilters.forEach((filter) => { filter.checked = false }); state.selectedLeadId = null; renderAll() })
 renderSummary(null)
@@ -172,7 +174,7 @@ function renderWorkflowBoard(result) {
     <div class="queue-stat"><span>Follow-up due</span><strong>${counts.followUpDue}</strong></div>
     <div class="queue-stat"><span>New to call</span><strong>${counts.notContacted}</strong></div>
     <div class="queue-list">
-      ${queue.length ? queue.map(({ lead, index, reason }) => callQueueRow(lead, index, reason)).join('') : '<p class="muted">No call-ready leads yet. Run a search with phone data or clear filters.</p>'}
+      ${queue.length ? queue.map(({ lead, index, reason }) => callQueueRow(lead, index, reason)).join('') : '<p class="muted">No call-ready leads yet. Use Call now, Needs verification, Follow-ups or clear filters.</p>'}
     </div>
     <p>Today call queue uses phone, follow-up date, workflow status and source quality. It does not place calls or send messages.</p>
   `
@@ -214,11 +216,13 @@ function renderLeads(visibleLeads) {
     const places = lead.places || {}
     const company = lead.company || {}
     const primarySignal = sellerSignals(lead)[0] || humanize(lead.opportunityType || 'Lead pack')
+    const queueAction = leadQueueActionLabel(lead)
     return `
       <button class="lead-card ${id === state.selectedLeadId ? 'active' : ''}" type="button" data-index="${index}" data-id="${escapeAttr(id)}">
         <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
+        <p class="queue-action"><strong>Next:</strong> ${escapeHtml(queueAction)}</p>
         <p class="card-signal">${escapeHtml(primarySignal)}</p>
         <p class="card-meta">${escapeHtml(formatRating(places))} · ${escapeHtml(workflowCardNote(lead))}</p>
       </button>
@@ -229,6 +233,30 @@ function renderLeads(visibleLeads) {
     state.selectedLeadId = button.dataset.id
     renderAll()
   }))
+}
+
+function applyQueuePreset(preset) {
+  els.leadFilters.forEach((filter) => { filter.checked = false })
+  const enable = (value) => {
+    const filter = els.leadFilters.find((item) => item.value === value)
+    if (filter) filter.checked = true
+  }
+  if (preset === 'callNow') {
+    enable('phone')
+    enable('notContacted')
+    els.leadSort.value = 'callQueue'
+  } else if (preset === 'verify') {
+    enable('brregIssue')
+    els.leadSort.value = 'callQueue'
+  } else if (preset === 'followUp') {
+    enable('followUpDue')
+    els.leadSort.value = 'followUp'
+  } else if (preset === 'interested') {
+    enable('interested')
+    els.leadSort.value = 'callQueue'
+  }
+  state.selectedLeadId = null
+  renderAll()
 }
 
 function getVisibleLeads(leads) {
@@ -275,7 +303,28 @@ function leadSortScore(lead, sortKey) {
   if (sortKey === 'employees') return Number(company.employees || 0)
   if (sortKey === 'discovery') return Number(discovery.score || 0)
   if (sortKey === 'followUp') return followUpSortScore(lead)
+  if (sortKey === 'callQueue') return callQueueSortScore(lead)
   return bestLeadScore(lead)
+}
+
+function callQueueSortScore(lead) {
+  const workflow = lead.workflow || {}
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const sourceQuality = lead.sourceQuality || {}
+  let score = bestLeadScore(lead)
+  if (workflow.status === 'rejected') score -= 10000
+  if (isFollowUpDue(lead)) score += 1000
+  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') score += 700
+  if ((contact.phone || lead.phone) && !workflow.contacted && !['contacted', 'follow_up', 'interested'].includes(workflow.status)) score += 500
+  if (contact.phone || lead.phone) score += 80
+  else score -= 120
+  if (company.organizationNumber) score += 70
+  else if (company.candidateOrganizationNumber) score += 35
+  if (sourceQuality.locationMatchStatus === 'exact_location') score += 50
+  if (websiteValue(contact.website || lead.website)) score += 20
+  if (isFastLead(lead)) score += 15
+  return score
 }
 
 function bestLeadScore(lead) {
@@ -357,6 +406,21 @@ function priorityScore(lead) {
 
 function leadId(lead, index) {
   return [lead.company?.organizationNumber, lead.company?.candidateOrganizationNumber, lead.places?.placeId, lead.company?.displayName, index].filter(Boolean).join('::')
+}
+
+function leadQueueActionLabel(lead) {
+  const workflow = lead.workflow || {}
+  const company = lead.company || {}
+  const hasPhone = Boolean(lead.contact?.phone || lead.phone)
+  const brregStatus = brregStatusLabel(company)
+  if (workflow.status === 'rejected') return 'Rejected; keep out of call queue'
+  if (isFollowUpDue(lead)) return `Follow up today: ${workflow.followUpDate}`
+  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return 'Interested: follow up'
+  if (hasPhone && !workflow.contacted && !['contacted', 'follow_up'].includes(workflow.status)) return 'Call now'
+  if (workflow.status === 'follow_up') return workflow.followUpDate ? `Follow up ${workflow.followUpDate}` : 'Follow up'
+  if (['candidate_org', 'no_match', 'brreg_unavailable', 'not_run', 'manual_verify', 'weak_match'].includes(brregStatus)) return 'Verify company identity'
+  if (isFastLead(lead)) return 'Enrich if more context is needed'
+  return 'Review lead pack'
 }
 
 function updateFilterSummary(visible, total) {
