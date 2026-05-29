@@ -156,11 +156,11 @@ function renderLeads(visibleLeads) {
     const primarySignal = sellerSignals(lead)[0] || humanize(lead.opportunityType || 'Lead pack')
     return `
       <button class="lead-card ${id === state.selectedLeadId ? 'active' : ''}" type="button" data-index="${index}" data-id="${escapeAttr(id)}">
-        <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
+        <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
         <p class="card-signal">${escapeHtml(primarySignal)}</p>
-        <p class="card-meta">${escapeHtml(formatRating(places))} · ${escapeHtml(contact.website ? 'website found' : 'website unknown')}</p>
+        <p class="card-meta">${escapeHtml(formatRating(places))} · ${escapeHtml(workflowCardNote(lead))}</p>
       </button>
     `
   }).join('')
@@ -274,6 +274,8 @@ function renderDetail(lead) {
 
     ${sellerDeskCards(lead, command)}
 
+    ${workflowPanel(lead)}
+
     <details class="detail-collapse lead-brief-details">
       <summary>Why this lead is interesting</summary>
       <section class="leverage-panel compact">
@@ -361,6 +363,86 @@ function renderDetail(lead) {
     ${section('Caution', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}
     </details>
   `
+}
+
+
+function workflowPanel(lead) {
+  const workflow = { status: 'new', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextAction: 'review', outcome: '', ...(lead.workflow || {}) }
+  return `<section class="workflow-panel">
+    <div class="workflow-head">
+      <div>
+        <p class="eyebrow">Seller workflow</p>
+        <h3>${escapeHtml(readable(workflow.status || 'new'))}</h3>
+        <p class="muted">Track manual contact, response and follow-up. No calls or emails are sent from this form.</p>
+      </div>
+      ${badge(workflow.contacted ? 'contacted' : 'new')}
+    </div>
+    <form id="workflowForm" class="workflow-form">
+      <label><span>Status</span><select name="status">${workflowOptions(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'], workflow.status)}</select></label>
+      <label><span>Contacted</span><select name="contacted">${workflowOptions(['false', 'true'], String(Boolean(workflow.contacted)))}</select></label>
+      <label><span>Channel</span><select name="channel">${workflowOptions(['', 'phone', 'email', 'contact_form', 'linkedin', 'other'], workflow.channel)}</select></label>
+      <label><span>Response</span><select name="response">${workflowOptions(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'], workflow.response)}</select></label>
+      <label><span>Person reached</span><input name="personReached" value="${escapeAttr(workflow.personReached || '')}" placeholder="Name / role"></label>
+      <label><span>Follow-up date</span><input type="date" name="followUpDate" value="${escapeAttr(workflow.followUpDate || '')}"></label>
+      <label><span>Next action</span><input name="nextAction" value="${escapeAttr(workflow.nextAction || '')}" placeholder="review / call / follow up"></label>
+      <label><span>Outcome</span><input name="outcome" value="${escapeAttr(workflow.outcome || '')}" placeholder="pending / not relevant / meeting"></label>
+      <label class="workflow-notes"><span>Notes</span><textarea name="notes" rows="3" placeholder="Short factual note from manual work">${escapeHtml(workflow.notes || '')}</textarea></label>
+      <div class="workflow-actions"><small>${workflow.updatedAt ? `Saved ${escapeHtml(workflow.updatedAt)}` : 'Not saved yet'}</small><button type="submit">Save workflow</button></div>
+    </form>
+  </section>`
+}
+
+function workflowOptions(values, selected) {
+  return values.map((value) => `<option value="${escapeAttr(value)}" ${String(value) === String(selected || '') ? 'selected' : ''}>${escapeHtml(value ? readable(value) : 'Not set')}</option>`).join('')
+}
+
+function workflowStatus(lead) {
+  return lead.workflow?.status || 'new'
+}
+
+function workflowCardNote(lead) {
+  const workflow = lead.workflow || {}
+  if (workflow.followUpDate) return `follow-up ${workflow.followUpDate}`
+  if (workflow.response) return readable(workflow.response)
+  return lead.contact?.website ? 'website found' : 'website unknown'
+}
+
+async function saveWorkflow(event) {
+  event.preventDefault()
+  const lead = state.result?.leadPacks?.[state.selectedIndex]
+  if (!lead) return setStatus('failed: no selected lead for workflow save', 'failed')
+  const form = new FormData(event.currentTarget)
+  const workflow = {
+    status: form.get('status'),
+    contacted: form.get('contacted') === 'true',
+    channel: form.get('channel'),
+    response: form.get('response'),
+    personReached: form.get('personReached'),
+    followUpDate: form.get('followUpDate'),
+    nextAction: form.get('nextAction'),
+    outcome: form.get('outcome'),
+    notes: form.get('notes'),
+  }
+  setStatus('saving workflow...', 'running')
+  try {
+    const response = await fetch('/api/workflow', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        leadId: lead.workflow?.leadId || leadId(lead, state.selectedIndex),
+        runId: state.result?.runId,
+        leadName: lead.company?.displayName || lead.companyName || '',
+        workflow,
+      }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Workflow save failed')
+    lead.workflow = payload.workflow
+    setStatus('workflow saved', '')
+    renderAll()
+  } catch (error) {
+    setStatus(`failed: ${error.message || 'Workflow save failed'}`, 'failed')
+  }
 }
 
 function modeGuidance(summary) {
@@ -841,13 +923,17 @@ function renderExport(result) {
     <p class="muted">Run path: <code>${escapeHtml(result.outputDir)}</code></p>
     <p><a href="${escapeAttr(result.downloads.csv)}">Download CSV</a> · <a href="${escapeAttr(result.downloads.json)}">Download JSON</a> · <button type="button" id="copyPath">Copy run path</button></p>
     <table>
-      <thead><tr><th>rank</th><th>company</th><th>phone</th><th>website</th><th>city</th><th>priority</th><th>leadClass</th><th>matchStatus</th></tr></thead>
-      <tbody>${leads.map((lead, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${escapeHtml(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.website || lead.website || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(lead.leadClass || '')}</td><td>${escapeHtml(lead.company?.matchStatus || '')}</td></tr>`).join('')}</tbody>
+      <thead><tr><th>rank</th><th>company</th><th>phone</th><th>city</th><th>priority</th><th>workflow</th><th>response</th><th>follow-up</th><th>next action</th></tr></thead>
+      <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${escapeHtml(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
     </table>
   `
   const copy = document.getElementById('copyPath')
   copy?.addEventListener('click', () => navigator.clipboard?.writeText(result.outputDir))
 }
+
+document.addEventListener('submit', (event) => {
+  if (event.target && event.target.id === 'workflowForm') saveWorkflow(event)
+})
 
 document.addEventListener('click', (event) => {
   if (event.target && event.target.id === 'runDeepQualification') {
@@ -877,6 +963,7 @@ async function runSelectedDeepQualification(button) {
     if (!response.ok) throw new Error(payload.error || 'Lead enrichment failed')
     const updatedLead = payload.leadPack
     if (!updatedLead) throw new Error('Lead enrichment returned no lead pack')
+    updatedLead.workflow = lead.workflow || updatedLead.workflow
     state.result.leadPacks[state.selectedIndex] = updatedLead
     state.result.summary = updateSummaryAfterLeadReplacement(state.result.summary || {}, state.result.leadPacks)
     setStatus('completed: selected lead enriched', '')
@@ -916,7 +1003,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Audit skipped', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Audit skipped', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {

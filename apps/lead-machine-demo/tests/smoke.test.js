@@ -82,7 +82,7 @@ async function main() {
     }
   }
 
-  const server = createServer({ runner, deepQualifier, runsDir: path.join(root, 'runs') })
+  const server = createServer({ runner, deepQualifier, runsDir: path.join(root, 'runs'), workflowPath: path.join(root, 'workflow.json') })
   await listen(server)
   const port = server.address().port
 
@@ -108,6 +108,29 @@ async function main() {
 
   const csv = await get(port, response.body.downloads.csv)
   assert(csv.status === 200 && csv.body.includes('Kristiansand Rør AS'), 'CSV download should return generated CSV')
+
+  const workflowLeadId = response.body.leadPacks[0].workflow.leadId
+  const savedWorkflow = await post(port, '/api/workflow', {
+    leadId: workflowLeadId,
+    runId: response.body.runId,
+    leadName: 'Kristiansand Rør AS',
+    status: 'contacted',
+    contacted: true,
+    channel: 'phone',
+    personReached: 'Daglig leder',
+    response: 'interested',
+    followUpDate: '2026-06-01',
+    nextAction: 'follow up after call',
+    notes: 'Asked for a short follow-up.',
+    outcome: 'pending',
+  })
+  assert(savedWorkflow.status === 200, 'workflow save should succeed')
+  assert(savedWorkflow.body.workflow.status === 'contacted', 'workflow status should persist')
+  const workflowLookup = await get(port, `/api/workflow?leadId=${encodeURIComponent(workflowLeadId)}`)
+  assert(workflowLookup.status === 200 && workflowLookup.body.workflow.response === 'interested', 'workflow lookup should return saved response')
+  const workflowCsv = await get(port, response.body.downloads.csv)
+  assert(workflowCsv.body.includes('workflowStatus'), 'CSV should include workflow status column')
+  assert(workflowCsv.body.includes('follow up after call'), 'CSV should include workflow next action')
 
   const deepResponse = await post(port, '/api/deep-qualify', { query: 'rørlegger i Kristiansand', lead: response.body.leadPacks[0], enrichCompanyProfile: true })
   assert(deepResponse.status === 200, 'selected lead deep qualification should complete')
@@ -227,6 +250,11 @@ async function main() {
   assert(lower.includes('presence-first fallback'), 'UI should explain fallback when Brreg is unavailable')
   assert(lower.includes('confirmed_org'), 'UI should support confirmed org badge')
   assert(lower.includes('candidate_org'), 'UI should support candidate org badge')
+  assert(lower.includes('seller workflow'), 'UI should include seller workflow panel')
+  assert(lower.includes('save workflow'), 'UI should allow saving workflow state')
+  assert(lower.includes('/api/workflow'), 'UI should save workflow through the workflow API')
+  assert(lower.includes('follow-up date'), 'UI should track follow-up date')
+  assert(lower.includes('contacted'), 'UI should track contacted state')
 
   server.close()
   noWebsiteServer.close()

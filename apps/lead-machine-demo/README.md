@@ -108,6 +108,24 @@ The frontend displays:
 - evidence and caution
 - export links
 
+## Call-Ready Workflow V1
+
+The demo now includes local seller workflow state for each lead. This is the first step toward a call-ready sales desk without adding telephony, email automation, auth, or a database.
+
+For each lead, a seller can save:
+
+- status
+- contacted yes/no
+- channel
+- person reached
+- response
+- notes
+- follow-up date
+- next action
+- outcome
+
+Workflow state is stored locally in `.cache/lead-machine-demo/lead-workflow.json` and is appended to JSON/CSV downloads. It is manual tracking only: the app does not call, send email, schedule calendar events, or generate outreach wording.
+
 ## Product Boundary
 
 Machine provides:

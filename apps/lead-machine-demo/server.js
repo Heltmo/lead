@@ -15,6 +15,7 @@ const RUNS_DIR = path.join(APP_ROOT, 'runs')
 const FIXTURE_DIR = path.join(APP_ROOT, 'fixtures')
 const DEMO_FIXTURE_PATH = path.join(FIXTURE_DIR, 'kristiansand-rorlegger-result.json')
 const REPO_ROOT = path.resolve(APP_ROOT, '..', '..')
+const WORKFLOW_PATH = path.join(REPO_ROOT, '.cache', 'lead-machine-demo', 'lead-workflow.json')
 loadEnvFiles([path.join(REPO_ROOT, '.env'), path.join(APP_ROOT, '.env')])
 
 function createServer(options = {}) {
@@ -23,6 +24,7 @@ function createServer(options = {}) {
   const runsDir = options.runsDir || RUNS_DIR
   const publicDir = options.publicDir || PUBLIC_DIR
   const runIndex = new Map()
+  const workflowPath = options.workflowPath || WORKFLOW_PATH
 
   return http.createServer(async (req, res) => {
     try {
@@ -30,14 +32,16 @@ function createServer(options = {}) {
       if (req.method === 'GET' && url.pathname === '/') return serveFile(res, path.join(publicDir, 'index.html'), 'text/html')
       if (req.method === 'GET' && url.pathname.startsWith('/assets/')) return serveFile(res, path.join(publicDir, url.pathname.replace('/assets/', '')), contentType(url.pathname))
       if (req.method === 'POST' && url.pathname === '/api/runs') {
-        await handleRun(req, res, { runner, runsDir, runIndex })
+        await handleRun(req, res, { runner, runsDir, runIndex, workflowPath })
         return
       }
       if (req.method === 'POST' && url.pathname === '/api/deep-qualify') {
-        await handleDeepQualify(req, res, { deepQualifier, runsDir })
+        await handleDeepQualify(req, res, { deepQualifier, runsDir, workflowPath })
         return
       }
-      if (req.method === 'GET' && url.pathname.startsWith('/api/runs/')) return handleRunFile(url, res, runIndex)
+      if (req.method === 'GET' && url.pathname === '/api/workflow') return handleWorkflowGet(url, res, workflowPath)
+      if (req.method === 'POST' && url.pathname === '/api/workflow') return handleWorkflowPost(req, res, workflowPath)
+      if (req.method === 'GET' && url.pathname.startsWith('/api/runs/')) return handleRunFile(url, res, runIndex, workflowPath)
       return json(res, 404, { error: 'Not found' })
     } catch (error) {
       return json(res, 500, { error: friendlyError(error) })
@@ -90,7 +94,7 @@ async function handleRun(req, res, context) {
   const leadPackSummaryPath = path.join(leadPackOutputPath, 'summary.json')
   const csvPath = path.join(leadPackOutputPath, 'lead-packs.csv')
   const machineSummaryPath = result.summaryPath || path.join(outputDir, 'lead-machine-summary.json')
-  const leadPacks = readJsonFile(leadPacksPath, [])
+  const leadPacks = attachWorkflowToLeads(readJsonFile(leadPacksPath, []), readWorkflowStore(context.workflowPath))
   const leadPackSummary = readJsonFile(leadPackSummaryPath, {})
   const machineSummary = result.summary || readJsonFile(machineSummaryPath, {})
 
@@ -119,6 +123,7 @@ async function handleDeepQualify(req, res, context) {
   const query = String(body.query || lead.meta?.sourceQuery || '').trim() || 'selected lead'
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
   const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir })
+  if (result && result.leadPack) result.leadPack = attachWorkflowToLeads([result.leadPack], readWorkflowStore(context.workflowPath))[0]
   return json(res, 200, result)
 }
 
@@ -546,22 +551,34 @@ function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searc
 }
 
 function toLeadPackCsv(leadPacks) {
-  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'evidenceSummary', 'cautionSummary']
-  const rows = leadPacks.map((lead) => [
-    lead.rank,
-    lead.company && lead.company.displayName,
-    lead.company && lead.company.organizationNumber,
-    lead.company && lead.company.candidateOrganizationNumber,
-    lead.contact && lead.contact.phone,
-    lead.contact && lead.contact.email,
-    lead.contact && lead.contact.website,
-    lead.contact && lead.contact.city,
-    lead.callPriority,
-    lead.leadClass,
-    lead.company && lead.company.matchStatus,
-    [...((lead.ranking && lead.ranking.whyRanked) || []), ...((lead.website && lead.website.topEvidence) || [])].join(' | '),
-    ((lead.ranking && lead.ranking.caution) || []).join(' | '),
-  ])
+  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'workflowStatus', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextAction', 'workflowNotes', 'workflowOutcome', 'evidenceSummary', 'cautionSummary']
+  const rows = leadPacks.map((lead) => {
+    const workflow = normalizeWorkflow(lead.workflow || {})
+    return [
+      lead.rank,
+      lead.company && lead.company.displayName,
+      lead.company && lead.company.organizationNumber,
+      lead.company && lead.company.candidateOrganizationNumber,
+      lead.contact && lead.contact.phone,
+      lead.contact && lead.contact.email,
+      lead.contact && lead.contact.website,
+      lead.contact && lead.contact.city,
+      lead.callPriority,
+      lead.leadClass,
+      lead.company && lead.company.matchStatus,
+      workflow.status,
+      workflow.contacted ? 'yes' : 'no',
+      workflow.channel,
+      workflow.personReached,
+      workflow.response,
+      workflow.followUpDate,
+      workflow.nextAction,
+      workflow.notes,
+      workflow.outcome,
+      [...((lead.ranking && lead.ranking.whyRanked) || []), ...((lead.website && lead.website.topEvidence) || [])].join(' | '),
+      ((lead.ranking && lead.ranking.caution) || []).join(' | '),
+    ]
+  })
   return [headers, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n') + '\n'
 }
 
@@ -570,16 +587,127 @@ function csvEscape(value) {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
-function handleRunFile(url, res, runIndex) {
+function handleRunFile(url, res, runIndex, workflowPath) {
   const parts = url.pathname.split('/').filter(Boolean)
   const runId = parts[2]
   const file = parts[3]
   const run = runIndex.get(runId)
   if (!run) return json(res, 404, { error: 'Run not found in this server session' })
-  if (file === 'lead-packs.csv') return serveFile(res, run.csvPath, 'text/csv')
-  if (file === 'lead-packs.json') return serveFile(res, run.leadPacksPath, 'application/json')
+  if (file === 'lead-packs.csv') {
+    const leads = attachWorkflowToLeads(readJsonFile(run.leadPacksPath, []), readWorkflowStore(workflowPath))
+    res.writeHead(200, { 'content-type': 'text/csv' })
+    res.end(toLeadPackCsv(leads))
+    return
+  }
+  if (file === 'lead-packs.json') {
+    return json(res, 200, attachWorkflowToLeads(readJsonFile(run.leadPacksPath, []), readWorkflowStore(workflowPath)))
+  }
   if (file === 'summary.json') return serveFile(res, run.machineSummaryPath, 'application/json')
   return json(res, 404, { error: 'Run file not found' })
+}
+
+
+function handleWorkflowGet(url, res, workflowPath) {
+  const leadId = String(url.searchParams.get('leadId') || '').trim()
+  if (!leadId) return json(res, 400, { error: 'leadId is required' })
+  const store = readWorkflowStore(workflowPath)
+  return json(res, 200, { workflow: { ...defaultWorkflow(), ...(store.leads[leadId] || {}), leadId } })
+}
+
+async function handleWorkflowPost(req, res, workflowPath) {
+  const body = await readJsonBody(req)
+  const leadId = String(body.leadId || '').trim()
+  if (!leadId) return json(res, 400, { error: 'leadId is required' })
+  const store = readWorkflowStore(workflowPath)
+  const previous = store.leads[leadId] || {}
+  const workflow = normalizeWorkflow({ ...previous, ...(body.workflow || body), leadId })
+  workflow.leadId = leadId
+  workflow.runId = limitText(body.runId || workflow.runId || '', 120)
+  workflow.leadName = limitText(body.leadName || workflow.leadName || '', 180)
+  workflow.updatedAt = new Date().toISOString()
+  store.leads[leadId] = workflow
+  writeWorkflowStore(workflowPath, store)
+  return json(res, 200, { workflow })
+}
+
+function attachWorkflowToLeads(leadPacks, store) {
+  const workflowStore = store && store.leads ? store : { leads: {} }
+  return (Array.isArray(leadPacks) ? leadPacks : []).map((lead, index) => {
+    const copy = JSON.parse(JSON.stringify(lead || {}))
+    const leadId = leadWorkflowId(copy, index)
+    copy.workflow = { ...defaultWorkflow(), ...(workflowStore.leads[leadId] || {}), leadId }
+    return copy
+  })
+}
+
+function leadWorkflowId(lead = {}, index = 0) {
+  const parts = [
+    lead.company && lead.company.organizationNumber,
+    lead.company && lead.company.candidateOrganizationNumber,
+    lead.places && lead.places.placeId,
+    lead.company && lead.company.displayName,
+    index,
+  ].filter(Boolean)
+  return parts.join('::') || `lead::${index}`
+}
+
+function defaultWorkflow() {
+  return {
+    status: 'new',
+    contacted: false,
+    channel: '',
+    personReached: '',
+    response: '',
+    notes: '',
+    followUpDate: '',
+    nextAction: 'review',
+    outcome: '',
+    owner: '',
+    updatedAt: null,
+  }
+}
+
+function normalizeWorkflow(input = {}) {
+  const statuses = new Set(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'])
+  const channels = new Set(['', 'phone', 'email', 'contact_form', 'linkedin', 'other'])
+  const responses = new Set(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'])
+  const status = statuses.has(String(input.status || '').toLowerCase()) ? String(input.status).toLowerCase() : 'new'
+  const channel = channels.has(String(input.channel || '').toLowerCase()) ? String(input.channel || '').toLowerCase() : ''
+  const response = responses.has(String(input.response || '').toLowerCase()) ? String(input.response || '').toLowerCase() : ''
+  const followUpDate = /^\d{4}-\d{2}-\d{2}$/.test(String(input.followUpDate || '')) ? String(input.followUpDate) : ''
+  return {
+    status,
+    contacted: input.contacted === true || input.contacted === 'true' || status === 'contacted' || status === 'follow_up' || status === 'interested',
+    channel,
+    personReached: limitText(input.personReached || '', 120),
+    response,
+    notes: limitText(input.notes || '', 2000),
+    followUpDate,
+    nextAction: limitText(input.nextAction || 'review', 180),
+    outcome: limitText(input.outcome || '', 500),
+    owner: limitText(input.owner || '', 120),
+    updatedAt: input.updatedAt || null,
+  }
+}
+
+function readWorkflowStore(workflowPath) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(workflowPath, 'utf8'))
+    return parsed && typeof parsed === 'object' && parsed.leads ? parsed : { leads: {} }
+  } catch (_) {
+    return { leads: {} }
+  }
+}
+
+function writeWorkflowStore(workflowPath, store) {
+  fs.mkdirSync(path.dirname(workflowPath), { recursive: true })
+  const tmp = `${workflowPath}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify({ leads: store.leads || {} }, null, 2))
+  fs.renameSync(tmp, workflowPath)
+}
+
+function limitText(value, max) {
+  return String(value || '').slice(0, max)
 }
 
 function serveFile(res, filePath, type) {

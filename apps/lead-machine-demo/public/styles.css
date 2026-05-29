@@ -132,3 +132,19 @@ ul { margin: 0; padding-left: 18px; line-height: 1.45; }
 a { color: var(--blue); }
 @media (max-width: 1180px) { .search-panel, .desk-grid, .topbar, .leverage-panel, .command-main { grid-template-columns: 1fr; } .lead-detail { position: static; max-height: none; overflow: visible; } .boundary { justify-content: flex-start; } .summary-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); } .quick-facts, .source-grid, .command-grid, .seller-desk-v2, .lead-brief-grid, .secondary-brief-grid, .module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .app-shell { padding: 12px; } .summary-panel, .quick-facts, .source-grid, .command-grid, .seller-desk-v2, .lead-brief-grid, .secondary-brief-grid, .module-grid { grid-template-columns: 1fr; } .qualification-panel { align-items: stretch; flex-direction: column; } .kv { grid-template-columns: 1fr; gap: 2px; } }
+
+.workflow-panel { margin: 12px 0; padding: 12px; border: 1px solid #bfe1cf; border-radius: 8px; background: #f6fbf8; }
+.workflow-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 10px; }
+.workflow-head h3 { margin: 0 0 4px; font-size: 18px; }
+.workflow-form { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 10px; }
+.workflow-form label { display: grid; gap: 5px; }
+.workflow-form input, .workflow-form select, .workflow-form textarea { width: 100%; border: 1px solid #b8c8c0; border-radius: 8px; padding: 8px 9px; background: #fff; color: var(--ink); }
+.workflow-notes { grid-column: 1 / -1; }
+.workflow-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); }
+.workflow-actions button { border: 0; border-radius: 8px; background: var(--green); color: #fff; font-weight: 800; padding: 9px 12px; cursor: pointer; }
+.badge.new { background: #edf1ef; color: #44524b; }
+.badge.contacted, .badge.interested { background: var(--green-soft); color: var(--green); }
+.badge.reviewed, .badge.follow_up { background: var(--amber-soft); color: var(--amber); }
+.badge.rejected, .badge.negative { background: var(--red-soft); color: var(--red); }
+@media (max-width: 1180px) { .workflow-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .workflow-form { grid-template-columns: 1fr; } .workflow-head, .workflow-actions { flex-direction: column; align-items: stretch; } }
