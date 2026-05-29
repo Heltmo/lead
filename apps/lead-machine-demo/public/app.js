@@ -90,7 +90,7 @@ async function runSearch() {
         maxResults: Number(els.maxResults.value),
         searchScope: els.searchScope.value,
         mode: els.runMode.value,
-        enrichCompanyProfile: els.companyProfile.checked,
+        enrichCompanyProfile: true,
       }),
     })
     const payload = await response.json()
@@ -182,7 +182,7 @@ function renderDetail(lead) {
 
     <div class="quick-facts secondary-facts">
       ${factCard('Phone', contact.phone || lead.phone || 'unknown', 'Best first contact field')}
-      ${factCard('Website', contact.website ? (isFastLead(lead) ? 'unverified' : 'available') : 'unknown', contact.website ? `${link(contact.website)}${isFastLead(lead) ? ' · verify in Deep' : ''}` : 'No website in lead pack')}
+      ${factCard('Website', websiteValue(contact.website) ? (isFastLead(lead) ? 'unverified' : 'available') : 'unknown', websiteValue(contact.website) ? `${link(websiteValue(contact.website))}${isFastLead(lead) ? ' · verify in Deep' : ''}` : 'No website in lead pack')}
       ${factCard('Google', formatRating(places), places.placeId ? `Place ID: ${places.placeId}` : 'No place ID')}
       ${factCard('Company ID', company.organizationNumber || company.candidateOrganizationNumber || 'not verified', brregStatusLabel(company))}
       ${factCard('Location', readable(sourceQuality.locationMatchStatus || 'unknown'), contact.address || contact.city || 'unknown')}
@@ -245,7 +245,7 @@ function renderDetail(lead) {
       ['Match confidence', company.matchConfidence ?? 'unknown'],
       ['Warnings', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
       ['Brreg source', link(company.sourceUrl)],
-      ['Website', link(contact.website || lead.website)],
+      ['Website', link(websiteValue(contact.website || lead.website))],
       ['Phone', contact.phone || lead.phone || 'unknown'],
       ['Email', contact.email || lead.email || 'unknown'],
       ['Address', contact.address || lead.address || 'unknown'],
@@ -371,8 +371,9 @@ function sellerCommand(lead) {
     hasPhone ? 'phone available' : 'phone missing',
   ].join(' · ')
 
-  const verification = confirmedOrg ? 'Confirmed org.nr' : candidateOrg ? 'Candidate org.nr' : 'Not verified'
-  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : 'Turn on Brreg or verify manually.'
+  const brregError = String(company.matchStatus || '').toLowerCase() === 'error'
+  const verification = confirmedOrg ? 'Confirmed org.nr' : candidateOrg ? 'Candidate org.nr' : brregError ? 'Brreg failed' : 'Not verified'
+  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : brregError ? `Retry Brreg or verify manually${company.warnings?.length ? `: ${company.warnings[0]}` : '.'}` : 'Brreg returned no confirmed identity.'
 
   let mainRisk = 'Low data risk'
   let mainRiskNote = 'Core contact and identity fields look usable.'
@@ -393,7 +394,7 @@ function sellerCommand(lead) {
   let nextAction = nextSellerStep(lead)
   let nextActionNote = 'Use the lead pack evidence before sales work.'
   if (fast) {
-    nextAction = confirmedOrg && hasPhone ? 'Run Deep qualification' : candidateOrg ? 'Verify org.nr, then Deep' : 'Enable Brreg or run Deep'
+    nextAction = confirmedOrg && hasPhone ? 'Run Deep qualification' : candidateOrg ? 'Verify org.nr, then Deep' : brregError ? 'Retry Brreg or run Deep' : 'Run Deep qualification'
     nextActionNote = 'Fast scan found the candidate; qualify before call-first.'
   } else if (priority === 'high') {
     nextAction = 'Review first'
@@ -493,7 +494,8 @@ function sellerSignals(lead) {
 
   if (company.organizationNumber) signals.push(`Brreg confirmed: org.nr ${company.organizationNumber}. Legal identity is ready for export.`)
   else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Brreg candidate exists, but legal identity should be verified before export.')
-  else signals.push('Legal identity is not verified yet. Turn on Brreg firmaprofil when org.nr matters.')
+  else if (company.matchStatus === 'error') signals.push('Brreg lookup failed for this lead; retry or verify manually before export.')
+  else signals.push('Legal identity is not verified yet; Brreg returned no confirmed firm profile.')
 
   if (isLawLead(lead)) signals.push('Law-firm context: credibility, trust and client enquiry quality matter more than generic booking language.')
 
@@ -610,7 +612,7 @@ async function runSelectedDeepQualification(button) {
       body: JSON.stringify({
         query: state.result?.parsedQuery?.normalizedQuery || els.query.value.trim(),
         lead,
-        enrichCompanyProfile: els.companyProfile.checked,
+        enrichCompanyProfile: true,
       }),
     })
     const payload = await response.json()
@@ -658,9 +660,15 @@ function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
 function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
-function link(value) { return value && value !== 'unknown' ? `<a href="${escapeAttr(value)}" target="_blank" rel="noreferrer" title="${escapeAttr(value)}">${escapeHtml(displayUrl(value))}</a>` : 'unknown' }
+function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
+function websiteValue(value) {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'object') return value.href || value.url || value.website || value.uri || ''
+  return String(value || '')
+}
 function displayUrl(value) {
-  const text = String(value || '')
+  const text = websiteValue(value)
   try {
     const url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`)
     const clean = `${url.hostname.replace(/^www\./, '')}${url.pathname === '/' ? '' : url.pathname}`

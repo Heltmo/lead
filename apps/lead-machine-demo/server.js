@@ -56,7 +56,7 @@ async function handleRun(req, res, context) {
   const provider = ['demo-fixture', 'google-places', 'mock'].includes(body.provider) ? body.provider : 'google-places'
   const searchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'strict'
   const mode = ['fast', 'deep'].includes(body.mode) ? body.mode : 'fast'
-  const enrichCompanyProfile = body.enrichCompanyProfile === true || body.enrichCompanyProfile === 'true'
+  const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
   const runId = createSafeRunId(parsedQuery.normalizedQuery)
   const outputDir = path.join(context.runsDir, runId)
   fs.mkdirSync(outputDir, { recursive: true })
@@ -118,7 +118,7 @@ async function handleDeepQualify(req, res, context) {
   const website = lead.contact?.website || lead.website
   if (!website) return json(res, 400, { error: 'Selected lead has no website to audit' })
   const query = String(body.query || lead.meta?.sourceQuery || '').trim() || 'selected lead'
-  const enrichCompanyProfile = body.enrichCompanyProfile === true || body.enrichCompanyProfile === 'true'
+  const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
   const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir })
   return json(res, 200, result)
 }
@@ -407,7 +407,7 @@ function readJsonFile(filePath, fallback) {
 function friendlyError(error) {
   const message = error && error.message ? error.message : 'Run failed'
   if (message.includes('GOOGLE_PLACES_API_KEY')) {
-    return 'Google Places requires GOOGLE_PLACES_API_KEY. Choose Demo fixture to run without an API key, or set GOOGLE_PLACES_API_KEY for live Google Places runs.'
+    return 'Google Places requires GOOGLE_PLACES_API_KEY. Set GOOGLE_PLACES_API_KEY before running live lead discovery.'
   }
   return message
 }

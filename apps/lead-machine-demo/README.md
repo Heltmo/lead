@@ -32,7 +32,6 @@ For live Google Places runs, add this to `.env`:
 GOOGLE_PLACES_API_KEY=your-google-places-key
 ```
 
-Keep `Demo fixture` selected when you want to test the UI without external API calls.
 
 Open:
 
@@ -86,7 +85,7 @@ Fast results are candidates, not fully qualified leads. Deep qualification is pe
 
 ## What It Does
 
-By default, the app uses Google Places with `Brreg firmaprofil` enabled. A hidden `demo-fixture` provider still exists for deterministic tests, but it is not exposed as the seller workflow.
+By default, the app uses Google Places with Brreg company-profile enrichment enabled automatically. A hidden fixture provider exists only for deterministic tests; it is not exposed as the seller workflow.
 
 The browser sends the query to a local Node server. For live providers, the server calls the existing `core/lead-machine` module directly and returns:
 
@@ -133,7 +132,7 @@ No prepared pitch text, email templates, or automated outreach are included. The
 
 - Uses local server only.
 - Live Google Places runs require `GOOGLE_PLACES_API_KEY`.
-- `Brreg firmaprofil` uses `core/company-profile` to enrich org.nr/legal identity conservatively. It defaults on because company identity is core seller context.
+- Brreg firmaprofil uses `core/company-profile` automatically to enrich org.nr/legal identity conservatively because company identity is core seller context.
 - Fast mode treats website URLs as unverified until Deep confirms they are real and relevant.
 - The Brreg panel shows confirmed org.nr only for strong matches. Uncertain results stay as candidate org.nr/manual verify with legal name, organization form, address, municipality, NACE, employees, status, match confidence, warnings, and candidate records when available.
 - Economy/Proff status remains `not_enabled`.
@@ -148,4 +147,4 @@ Live runs are slower than the fixture because each included lead can trigger:
 3. lead-pack generation
 4. optional Brreg company-profile lookup
 
-Use `Fast` + `Max 10-25` for quick scans. Use `Deep` when you want full website audit/scoring. Keep `Brreg firmaprofil` on for seller-ready identity context; turn it off only when speed matters more than org.nr/legal verification.
+Use `Fast` + `Max 10-25` for quick scans. Use selected-lead `Deep` when you want full website audit/scoring for one candidate. Brreg runs by default for seller-ready identity context.
