@@ -133,6 +133,7 @@ No prepared pitch text, email templates, or automated outreach are included.
 - `Demo fixture` works without credentials.
 - Live Google Places runs require `GOOGLE_PLACES_API_KEY`.
 - `Brreg firmaprofil` uses `core/company-profile` to enrich org.nr/legal identity conservatively. It defaults off because it adds API lookups per lead.
+- The Brreg panel shows confirmed org.nr only for strong matches. Uncertain results stay as candidate org.nr/manual verify with legal name, organization form, address, municipality, NACE, employees, status, match confidence, warnings, and candidate records when available.
 - Economy/Proff status remains `not_enabled`.
 - Run folders are local and ignored by git.
 
@@ -145,4 +146,4 @@ Live runs are slower than the fixture because each included lead can trigger:
 3. lead-pack generation
 4. optional Brreg company-profile lookup
 
-Use `Fast` + `Max 10-25` for quick scans. Use `Deep` when you want full website audit/scoring. Turn on `Brreg firmaprofil` when identity/org.nr matters more than speed.
+Use `Fast` + `Max 10-25` for quick scans. Use `Deep` when you want full website audit/scoring. Turn on `Brreg firmaprofil` when identity/org.nr matters more than speed. Keep it off for the fastest market scan, then enable it when the seller needs company identity and verification context.

@@ -47,7 +47,7 @@ button, input, select { font: inherit; }
 .card-meta { font-size: 12px !important; }
 .badge-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge { display: inline-flex; min-height: 23px; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 11px; line-height: 1; font-weight: 800; background: #edf1ef; color: #44524b; }
-.badge.high { background: var(--red-soft); color: var(--red); } .badge.medium { background: var(--amber-soft); color: var(--amber); } .badge.low { background: var(--blue-soft); color: var(--blue); } .badge.exact_location { background: var(--green-soft); color: var(--green); } .badge.regional_fallback { background: var(--amber-soft); color: var(--amber); } .badge.audit-skipped { background: #edf1ef; color: #44524b; }
+.badge.high { background: var(--red-soft); color: var(--red); } .badge.medium { background: var(--amber-soft); color: var(--amber); } .badge.low { background: var(--blue-soft); color: var(--blue); } .badge.exact_location { background: var(--green-soft); color: var(--green); } .badge.regional_fallback { background: var(--amber-soft); color: var(--amber); } .badge.audit-skipped { background: #edf1ef; color: #44524b; } .badge.confirmed_org { background: var(--green-soft); color: var(--green); } .badge.candidate_org, .badge.manual_verify, .badge.weak_match { background: var(--amber-soft); color: var(--amber); } .badge.no_match, .badge.not_run { background: #edf1ef; color: #44524b; } .badge.error { background: var(--red-soft); color: var(--red); }
 .detail-title { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 14px; }
 .detail-title h2 { margin: 0; font-size: clamp(26px, 4vw, 42px); line-height: 1; }
 .quick-facts { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; margin: 12px 0 14px; }
@@ -70,6 +70,9 @@ button, input, select { font: inherit; }
 
 .detail-section { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
 .detail-section h3 { margin: 0 0 10px; font-size: 15px; }
+.candidate-list { display: grid; gap: 8px; }
+.candidate-row { display: grid; gap: 3px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; }
+.candidate-row span, .candidate-row small { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
 .kv { display: grid; grid-template-columns: 150px minmax(0,1fr); gap: 10px; margin-bottom: 8px; font-size: 14px; } .kv span:first-child { color: var(--muted); }
 ul { margin: 0; padding-left: 18px; line-height: 1.45; }
 .empty-state { padding: 22px; border: 1px dashed #b8c8c0; border-radius: 8px; color: var(--muted); background: #fbfcfb; }

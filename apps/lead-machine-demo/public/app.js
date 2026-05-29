@@ -138,7 +138,7 @@ function renderLeads(leads) {
     const primarySignal = sellerSignals(lead)[0] || humanize(lead.opportunityType || 'Lead pack')
     return `
       <button class="lead-card ${index === state.selectedIndex ? 'active' : ''}" type="button" data-index="${index}">
-        <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(company.matchStatus)}${fastBadge(lead)}</div>
+        <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
         <p class="card-signal">${escapeHtml(primarySignal)}</p>
@@ -174,14 +174,14 @@ function renderDetail(lead) {
         <h2>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h2>
         <p class="muted">${escapeHtml(company.legalName || 'Legal name unknown')}</p>
       </div>
-      <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(company.matchStatus)}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
+      <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
     </div>
 
     <div class="quick-facts">
       ${factCard('Phone', contact.phone || lead.phone || 'unknown', 'Best first contact field')}
       ${factCard('Website', contact.website ? 'available' : 'unknown', contact.website ? link(contact.website) : 'No website in lead pack')}
       ${factCard('Google', formatRating(places), places.placeId ? `Place ID: ${places.placeId}` : 'No place ID')}
-      ${factCard('Company ID', company.organizationNumber || company.candidateOrganizationNumber || 'not verified', company.matchStatus || 'not_run')}
+      ${factCard('Company ID', company.organizationNumber || company.candidateOrganizationNumber || 'not verified', brregStatusLabel(company))}
       ${factCard('Location', readable(sourceQuality.locationMatchStatus || 'unknown'), contact.address || contact.city || 'unknown')}
       ${factCard('Priority', readable(lead.callPriority || lead.priority || 'unknown'), nextStep)}
       ${factCard('Discovery', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown'), discoveryQuality.score == null ? 'Source confidence unknown' : `Score ${discoveryQuality.score}/100`)}
@@ -208,11 +208,7 @@ function renderDetail(lead) {
         ['Top signal', (website.topEvidence || [])[0] || 'none'],
         ['CTA profile', website.ctaProfile ? 'available' : 'unknown'],
       ])}
-      ${sourceCard('Brreg firmaprofil', company.matchStatus || 'not_run', [
-        ['Confirmed org.nr', company.organizationNumber || 'none'],
-        ['Candidate org.nr', company.candidateOrganizationNumber || 'none'],
-        ['Confidence', company.matchConfidence ?? 'unknown'],
-      ])}
+      ${brregSourceCard(company)}
       ${sourceCard('Economy / Proff', economy.status || 'not_enabled', [
         ['Revenue', economy.revenue ?? 'not enabled'],
         ['Employees', economy.employees ?? 'not enabled'],
@@ -228,13 +224,26 @@ function renderDetail(lead) {
     ${section('Company and contact', kv([
       ['Confirmed org.nr', company.organizationNumber || 'none'],
       ['Candidate org.nr', company.candidateOrganizationNumber || 'none'],
+      ['Legal name', company.legalName || 'unknown'],
+      ['Candidate legal name', company.candidateLegalName || 'none'],
+      ['Organization form', company.organizationForm || 'unknown'],
+      ['Registered address', company.registeredAddress || 'unknown'],
+      ['Municipality', company.municipality || 'unknown'],
+      ['NACE', [company.naceCode, company.naceDescription].filter(Boolean).join(' - ') || 'unknown'],
+      ['Employees', company.employees ?? 'unknown'],
+      ['Registered', company.registrationDate || 'unknown'],
+      ['Status', company.activeStatus || 'unknown'],
       ['Match status', readable(company.matchStatus || 'not_run')],
+      ['Match confidence', company.matchConfidence ?? 'unknown'],
+      ['Warnings', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
+      ['Brreg source', link(company.sourceUrl)],
       ['Website', link(contact.website || lead.website)],
       ['Phone', contact.phone || lead.phone || 'unknown'],
       ['Email', contact.email || lead.email || 'unknown'],
       ['Address', contact.address || lead.address || 'unknown'],
       ['City', contact.city || lead.city || 'unknown'],
     ]))}
+    ${candidateSection(company)}
     ${section('Lead intelligence', kv([
       ['Lead class', humanize(lead.leadClass || 'unknown')],
       ['Opportunity', humanize(lead.opportunityType || 'unknown')],
@@ -281,6 +290,50 @@ function factCard(label, value, note) {
 
 function sourceCard(title, status, rows) {
   return `<section class="source-card"><div class="source-title"><h3>${escapeHtml(title)}</h3>${badge(status)}</div>${kv(rows)}</section>`
+}
+
+function brregSourceCard(company) {
+  const rows = [
+    ['Confirmed org.nr', company.organizationNumber || 'none'],
+    ['Candidate org.nr', company.candidateOrganizationNumber || 'none'],
+    ['Legal name', company.legalName || 'unknown'],
+    ['Candidate legal name', company.candidateLegalName || 'none'],
+    ['Org form', company.organizationForm || 'unknown'],
+    ['Municipality', company.municipality || 'unknown'],
+    ['NACE', [company.naceCode, company.naceDescription].filter(Boolean).join(' - ') || 'unknown'],
+    ['Employees', company.employees ?? 'unknown'],
+    ['Status', company.activeStatus || 'unknown'],
+    ['Confidence', company.matchConfidence ?? 'unknown'],
+    ['Warnings', normalizeList(company.warnings).length ? normalizeList(company.warnings).map(humanize).join(', ') : 'none'],
+  ]
+  return sourceCard('Brreg firmaprofil', brregStatusLabel(company), rows)
+}
+
+function brregStatusLabel(company = {}) {
+  const status = String(company.matchStatus || 'not_run').toLowerCase()
+  if (company.organizationNumber && ['exact_match', 'strong_match'].includes(status)) return 'confirmed_org'
+  if (company.candidateOrganizationNumber || status === 'manual_verify' || status === 'weak_match') return 'candidate_org'
+  if (status === 'no_match') return 'no_match'
+  if (status === 'error') return 'error'
+  return status || 'not_run'
+}
+
+function candidateSection(company = {}) {
+  const candidates = Array.isArray(company.candidates) ? company.candidates.slice(0, 3) : []
+  if (!candidates.length) return ''
+  return section('Brreg candidates', `<div class="candidate-list">${candidates.map((candidate) => `
+    <div class="candidate-row">
+      <strong>${escapeHtml(candidate.candidateLegalName || 'Unknown legal name')}</strong>
+      <span>${escapeHtml(candidate.candidateOrganizationNumber || 'no org.nr')} · ${escapeHtml(candidate.unitType || 'unknown')} · ${escapeHtml(candidate.municipality || 'unknown')} · score ${escapeHtml(candidate.score ?? 'unknown')}</span>
+      <small>${escapeHtml(candidate.address || '')}</small>
+    </div>
+  `).join('')}</div>`)
+}
+
+function normalizeList(value) {
+  if (Array.isArray(value)) return value.filter(Boolean).map(String)
+  if (!value) return []
+  return String(value).split('|').map((item) => item.trim()).filter(Boolean)
 }
 
 function sellerSignals(lead) {
@@ -411,7 +464,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify' }[value] || String(value).toUpperCase() }
+function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { return value && value !== 'unknown' ? `<a href="${escapeAttr(value)}" target="_blank" rel="noreferrer" title="${escapeAttr(value)}">${escapeHtml(displayUrl(value))}</a>` : 'unknown' }
 function displayUrl(value) {

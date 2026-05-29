@@ -43,6 +43,20 @@ npm run lead-pack -- \
 
 Company profile enrichment is conservative. Confirmed `organizationNumber` is only set when `core/company-profile` returns an exact/strong match. Candidate organization numbers and warnings are preserved for manual verification.
 
+When enrichment is enabled, lead packs and CSV exports preserve Brreg/company-profile fields that help a seller verify the company identity:
+
+- confirmed `organizationNumber`
+- `candidateOrganizationNumber` and `candidateLegalName`
+- `legalName` and `organizationForm`
+- `registeredAddress` and `municipality`
+- `unitType` for enhet/underenhet context
+- `naceCode` and `naceDescription`
+- `employees`, `registrationDate`, and `activeStatus` when available
+- `matchStatus`, `matchConfidence`, `matchReasons`, `warnings`, and `candidates[]`
+- `sourceUrl` for the official Brreg record when available
+
+Manual verify records must show candidates without treating the org.nr as confirmed.
+
 ## V1 Lead Pack Shape
 
 Each lead pack includes:
@@ -51,7 +65,7 @@ Each lead pack includes:
 - callPriority
 - leadClass
 - opportunityType
-- company identity and match status
+- company identity, Brreg fields, candidates, and match status
 - contact info
 - Google Places metadata if available
 - website audit status and evidence

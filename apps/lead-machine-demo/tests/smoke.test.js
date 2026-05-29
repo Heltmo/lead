@@ -27,7 +27,27 @@ async function main() {
       callPriority: 'medium',
       leadClass: 'service_line_optimization',
       opportunityType: 'high_value_service_conversion',
-      company: { displayName: 'Kristiansand Rør AS', matchStatus: 'not_run' },
+      company: {
+        displayName: 'Kristiansand Rør AS',
+        legalName: 'KRISTIANSAND RØR AS',
+        candidateLegalName: 'KRISTIANSAND RØR AS',
+        organizationNumber: null,
+        candidateOrganizationNumber: '999111222',
+        organizationForm: 'Aksjeselskap',
+        registeredAddress: 'Testgata 1, 4600 Kristiansand',
+        municipality: 'Kristiansand',
+        unitType: 'enhet',
+        naceCode: '43.220',
+        naceDescription: 'VVS-arbeid',
+        employees: 7,
+        registrationDate: '2018-01-01',
+        activeStatus: 'active',
+        sourceUrl: 'https://data.brreg.no/enhetsregisteret/api/enheter/999111222',
+        matchStatus: 'manual_verify',
+        matchConfidence: 0.72,
+        warnings: ['multiple_plausible_candidates'],
+        candidates: [{ candidateOrganizationNumber: '999111222', candidateLegalName: 'KRISTIANSAND RØR AS', municipality: 'Kristiansand', unitType: 'enhet', score: 0.72 }],
+      },
       contact: { website: 'https://example.no', phone: '38000000', city: 'Kristiansand' },
       sourceQuality: { locationMatchStatus: 'exact_location' },
       ranking: { whyRanked: ['Contactable local trade business'], caution: ['Verify company identity'] },
@@ -95,6 +115,16 @@ async function main() {
   assert(lower.includes('source-grid'), 'UI should include source intelligence cards')
   assert(lower.includes('discovery quality'), 'UI should expose discovery quality source card')
   assert(lower.includes('discovery confidence'), 'UI should expose discovery confidence')
+  assert(lower.includes('brreg firmaprofil'), 'UI should expose Brreg firmaprofil panel')
+  assert(lower.includes('confirmed org.nr'), 'UI should expose confirmed org number field')
+  assert(lower.includes('candidate org.nr'), 'UI should expose candidate org number field')
+  assert(lower.includes('candidate legal name'), 'UI should expose candidate legal name field')
+  assert(lower.includes('registered address'), 'UI should expose registered address field')
+  assert(lower.includes('nace'), 'UI should expose NACE field')
+  assert(lower.includes('employees'), 'UI should expose employees field')
+  assert(lower.includes('brreg candidates'), 'UI should expose Brreg candidate list')
+  assert(lower.includes('confirmed_org'), 'UI should support confirmed org badge')
+  assert(lower.includes('candidate_org'), 'UI should support candidate org badge')
 
   server.close()
   failing.close()

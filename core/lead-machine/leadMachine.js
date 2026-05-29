@@ -263,12 +263,26 @@ function companyFromFastProfile(candidate, profile) {
   return {
     displayName: candidate.businessName || candidate.name || null,
     legalName: profile?.legalName || null,
+    candidateLegalName: profile?.candidateLegalName || null,
     organizationNumber: isConfirmedFastProfile(profile) ? profile.organizationNumber : null,
     candidateOrganizationNumber: profile?.candidateOrganizationNumber || null,
     organizationForm: profile?.organizationForm || null,
+    registeredAddress: profile?.registeredAddress || null,
+    municipality: profile?.municipality || null,
+    unitType: profile?.unitType || null,
+    naceCode: profile?.naceCode || null,
+    naceDescription: profile?.naceDescription || null,
+    employees: profile?.employees ?? null,
+    registrationDate: profile?.registrationDate || null,
+    activeStatus: profile?.activeStatus || null,
+    source: profile?.source || null,
+    sourceUrl: profile?.sourceUrl || null,
+    errorType: profile?.errorType || null,
     matchStatus: profile?.matchStatus || null,
     matchConfidence: profile?.matchConfidence ?? null,
+    matchReasons: Array.isArray(profile?.matchReasons) ? profile.matchReasons : [],
     warnings: Array.isArray(profile?.warnings) ? profile.warnings : [],
+    candidates: Array.isArray(profile?.candidates) ? profile.candidates : [],
   }
 }
 
@@ -288,7 +302,29 @@ async function safeFastCompanyProfile(candidate) {
       industry: candidate.industry || candidate.canonicalIndustry,
     })
   } catch (error) {
-    return { organizationNumber: null, candidateOrganizationNumber: null, legalName: null, organizationForm: null, matchStatus: 'error', matchConfidence: 0, warnings: [error && error.message ? error.message : 'company_profile_error'] }
+    return {
+      organizationNumber: null,
+      candidateOrganizationNumber: null,
+      legalName: null,
+      candidateLegalName: null,
+      organizationForm: null,
+      registeredAddress: null,
+      municipality: null,
+      unitType: null,
+      naceCode: null,
+      naceDescription: null,
+      employees: null,
+      registrationDate: null,
+      activeStatus: null,
+      source: 'brreg',
+      sourceUrl: null,
+      errorType: 'unknown_error',
+      matchStatus: 'error',
+      matchConfidence: 0,
+      matchReasons: [],
+      warnings: [error && error.message ? error.message : 'company_profile_error'],
+      candidates: [],
+    }
   }
 }
 
@@ -324,9 +360,19 @@ function buildFastLeadPacksCsv(leadPacks) {
     opportunityType: pack.opportunityType,
     companyDisplayName: pack.company.displayName,
     legalName: pack.company.legalName,
+    candidateLegalName: pack.company.candidateLegalName,
     organizationNumber: pack.company.organizationNumber,
     candidateOrganizationNumber: pack.company.candidateOrganizationNumber,
     organizationForm: pack.company.organizationForm,
+    registeredAddress: pack.company.registeredAddress,
+    municipality: pack.company.municipality,
+    unitType: pack.company.unitType,
+    naceCode: pack.company.naceCode,
+    naceDescription: pack.company.naceDescription,
+    employees: pack.company.employees,
+    registrationDate: pack.company.registrationDate,
+    activeStatus: pack.company.activeStatus,
+    sourceUrl: pack.company.sourceUrl,
     matchStatus: pack.company.matchStatus,
     matchConfidence: pack.company.matchConfidence,
     website: pack.contact.website,
@@ -347,7 +393,7 @@ function buildFastLeadPacksCsv(leadPacks) {
     sourceQuery: pack.meta.sourceQuery,
     mode: pack.meta.mode,
   }))
-  return renderCsv(rows, ['rank', 'callPriority', 'leadClass', 'opportunityType', 'companyDisplayName', 'legalName', 'organizationNumber', 'candidateOrganizationNumber', 'organizationForm', 'matchStatus', 'matchConfidence', 'website', 'phone', 'email', 'address', 'city', 'placeId', 'rating', 'reviewCount', 'auditStatus', 'contactability', 'whyRanked', 'caution', 'economyStatus', 'searchScope', 'locationMatchStatus', 'sourceQuery', 'mode'])
+  return renderCsv(rows, ['rank', 'callPriority', 'leadClass', 'opportunityType', 'companyDisplayName', 'legalName', 'candidateLegalName', 'organizationNumber', 'candidateOrganizationNumber', 'organizationForm', 'registeredAddress', 'municipality', 'unitType', 'naceCode', 'naceDescription', 'employees', 'registrationDate', 'activeStatus', 'sourceUrl', 'matchStatus', 'matchConfidence', 'website', 'phone', 'email', 'address', 'city', 'placeId', 'rating', 'reviewCount', 'auditStatus', 'contactability', 'whyRanked', 'caution', 'economyStatus', 'searchScope', 'locationMatchStatus', 'sourceQuery', 'mode'])
 }
 
 function countPriority(leadPacks) {

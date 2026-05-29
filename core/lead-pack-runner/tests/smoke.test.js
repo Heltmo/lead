@@ -11,10 +11,35 @@ companyProfile.enrichCompanyProfile = async () => {
       organizationNumber: null,
       candidateOrganizationNumber: '999111222',
       legalName: 'TEST TANNKLINIKK AS',
+      candidateLegalName: 'TEST TANNKLINIKK AS',
       organizationForm: 'Aksjeselskap',
+      registeredAddress: 'Testgata 1, 1600 Testby',
+      municipality: 'Testby',
+      unitType: 'enhet',
+      naceCode: '86.230',
+      naceDescription: 'Tannhelsetjenester',
+      employees: 5,
+      registrationDate: '2010-01-01',
+      activeStatus: 'active',
+      source: 'brreg',
+      sourceUrl: 'https://data.brreg.no/enhetsregisteret/api/enheter/999111222',
       matchStatus: 'manual_verify',
       matchConfidence: 0.92,
+      matchReasons: ['name_match', 'municipality_match'],
       warnings: ['multiple_plausible_candidates'],
+      candidates: [
+        {
+          candidateOrganizationNumber: '999111222',
+          candidateLegalName: 'TEST TANNKLINIKK AS',
+          organizationForm: 'Aksjeselskap',
+          municipality: 'Testby',
+          address: 'Testgata 1, 1600 Testby',
+          unitType: 'enhet',
+          score: 0.92,
+          matchReasons: ['name_match', 'municipality_match'],
+          warnings: [],
+        },
+      ],
     }
   }
   return {
@@ -73,7 +98,23 @@ async function main() {
   const manualPack = JSON.parse(fs.readFileSync(manual.leadPacksPath, 'utf8'))[0]
   assert(manualPack.company.organizationNumber === null, 'manual_verify should not set confirmed organizationNumber')
   assert(manualPack.company.candidateOrganizationNumber === '999111222', 'manual_verify should preserve candidateOrganizationNumber')
+  assert(manualPack.company.candidateLegalName === 'TEST TANNKLINIKK AS', 'manual_verify should preserve candidate legal name')
+  assert(manualPack.company.registeredAddress === 'Testgata 1, 1600 Testby', 'company profile should preserve registered address')
+  assert(manualPack.company.municipality === 'Testby', 'company profile should preserve municipality')
+  assert(manualPack.company.unitType === 'enhet', 'company profile should preserve unit type')
+  assert(manualPack.company.naceCode === '86.230', 'company profile should preserve NACE code')
+  assert(manualPack.company.naceDescription === 'Tannhelsetjenester', 'company profile should preserve NACE description')
+  assert(manualPack.company.employees === 5, 'company profile should preserve employee count')
+  assert(manualPack.company.registrationDate === '2010-01-01', 'company profile should preserve registration date')
+  assert(manualPack.company.activeStatus === 'active', 'company profile should preserve active status')
+  assert(manualPack.company.sourceUrl && manualPack.company.sourceUrl.includes('999111222'), 'company profile should preserve source URL')
+  assert(Array.isArray(manualPack.company.matchReasons) && manualPack.company.matchReasons.includes('municipality_match'), 'company profile should preserve match reasons')
+  assert(Array.isArray(manualPack.company.candidates) && manualPack.company.candidates.length === 1, 'manual_verify should expose candidate list')
   assert(manualPack.company.matchStatus === 'manual_verify', 'manual_verify should be attached')
+  const manualCsv = fs.readFileSync(manual.csvPath, 'utf8')
+  assert(manualCsv.includes('registeredAddress'), 'CSV should include registered address')
+  assert(manualCsv.includes('naceCode'), 'CSV should include NACE code')
+  assert(manualCsv.includes('Testgata 1'), 'CSV should write registered address')
 
   const errorOutput = path.join(tmp, 'lead-pack-error')
   const error = await runLeadPack({ runDir, outputDir: errorOutput, enrichCompanyProfile: true })
