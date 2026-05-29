@@ -87,7 +87,7 @@ async function runSearch() {
   try {
     const statusText = els.runMode.value === 'fast'
       ? 'running: fast discovery and lead-pack build'
-      : 'running: deep website audit and scoring; this can take a few minutes'
+      : 'running: selected lead enrichment; website audit is one module'
     setStatus(statusText, 'running')
     const response = await fetch('/api/runs', {
       method: 'POST',
@@ -287,6 +287,8 @@ function renderDetail(lead) {
 
     ${fastQualificationPanel(lead)}
 
+    ${deepEnrichmentModules(lead, command)}
+
     <details class="detail-collapse">
       <summary>Source intelligence</summary>
       <div class="source-grid">
@@ -364,11 +366,11 @@ function renderDetail(lead) {
 function modeGuidance(summary) {
   const mode = summary.mode || els.runMode.value || 'fast'
   if (!summary || Object.keys(summary).length === 0) {
-    return mode === 'deep' ? 'Deep mode qualifies leads with full audit/scoring.' : 'Fast mode finds candidates; use Deep to qualify selected leads.'
+    return mode === 'deep' ? 'Deep enrich adds modules to selected leads.' : 'Fast scan finds candidates; enrich selected leads when more context is needed.'
   }
   const included = Number(summary.includedLeadCount ?? summary.totalLeads ?? 0)
-  if (mode === 'fast' && included > 0) return 'These are candidates, not fully qualified leads. Run Deep on promising ones.'
-  return summary.nextRecommendedAction || 'These leads include audit/scoring signals.'
+  if (mode === 'fast' && included > 0) return 'These are candidates. Enrich only the leads that need more context.'
+  return summary.nextRecommendedAction || 'These leads include enrichment signals.'
 }
 
 function fastBadge(lead) {
@@ -380,13 +382,34 @@ function isFastLead(lead) {
 }
 
 function fastQualificationPanel(lead) {
-  if (!isFastLead(lead)) return '<section class="qualification-panel deep"><strong>Deep qualified</strong><span>This lead includes website audit and scoring signals.</span></section>'
+  if (!isFastLead(lead)) return '<section class="qualification-panel deep"><strong>Deep enriched</strong><span>This lead includes selected enrichment modules. Website audit is one module.</span></section>'
   return `<section class="qualification-panel fast">
-    <div><strong>Needs Deep qualification</strong><span>Fast mode found this candidate quickly. Full audit and scoring are not run yet.</span></div>
-    <button type="button" id="runDeepQualification">Run Deep qualification for this lead</button>
+    <div><strong>Enrichment optional</strong><span>Fast scan found this candidate. Enrich only if you need more context than phone, location and company identity.</span></div>
+    <button type="button" id="runDeepQualification">Enrich selected lead</button>
   </section>`
 }
 
+
+function deepEnrichmentModules(lead, command) {
+  const company = lead.company || {}
+  const website = lead.website || {}
+  const economy = lead.economy || {}
+  const modules = [
+    ['Website audit', isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), isFastLead(lead) ? 'Run enrichment to audit website quality.' : 'Website/audit signals are attached.'],
+    ['Brreg verification', company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), company.organizationNumber ? 'Official identity is confirmed.' : company.candidateOrganizationNumber ? 'Candidate identity needs manual verify.' : 'No confirmed identity yet.'],
+    ['Economy / Proff', economy.status || 'not_enabled', 'Requires confirmed org.nr and Proff integration.'],
+    ['Social/source signals', 'not_enabled', 'Later module: Facebook, LinkedIn, news and public source links.'],
+    ['Decision makers', 'not_enabled', 'Later module: public role/contact hints when available.'],
+    ['Recent activity', 'not_enabled', 'Later module: hiring, news, website updates and public activity.'],
+    ['Seller leverage summary', command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', 'Uses current contact, company, location and source signals.'],
+  ]
+  return `<details class="detail-collapse enrichment-modules" open>
+    <summary>Deep enrichment modules</summary>
+    <div class="module-grid">
+      ${modules.map(([name, status, note]) => `<div class="module-card"><div>${badge(status)}<strong>${escapeHtml(name)}</strong></div><small>${escapeHtml(note)}</small></div>`).join('')}
+    </div>
+  </details>`
+}
 
 function sellerCommandCard(command) {
   return `<section class="command-card">
@@ -453,7 +476,7 @@ function sellerDeskCards(lead, command) {
     ['Main risk', command.mainRisk],
   ]
   const qualificationRows = [
-    ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Deep qualified'],
+    ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Deep enriched'],
     ['Seller readiness', command.sellerReadiness],
     ['Website opportunity', command.websiteOpportunity],
     ['Opportunity type', humanize(lead.opportunityType || 'unknown')],
@@ -475,7 +498,7 @@ function sellerDeskCards(lead, command) {
   <details class="detail-collapse lead-brief-details">
     <summary>Qualification and verification details</summary>
     <div class="seller-desk-v2 secondary-brief-grid">
-      ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Candidate until Deep runs.' : 'Audit/scoring included.')}
+      ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Enrichment has not run yet.' : 'Selected enrichment modules included.')}
       ${sellerDeskCard('Verification and caution', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : command.sellerReadinessKey, riskRows, command.mainRiskNote)}
     </div>
   </details>`
@@ -557,7 +580,7 @@ function sellerCommand(lead) {
   const websiteOpportunityNote = fast
     ? 'Fast mode has not audited the website yet.'
     : priority === 'low'
-      ? 'Deep did not find strong website pain; this can still be a usable B2B lead.'
+      ? 'Website audit did not find strong website pain; this can still be a usable B2B lead.'
       : 'Website/audit signals can inform the sales angle if relevant.'
 
   const bestContact = hasPhone ? (contact.phone || lead.phone) : (contact.email || lead.email || 'unknown')
@@ -579,7 +602,7 @@ function sellerCommand(lead) {
     mainRiskNote = 'Do not treat this as an exact local lead.'
   } else if (fast) {
     mainRisk = contact.website ? 'Website unverified' : 'Fast mode only'
-    mainRiskNote = contact.website ? 'Google supplied a URL, but Deep must verify it is real and relevant.' : 'Website audit and full scoring are skipped.'
+    mainRiskNote = contact.website ? 'Google supplied a URL; enrichment can verify whether it is real and relevant.' : 'Website audit and deeper enrichment are skipped.'
   } else if ((ranking.caution || []).length) {
     mainRisk = 'Review caution'
     mainRiskNote = humanizeEvidence((ranking.caution || [])[0])
@@ -591,14 +614,14 @@ function sellerCommand(lead) {
     nextAction = 'Find contact first'
     nextActionNote = 'Do not prioritize for calling until a direct contact is found.'
   } else if (fast) {
-    nextAction = confirmedOrg ? 'Run Deep if website angle matters' : candidateOrg ? 'Verify org.nr, then Deep if needed' : brregUnavailable ? 'Retry Brreg before export' : 'Run Deep if needed'
-    nextActionNote = 'Fast found a usable candidate; Deep only qualifies website/audit opportunity.'
+    nextAction = confirmedOrg ? 'Enrich if more context is needed' : candidateOrg ? 'Verify org.nr, then enrich if needed' : brregUnavailable ? 'Retry Brreg before export' : 'Enrich if needed'
+    nextActionNote = 'Fast found a usable candidate; enrichment adds optional context modules.'
   } else if (priority === 'low' && sellerReadinessKey !== 'weak') {
     nextAction = 'Usable lead; weak website angle'
     nextActionNote = 'Do not treat LOW website opportunity as a bad business lead.'
   } else if (priority === 'high') {
     nextAction = 'Review first'
-    nextActionNote = 'Deep evidence supports website/opportunity urgency.'
+    nextActionNote = 'Enrichment evidence supports website/opportunity urgency.'
   }
 
   const sourceConfidence = discoveryLevel === 'unknown' ? 'Unknown' : readable(discoveryLevel)
@@ -619,7 +642,7 @@ function buildCommandSummary({ company, contact, places, confirmedOrg, candidate
   if (employees) parts.push(`${employees} employees registered`)
   if (places.rating) parts.push(`Google rating ${places.rating}/5`)
   if (exactLocation) parts.push('location matches the search')
-  if (fast) parts.push(contact.website ? 'website URL is unverified until Deep runs' : 'full website audit is not run yet')
+  if (fast) parts.push(contact.website ? 'website URL is unverified until enrichment runs' : 'deeper enrichment has not run yet')
   else parts.push(`website opportunity is ${websiteOpportunity || String(priority || 'unknown').toUpperCase()}`)
   return `${parts.join('; ')}.`
 }
@@ -723,7 +746,7 @@ function sellerSignals(lead) {
 
   if (places.rating) signals.push(`Google proof: ${formatRating(places)}. Use this to judge market presence before prioritizing.`)
 
-  if (isFastLead(lead) && contact.website) signals.push('Website is from discovery and has not been verified yet; run Deep before using website quality as leverage.')
+  if (isFastLead(lead) && contact.website) signals.push('Website is from discovery and has not been verified yet; enrich before using website quality as leverage.')
 
   if (company.organizationNumber) signals.push(`Brreg confirmed: org.nr ${company.organizationNumber}. Legal identity is ready for export.`)
   else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Brreg candidate exists, but legal identity should be verified before export.')
@@ -837,8 +860,8 @@ async function runSelectedDeepQualification(button) {
   if (!(lead.contact?.website || lead.website)) return setStatus('failed: selected lead has no website to audit', 'failed')
   const originalText = button.textContent
   button.disabled = true
-  button.textContent = 'Running Deep...'
-  setStatus(`running: deep qualification for ${lead.company?.displayName || 'selected lead'}`, 'running')
+  button.textContent = 'Enriching...'
+  setStatus(`running: enrichment for ${lead.company?.displayName || 'selected lead'}`, 'running')
   try {
     const response = await fetch('/api/deep-qualify', {
       method: 'POST',
@@ -850,15 +873,15 @@ async function runSelectedDeepQualification(button) {
       }),
     })
     const payload = await response.json()
-    if (!response.ok) throw new Error(payload.error || 'Deep qualification failed')
+    if (!response.ok) throw new Error(payload.error || 'Lead enrichment failed')
     const updatedLead = payload.leadPack
-    if (!updatedLead) throw new Error('Deep qualification returned no lead pack')
+    if (!updatedLead) throw new Error('Lead enrichment returned no lead pack')
     state.result.leadPacks[state.selectedIndex] = updatedLead
     state.result.summary = updateSummaryAfterLeadReplacement(state.result.summary || {}, state.result.leadPacks)
-    setStatus('completed: selected lead deep-qualified', '')
+    setStatus('completed: selected lead enriched', '')
     renderAll()
   } catch (error) {
-    setStatus(`failed: ${error.message || 'Deep qualification failed'}`, 'failed')
+    setStatus(`failed: ${error.message || 'Lead enrichment failed'}`, 'failed')
   } finally {
     button.disabled = false
     button.textContent = originalText

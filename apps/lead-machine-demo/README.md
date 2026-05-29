@@ -68,20 +68,20 @@ The profession selector is a controlled list of supported verticals. The locatio
 - `frisør Tromsø`
 - `eiendomsmeglere i Oslo`
 
-## Fast vs Deep Mode
+## Fast Scan vs Deep Enrich
 
-- `Fast` mode is the default for daily scanning. It runs discovery/location quality and creates basic lead packs without full website audit, using the broadest safe demo search cap automatically.
-- `Deep` mode runs the full website audit and commercial scoring flow for slower, richer lead packs.
-- Use Fast for 10-25 lead scans, then Deep for the strongest leads.
+- `Fast scan` is the default for daily use. It runs broad discovery, location quality, Brreg identity enrichment, Google Places presence, and basic contact context without a full website audit.
+- `Deep enrich` upgrades one selected lead with enrichment modules. Today the active module is website audit/scoring; Brreg verification is already shown, while Proff/economy, social/source signals, decision-maker hints, and recent activity are planned modules.
+- Use Fast scan for 10-25 candidate scans, then enrich only the leads where extra context is worth the wait.
 
 Recommended workflow:
 
-1. Run `Fast` to scan a market quickly.
-2. Review phone, website, location, rating/reviews, and source warnings.
-3. Use `Run Deep qualification for this lead` on one promising candidate. This audits only the selected lead and replaces that card while the rest of the list stays as Fast candidates.
-4. Export the lead pack once the lead is qualified enough for seller review.
+1. Run `Fast scan` to scan a market quickly.
+2. Review phone, location, Brreg identity, website presence, rating/reviews, and source warnings.
+3. Use `Enrich selected lead` on one promising candidate. This enriches only the selected lead and replaces that card while the rest of the list stays as Fast candidates.
+4. Export the lead pack once the lead has enough context for seller review.
 
-Fast results are candidates, not fully qualified leads. Deep qualification is per lead: it upgrades one selected candidate with website audit/scoring signals without rerunning the full search. Deep may raise or lower website opportunity, but seller readiness is separate: a contactable, active, correctly located company can still be a useful B2B lead even when website opportunity is low.
+Fast results are candidates, not final verdicts. Deep enrichment is per lead: it upgrades one selected candidate with extra modules without rerunning the full search. Website audit is only one enrichment module. A contactable, active, correctly located company can still be a useful B2B lead even when website opportunity is low.
 
 ## What It Does
 
@@ -99,12 +99,12 @@ The frontend displays:
 
 - query/run status
 - summary counts
-- lead cards with filters for phone, org.nr, website, exact location, Deep qualification need, and Brreg issues
+- lead cards with filters for phone, org.nr, website, exact location, enrichment need, and Brreg issues
 - lead sorting by best first, phone, confirmed org.nr, Google reviews, employees, and discovery confidence
 - a Seller Command card with call readiness, best first contact, company fit, verification status, main risk, next action, and source confidence
 - a compact Seller Desk V2 layer with company identity, contactability, market proof, and action/risk
 - secondary qualification, verification, source intelligence, and raw source data collapsed below the decision layer
-- per-lead Deep qualification that updates only the selected company card
+- per-lead Deep enrichment that updates only the selected company card
 - evidence and caution
 - export links
 
@@ -146,8 +146,22 @@ Live runs are slower than the fixture because each included lead can trigger:
 
 1. Brreg official identity discovery
 2. Google Places presence enrichment when an API key is available
-3. optional website audit in Deep mode
+3. selected-lead enrichment modules when requested
 4. lead-pack generation
 5. automatic Brreg company-profile lookup for non-Brreg-first candidates
 
-Use `Fast` for broad automatic scans. The local demo uses an internal cap of 25 leads so the seller does not need to choose a technical max-results value. Use selected-lead `Deep` when you want full website audit/scoring for one candidate. Brreg runs by default for seller-ready identity context.
+Use `Fast scan` for broad automatic scans. The local demo uses an internal cap of 25 leads so the seller does not need to choose a technical max-results value. Use selected-lead `Deep enrich` when one candidate needs more context. Brreg runs by default for seller-ready identity context.
+
+## Deep Enrichment Roadmap
+
+Deep should become the selected-lead intelligence layer, not just a website audit button. The intended module stack is:
+
+- website audit and technical/source evidence
+- deeper Brreg verification and candidate handling
+- Proff/economy enrichment after confirmed org.nr
+- social/source signals such as Facebook, LinkedIn, news, and public links
+- decision-maker hints from public firm/source data
+- company size/fit and recent activity
+- seller leverage summary based on evidence and caution
+
+Lead Machine remains the source of truth. Planned modules should append context and warnings, not replace confirmed data or generate outreach scripts.
