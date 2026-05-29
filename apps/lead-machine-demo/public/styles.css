@@ -156,3 +156,16 @@ a { color: var(--blue); }
 .workflow-board strong { font-size: 16px; line-height: 1.2; }
 .workflow-board p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
 @media (max-width: 1180px) { .workflow-board { grid-template-columns: 1fr; } }
+
+.phone-link, .call-now { font-weight: 800; color: var(--green); text-decoration: none; }
+.phone-link:hover, .call-now:hover { text-decoration: underline; }
+.workflow-actions > div { display: inline-flex; align-items: center; gap: 8px; }
+.call-now { display: inline-flex; align-items: center; min-height: 36px; padding: 8px 11px; border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; }
+.activity-timeline { margin-top: 12px; padding-top: 10px; border-top: 1px solid #d5e4dc; }
+.activity-timeline h4 { margin: 0 0 8px; font-size: 14px; }
+.activity-timeline ol { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.activity-timeline li { padding: 8px 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.78); }
+.activity-timeline li strong { display: inline-block; margin-right: 8px; }
+.activity-timeline li span { color: var(--muted); font-size: 12px; }
+.activity-timeline li p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.export-actions { margin: 8px 0 12px; }

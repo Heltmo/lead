@@ -109,6 +109,10 @@ async function handleRun(req, res, context) {
       csv: `/api/runs/${runId}/lead-packs.csv`,
       json: `/api/runs/${runId}/lead-packs.json`,
       summary: `/api/runs/${runId}/summary.json`,
+      callList: `/api/runs/${runId}/call-list.csv`,
+      callListNotContacted: `/api/runs/${runId}/call-list.csv?view=notContacted`,
+      callListFollowUps: `/api/runs/${runId}/call-list.csv?view=followUpDue`,
+      callListInterested: `/api/runs/${runId}/call-list.csv?view=interested`,
     },
     summary: { ...leadPackSummary, ...machineSummary },
     leadPacks,
@@ -551,7 +555,7 @@ function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searc
 }
 
 function toLeadPackCsv(leadPacks) {
-  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'workflowStatus', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextAction', 'workflowNotes', 'workflowOutcome', 'evidenceSummary', 'cautionSummary']
+  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'workflowStatus', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextAction', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
   const rows = leadPacks.map((lead) => {
     const workflow = normalizeWorkflow(lead.workflow || {})
     return [
@@ -575,6 +579,7 @@ function toLeadPackCsv(leadPacks) {
       workflow.nextAction,
       workflow.notes,
       workflow.outcome,
+      workflow.activities && workflow.activities[0] ? workflow.activities[0].at : '',
       [...((lead.ranking && lead.ranking.whyRanked) || []), ...((lead.website && lead.website.topEvidence) || [])].join(' | '),
       ((lead.ranking && lead.ranking.caution) || []).join(' | '),
     ]
@@ -593,10 +598,11 @@ function handleRunFile(url, res, runIndex, workflowPath) {
   const file = parts[3]
   const run = runIndex.get(runId)
   if (!run) return json(res, 404, { error: 'Run not found in this server session' })
-  if (file === 'lead-packs.csv') {
+  if (file === 'lead-packs.csv' || file === 'call-list.csv') {
     const leads = attachWorkflowToLeads(readJsonFile(run.leadPacksPath, []), readWorkflowStore(workflowPath))
+    const csvLeads = file === 'call-list.csv' ? filterCallListLeads(leads, url.searchParams.get('view') || 'all') : leads
     res.writeHead(200, { 'content-type': 'text/csv' })
-    res.end(toLeadPackCsv(leads))
+    res.end(toLeadPackCsv(csvLeads))
     return
   }
   if (file === 'lead-packs.json') {
@@ -619,12 +625,14 @@ async function handleWorkflowPost(req, res, workflowPath) {
   const leadId = String(body.leadId || '').trim()
   if (!leadId) return json(res, 400, { error: 'leadId is required' })
   const store = readWorkflowStore(workflowPath)
-  const previous = store.leads[leadId] || {}
+  const previous = normalizeWorkflow(store.leads[leadId] || {})
   const workflow = normalizeWorkflow({ ...previous, ...(body.workflow || body), leadId })
   workflow.leadId = leadId
   workflow.runId = limitText(body.runId || workflow.runId || '', 120)
   workflow.leadName = limitText(body.leadName || workflow.leadName || '', 180)
   workflow.updatedAt = new Date().toISOString()
+  const activity = createWorkflowActivity(previous, workflow)
+  workflow.activities = [activity, ...normalizeActivities(previous.activities)].filter(Boolean).slice(0, 25)
   store.leads[leadId] = workflow
   writeWorkflowStore(workflowPath, store)
   return json(res, 200, { workflow })
@@ -664,6 +672,7 @@ function defaultWorkflow() {
     outcome: '',
     owner: '',
     updatedAt: null,
+    activities: [],
   }
 }
 
@@ -687,7 +696,63 @@ function normalizeWorkflow(input = {}) {
     outcome: limitText(input.outcome || '', 500),
     owner: limitText(input.owner || '', 120),
     updatedAt: input.updatedAt || null,
+    activities: normalizeActivities(input.activities),
   }
+}
+
+function normalizeActivities(activities) {
+  if (!Array.isArray(activities)) return []
+  return activities.slice(0, 25).map((activity) => ({
+    at: limitText(activity && activity.at || '', 40),
+    status: limitText(activity && activity.status || '', 40),
+    channel: limitText(activity && activity.channel || '', 40),
+    response: limitText(activity && activity.response || '', 40),
+    personReached: limitText(activity && activity.personReached || '', 120),
+    followUpDate: /^\d{4}-\d{2}-\d{2}$/.test(String(activity && activity.followUpDate || '')) ? String(activity.followUpDate) : '',
+    nextAction: limitText(activity && activity.nextAction || '', 180),
+    outcome: limitText(activity && activity.outcome || '', 500),
+    notes: limitText(activity && activity.notes || '', 600),
+  })).filter((activity) => activity.at || activity.status || activity.response || activity.notes)
+}
+
+function createWorkflowActivity(previous = {}, workflow = {}) {
+  const changed = ['status', 'contacted', 'channel', 'response', 'personReached', 'followUpDate', 'nextAction', 'outcome', 'notes']
+    .some((field) => String(previous[field] || '') !== String(workflow[field] || ''))
+  if (!changed) return null
+  return {
+    at: workflow.updatedAt || new Date().toISOString(),
+    status: workflow.status || 'new',
+    channel: workflow.channel || '',
+    response: workflow.response || '',
+    personReached: workflow.personReached || '',
+    followUpDate: workflow.followUpDate || '',
+    nextAction: workflow.nextAction || '',
+    outcome: workflow.outcome || '',
+    notes: workflow.notes || '',
+  }
+}
+
+function filterCallListLeads(leads, view) {
+  const normalizedView = String(view || 'all')
+  const list = Array.isArray(leads) ? leads : []
+  if (normalizedView === 'notContacted') return list.filter((lead) => !serverWorkflowContacted(lead.workflow || {}))
+  if (normalizedView === 'followUpDue') return list.filter(serverIsFollowUpDue)
+  if (normalizedView === 'interested') return list.filter((lead) => {
+    const workflow = lead.workflow || {}
+    return workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked'
+  })
+  return list
+}
+
+function serverWorkflowContacted(workflow = {}) {
+  return workflow.contacted || ['contacted', 'follow_up', 'interested'].includes(workflow.status)
+}
+
+function serverIsFollowUpDue(lead = {}) {
+  const date = lead.workflow && lead.workflow.followUpDate
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return false
+  const today = new Date().toISOString().slice(0, 10)
+  return date <= today && lead.workflow.status !== 'rejected'
 }
 
 function readWorkflowStore(workflowPath) {

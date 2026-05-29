@@ -160,7 +160,7 @@ function renderWorkflowBoard(result) {
     <div><span>Seller queue</span><strong>${counts.notContacted} not contacted</strong></div>
     <div><span>Follow-up due</span><strong>${counts.followUpDue}</strong></div>
     <div><span>Interested</span><strong>${counts.interested}</strong></div>
-    <p>${due.length ? `Due: ${due.map((lead) => escapeHtml(lead.company?.displayName || lead.companyName || 'Unknown')).join(', ')}` : 'No due follow-ups yet.'}</p>
+    <p>${due.length ? `Due: ${due.map((lead) => escapeHtml(lead.company?.displayName || lead.companyName || 'Unknown')).join(', ')}` : 'No due follow-ups yet.'} Use filters and call-list exports to build today's calling queue.</p>
   `
 }
 
@@ -401,7 +401,7 @@ function renderDetail(lead) {
       ['Warnings', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
       ['Brreg source', link(company.sourceUrl)],
       ['Website', link(websiteValue(contact.website || lead.website))],
-      ['Phone', contact.phone || lead.phone || 'unknown'],
+      ['Phone', phoneLink(contact.phone || lead.phone || 'unknown')],
       ['Email', contact.email || lead.email || 'unknown'],
       ['Address', contact.address || lead.address || 'unknown'],
       ['City', contact.city || lead.city || 'unknown'],
@@ -426,7 +426,9 @@ function renderDetail(lead) {
 
 
 function workflowPanel(lead) {
-  const workflow = { status: 'new', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextAction: 'review', outcome: '', ...(lead.workflow || {}) }
+  const workflow = { status: 'new', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextAction: 'review', outcome: '', activities: [], ...(lead.workflow || {}) }
+  const phone = lead.contact?.phone || lead.phone || ''
+  const callHref = phoneHref(phone)
   return `<section class="workflow-panel">
     <div class="workflow-head">
       <div>
@@ -446,9 +448,27 @@ function workflowPanel(lead) {
       <label><span>Next action</span><input name="nextAction" value="${escapeAttr(workflow.nextAction || '')}" placeholder="review / call / follow up"></label>
       <label><span>Outcome</span><input name="outcome" value="${escapeAttr(workflow.outcome || '')}" placeholder="pending / not relevant / meeting"></label>
       <label class="workflow-notes"><span>Notes</span><textarea name="notes" rows="3" placeholder="Short factual note from manual work">${escapeHtml(workflow.notes || '')}</textarea></label>
-      <div class="workflow-actions"><small>${workflow.updatedAt ? `Saved ${escapeHtml(workflow.updatedAt)}` : 'Not saved yet'}</small><button type="submit">Save workflow</button></div>
+      <div class="workflow-actions"><small>${workflow.updatedAt ? `Saved ${escapeHtml(workflow.updatedAt)}` : 'Not saved yet'}</small><div>${callHref ? `<a class="call-now" href="${escapeAttr(callHref)}">Call now</a>` : ''}<button type="submit">Save workflow</button></div></div>
     </form>
+    ${workflowTimeline(workflow)}
   </section>`
+}
+
+function workflowTimeline(workflow = {}) {
+  const activities = Array.isArray(workflow.activities) ? workflow.activities.slice(0, 5) : []
+  return `<div class="activity-timeline"><h4>Activity timeline</h4>${activities.length ? `<ol>${activities.map((activity) => `
+    <li><strong>${escapeHtml(readable(activity.status || 'new'))}</strong><span>${escapeHtml(activity.at || '')}</span><p>${escapeHtml(activitySummary(activity))}</p></li>`).join('')}</ol>` : '<p class="muted">No activity logged yet.</p>'}</div>`
+}
+
+function activitySummary(activity = {}) {
+  return [
+    activity.channel ? `Channel: ${readable(activity.channel)}` : '',
+    activity.response ? `Response: ${readable(activity.response)}` : '',
+    activity.personReached ? `Person: ${activity.personReached}` : '',
+    activity.followUpDate ? `Follow-up: ${activity.followUpDate}` : '',
+    activity.nextAction ? `Next: ${activity.nextAction}` : '',
+    activity.notes ? `Note: ${activity.notes}` : '',
+  ].filter(Boolean).join(' · ') || 'Workflow updated.'
 }
 
 function workflowOptions(values, selected) {
@@ -599,7 +619,7 @@ function sellerDeskCards(lead, command) {
     ['NACE', [company.naceCode, company.naceDescription].filter(Boolean).join(' - ') || 'unknown'],
   ]
   const contactRows = [
-    ['Phone', contact.phone || lead.phone || 'unknown'],
+    ['Phone', phoneLink(contact.phone || lead.phone || 'unknown')],
     ['Email', contact.email || lead.email || 'unknown'],
     ['Website', websiteUrl ? link(websiteUrl) : 'unknown'],
     ['Address', locationText],
@@ -981,9 +1001,10 @@ function renderExport(result) {
     <p class="eyebrow">Export</p>
     <p class="muted">Run path: <code>${escapeHtml(result.outputDir)}</code></p>
     <p><a href="${escapeAttr(result.downloads.csv)}">Download CSV</a> · <a href="${escapeAttr(result.downloads.json)}">Download JSON</a> · <button type="button" id="copyPath">Copy run path</button></p>
+    ${callListLinks(result.downloads || {})}
     <table>
       <thead><tr><th>rank</th><th>company</th><th>phone</th><th>city</th><th>priority</th><th>workflow</th><th>response</th><th>follow-up</th><th>next action</th></tr></thead>
-      <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${escapeHtml(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
+      <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${phoneLink(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
     </table>
   `
   const copy = document.getElementById('copyPath')
@@ -1051,6 +1072,24 @@ function updateSummaryAfterLeadReplacement(summary, leads) {
     mode: 'mixed',
     nextRecommendedAction: callPriorityCounts.high ? 'Review HIGH leads first.' : callPriorityCounts.medium ? 'Review top MEDIUM leads as shortlist.' : 'Review verified leads and remaining Fast candidates.',
   }
+}
+
+function callListLinks(downloads) {
+  if (!downloads.callList) return ''
+  return `<p class="export-actions">call-list.csv includes lastActivityAt. <a href="${escapeAttr(downloads.callList)}">All</a> · <a href="${escapeAttr(downloads.callListNotContacted)}">Not contacted</a> · <a href="${escapeAttr(downloads.callListFollowUps)}">Follow-ups due</a> · <a href="${escapeAttr(downloads.callListInterested)}">Interested</a></p>`
+}
+
+function phoneHref(value) {
+  const raw = String(value || '').trim()
+  const digits = raw.replace(/[^+\d]/g, '')
+  return digits ? `tel:${digits}` : ''
+}
+
+function phoneLink(value) {
+  const raw = String(value || '').trim()
+  const href = phoneHref(raw)
+  if (!raw || raw === 'unknown' || !href) return escapeHtml(raw || 'unknown')
+  return `<a href="${escapeAttr(href)}" class="phone-link">${escapeHtml(raw)}</a>`
 }
 
 function setStatus(text, cls) {
