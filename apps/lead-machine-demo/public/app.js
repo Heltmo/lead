@@ -180,15 +180,7 @@ function renderDetail(lead) {
 
     ${sellerCommandCard(command)}
 
-    <div class="quick-facts secondary-facts">
-      ${factCard('Phone', contact.phone || lead.phone || 'unknown', 'Best first contact field')}
-      ${factCard('Website', websiteValue(contact.website) ? (isFastLead(lead) ? 'unverified' : 'available') : 'unknown', websiteValue(contact.website) ? `${link(websiteValue(contact.website))}${isFastLead(lead) ? ' · verify in Deep' : ''}` : 'No website in lead pack')}
-      ${factCard('Google', formatRating(places), places.placeId ? `Place ID: ${places.placeId}` : 'No place ID')}
-      ${factCard('Company ID', companyIdValue(company), companyIdNote(company))}
-      ${factCard('Location', readable(sourceQuality.locationMatchStatus || 'unknown'), contact.address || contact.city || 'unknown')}
-      ${factCard('Priority', readable(lead.callPriority || lead.priority || 'unknown'), nextStep)}
-      ${factCard('Discovery', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown'), discoveryQuality.score == null ? 'Source confidence unknown' : `Score ${discoveryQuality.score}/100`)}
-    </div>
+    ${sellerDeskCards(lead, command)}
 
     <section class="leverage-panel compact">
       <div>
@@ -327,6 +319,73 @@ function sellerCommandCard(command) {
 
 function commandMetric(label, value, note) {
   return `<div class="command-metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(note)}</small></div>`
+}
+
+function sellerDeskCards(lead, command) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const places = lead.places || {}
+  const website = lead.website || {}
+  const sourceQuality = lead.sourceQuality || {}
+  const discoveryQuality = sourceQuality.discoveryQuality || {}
+  const economy = lead.economy || {}
+  const orgStatus = brregStatusLabel(company)
+  const websiteUrl = websiteValue(contact.website || lead.website)
+  const locationText = [contact.address || lead.address, contact.city || lead.city].filter(Boolean).join(', ') || 'unknown'
+  const identityRows = [
+    ['Legal name', company.legalName || company.candidateLegalName || 'unknown'],
+    ['Org.nr', company.organizationNumber || company.candidateOrganizationNumber || 'unknown'],
+    ['Status', company.activeStatus || 'unknown'],
+    ['Employees', company.employees ?? 'unknown'],
+    ['NACE', [company.naceCode, company.naceDescription].filter(Boolean).join(' - ') || 'unknown'],
+  ]
+  const contactRows = [
+    ['Phone', contact.phone || lead.phone || 'unknown'],
+    ['Email', contact.email || lead.email || 'unknown'],
+    ['Website', websiteUrl ? link(websiteUrl) : 'unknown'],
+    ['Address', locationText],
+  ]
+  const marketRows = [
+    ['Google', formatRating(places)],
+    ['Location', readable(sourceQuality.locationMatchStatus || 'unknown')],
+    ['Discovery', discoveryQuality.score == null ? readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown') : `${discoveryQuality.score}/100`],
+    ['Presence', sourceQuality.presenceSource || places.provider || 'unknown'],
+  ]
+  const qualificationRows = [
+    ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Deep qualified'],
+    ['Priority', readable(lead.callPriority || lead.priority || 'unknown')],
+    ['Lead class', humanize(lead.leadClass || 'unknown')],
+    ['Opportunity', humanize(lead.opportunityType || 'unknown')],
+  ]
+  const riskRows = [
+    ['Readiness', command.callReadiness],
+    ['Main risk', command.mainRisk],
+    ['Verification', command.verification],
+    ['Warnings', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
+  ]
+  const nextRows = [
+    ['Next action', command.nextAction],
+    ['Why', command.nextActionNote],
+    ['Economy', readable(economy.status || 'not_enabled')],
+    ['Export state', company.organizationNumber ? 'identity ready' : company.candidateOrganizationNumber ? 'verify candidate org.nr' : 'identity not confirmed'],
+  ]
+
+  return `<section class="seller-desk-v2">
+    ${sellerDeskCard('Company identity', orgStatus, identityRows, company.sourceUrl ? link(company.sourceUrl) : '')}
+    ${sellerDeskCard('Contactability', contact.phone ? 'phone_available' : 'contact_missing', contactRows, command.bestContactNote)}
+    ${sellerDeskCard('Market proof', sourceQuality.locationMatchStatus || 'unknown', marketRows, places.placeId ? `Place ID: ${places.placeId}` : '')}
+    ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Candidate until Deep runs.' : 'Audit/scoring included.')}
+    ${sellerDeskCard('Risk and caution', command.readinessKey, riskRows, command.mainRiskNote)}
+    ${sellerDeskCard('Seller next step', lead.callPriority || lead.priority || 'verify', nextRows, 'No script generated; seller owns angle and wording.')}
+  </section>`
+}
+
+function sellerDeskCard(title, status, rows, footer = '') {
+  return `<section class="seller-desk-card">
+    <div class="seller-desk-title"><h3>${escapeHtml(title)}</h3>${badge(status)}</div>
+    ${kv(rows)}
+    ${footer ? `<p class="seller-desk-note">${isHtml(footer) ? footer : escapeHtml(footer)}</p>` : ''}
+  </section>`
 }
 
 function sellerCommand(lead) {
@@ -699,7 +758,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
+function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Audit skipped', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {
