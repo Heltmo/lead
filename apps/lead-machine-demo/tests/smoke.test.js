@@ -18,6 +18,7 @@ async function main() {
 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lead-machine-demo-'))
   let runnerArgs = null
+  let deepQualifierArgs = null
   const runner = async (args) => {
     runnerArgs = args
     const leadPackOutputPath = path.join(args.outputDir, 'lead-packs')
@@ -62,7 +63,24 @@ async function main() {
     return { outputDir: args.outputDir, summaryPath, leadPackOutputPath, totalLeads: 1 }
   }
 
-  const server = createServer({ runner, runsDir: path.join(root, 'runs') })
+  const deepQualifier = async (args) => {
+    deepQualifierArgs = args
+    return {
+      outputDir: path.join(root, 'deep-run'),
+      leadPackOutputPath: path.join(root, 'deep-run', 'lead-packs'),
+      leadPack: {
+        ...args.lead,
+        callPriority: 'high',
+        leadClass: 'technical_redesign',
+        opportunityType: 'technical_trust_risk',
+        website: { auditStatus: 'completed', topEvidence: ['Selected lead audit completed'], contactability: 'strong' },
+        ranking: { whyRanked: ['Deep qualified selected lead'], caution: ['Verify findings'], painScore: 0.9, buyingLikelihood: 0.8, salesEase: 'medium' },
+        meta: { ...(args.lead.meta || {}), mode: 'deep' },
+      },
+    }
+  }
+
+  const server = createServer({ runner, deepQualifier, runsDir: path.join(root, 'runs') })
   await listen(server)
   const port = server.address().port
 
@@ -88,6 +106,16 @@ async function main() {
   const csv = await get(port, response.body.downloads.csv)
   assert(csv.status === 200 && csv.body.includes('Kristiansand Rør AS'), 'CSV download should return generated CSV')
 
+  const deepResponse = await post(port, '/api/deep-qualify', { query: 'rørlegger i Kristiansand', lead: response.body.leadPacks[0], enrichCompanyProfile: true })
+  assert(deepResponse.status === 200, 'selected lead deep qualification should complete')
+  assert(deepQualifierArgs.lead.company.displayName === 'Kristiansand Rør AS', 'deep qualification should receive the selected lead only')
+  assert(deepQualifierArgs.enrichCompanyProfile === true, 'deep qualification should preserve company profile option')
+  assert(deepResponse.body.leadPack.callPriority === 'high', 'deep qualification should return one updated lead pack')
+  assert(deepResponse.body.leadPack.meta.mode === 'deep', 'deep qualification should mark selected lead as deep')
+
+  const missingWebsite = await post(port, '/api/deep-qualify', { lead: { company: { displayName: 'No Site AS' }, contact: {} } })
+  assert(missingWebsite.status === 400, 'deep qualification should reject leads without website')
+
   const failing = createServer({ runner: async () => { throw new Error('provider unavailable') }, runsDir: path.join(root, 'runs-fail') })
   await listen(failing)
   const failResponse = await post(failing.address().port, '/api/runs', { query: 'advokater i Gol', provider: 'google-places' })
@@ -109,7 +137,9 @@ async function main() {
   assert(lower.includes('runmode'), 'UI should include fast/deep mode selector')
   assert(lower.includes('audit skipped'), 'Fast mode UI should show audit skipped state')
   assert(lower.includes('needs deep qualification'), 'Fast leads should show deep qualification need')
-  assert(lower.includes('run deep qualification'), 'Fast leads should expose a deep qualification action')
+  assert(lower.includes('run deep qualification for this lead'), 'Fast leads should expose selected-lead deep qualification action')
+  assert(lower.includes('/api/deep-qualify'), 'UI should call selected-lead deep qualification endpoint')
+  assert(lower.includes('state.result.leadpacks[state.selectedindex]'), 'UI should replace only the selected lead after Deep')
   assert(lower.includes('fast mode finds candidates'), 'Fast mode guidance should explain candidate scanning')
   assert(lower.includes('deep mode qualifies leads'), 'Deep mode guidance should explain qualification')
   assert(lower.includes('seller command'), 'UI should expose seller command section')

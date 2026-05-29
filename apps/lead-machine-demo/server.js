@@ -2,6 +2,8 @@ const http = require('http')
 const fs = require('fs')
 const path = require('path')
 const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
+const { runAuditQueue } = require('../../core/orchestrator/pipelines/auditQueue')
+const { runLeadPack } = require('../../core/lead-pack-runner/leadPackRunner')
 const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { parseLeadQuery } = require('./queryParser')
 
@@ -16,6 +18,7 @@ loadEnvFiles([path.join(REPO_ROOT, '.env'), path.join(APP_ROOT, '.env')])
 
 function createServer(options = {}) {
   const runner = options.runner || runLeadMachine
+  const deepQualifier = options.deepQualifier || deepQualifyLead
   const runsDir = options.runsDir || RUNS_DIR
   const publicDir = options.publicDir || PUBLIC_DIR
   const runIndex = new Map()
@@ -27,6 +30,10 @@ function createServer(options = {}) {
       if (req.method === 'GET' && url.pathname.startsWith('/assets/')) return serveFile(res, path.join(publicDir, url.pathname.replace('/assets/', '')), contentType(url.pathname))
       if (req.method === 'POST' && url.pathname === '/api/runs') {
         await handleRun(req, res, { runner, runsDir, runIndex })
+        return
+      }
+      if (req.method === 'POST' && url.pathname === '/api/deep-qualify') {
+        await handleDeepQualify(req, res, { deepQualifier, runsDir })
         return
       }
       if (req.method === 'GET' && url.pathname.startsWith('/api/runs/')) return handleRunFile(url, res, runIndex)
@@ -101,6 +108,92 @@ async function handleRun(req, res, context) {
     summary: { ...leadPackSummary, ...machineSummary },
     leadPacks,
   })
+}
+
+
+async function handleDeepQualify(req, res, context) {
+  const body = await readJsonBody(req)
+  const lead = body.lead && typeof body.lead === 'object' ? body.lead : null
+  if (!lead) return json(res, 400, { error: 'Lead is required' })
+  const website = lead.contact?.website || lead.website
+  if (!website) return json(res, 400, { error: 'Selected lead has no website to audit' })
+  const query = String(body.query || lead.meta?.sourceQuery || '').trim() || 'selected lead'
+  const enrichCompanyProfile = body.enrichCompanyProfile === true || body.enrichCompanyProfile === 'true'
+  const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir })
+  return json(res, 200, result)
+}
+
+async function deepQualifyLead({ lead, query, enrichCompanyProfile, runsDir }) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const places = lead.places || {}
+  const sourceQuality = lead.sourceQuality || {}
+  const runId = createSafeRunId(`${company.displayName || 'selected-lead'} deep`)
+  const outputDir = path.join(runsDir, runId)
+  const orchestratorRootDir = path.join(outputDir, 'orchestrator')
+  const leadPackOutputPath = path.join(outputDir, 'lead-packs')
+  fs.mkdirSync(outputDir, { recursive: true })
+
+  const auditInput = {
+    url: contact.website || lead.website,
+    businessName: company.displayName || lead.companyName || '',
+    source: places.provider || 'selected-lead',
+    location: contact.city || '',
+    industry: lead.leadClass || '',
+    sourceType: 'directBusiness',
+    auditEligible: true,
+    provenance: { provider: places.provider || 'selected-lead', selectedLeadDeepQualification: true },
+    phone: contact.phone || lead.phone || '',
+    address: contact.address || lead.address || '',
+    placeId: places.placeId || '',
+    rating: places.rating ?? '',
+    reviewCount: places.reviewCount ?? '',
+    searchScope: sourceQuality.searchScope || 'strict',
+    requestedMaxResults: sourceQuality.requestedMaxResults ?? '',
+    includedLeadCount: sourceQuality.includedLeadCount ?? '',
+    lowSupply: Boolean(sourceQuality.lowSupply),
+    fallbackAvailable: Boolean(sourceQuality.fallbackAvailable),
+    recommendedExpansion: sourceQuality.recommendedExpansion || '',
+    requestedLocation: sourceQuality.requestedLocation || '',
+    candidateLocation: sourceQuality.candidateLocation || contact.address || '',
+    candidateCity: contact.city || '',
+    locationMatchStatus: sourceQuality.locationMatchStatus || 'unknown',
+    locationConfidence: sourceQuality.locationConfidence ?? '',
+    distanceKm: sourceQuality.distanceKm ?? '',
+    locationWarnings: sourceQuality.locationWarnings || [],
+    fallbackUsed: Boolean(sourceQuality.fallbackUsed),
+    locationQuality: sourceQuality.locationQuality || null,
+    discoveryQuality: sourceQuality.discoveryQuality || null,
+    discoveryConfidence: sourceQuality.discoveryConfidence || sourceQuality.discoveryQuality?.level || '',
+  }
+
+  const auditResult = await runAuditQueue({
+    urls: [auditInput],
+    runId: `${runId}-audit`,
+    rootDir: orchestratorRootDir,
+    maxRetries: 1,
+  })
+  const leadPackResult = await runLeadPack({
+    query,
+    runDir: path.dirname(auditResult.summaryPath),
+    outputDir: leadPackOutputPath,
+    enrichCompanyProfile,
+  })
+  const leadPacks = readJsonFile(leadPackResult.leadPacksPath, [])
+  const deepLead = leadPacks[0]
+  if (!deepLead) throw new Error('Deep qualification did not produce a lead pack')
+  deepLead.rank = lead.rank || deepLead.rank
+  deepLead.meta = { ...(deepLead.meta || {}), deepQualifiedFrom: lead.meta?.sourceRun || 'selected-fast-lead', mode: 'deep' }
+  return {
+    outputDir,
+    leadPackOutputPath,
+    leadPack: deepLead,
+    downloads: {
+      csvPath: leadPackResult.csvPath,
+      jsonPath: leadPackResult.leadPacksPath,
+      summaryPath: leadPackResult.summaryPath,
+    },
+  }
 }
 
 function createDemoFixtureRun({ parsedQuery, maxResults, searchScope, enrichCompanyProfile, outputDir, runId }) {

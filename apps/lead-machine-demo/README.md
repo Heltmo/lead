@@ -79,10 +79,10 @@ Recommended workflow:
 
 1. Run `Fast` to scan a market quickly.
 2. Review phone, website, location, rating/reviews, and source warnings.
-3. Use `Run Deep qualification` on promising candidates. In V1 this reruns the current query in Deep mode; selected-lead-only qualification comes later.
+3. Use `Run Deep qualification for this lead` on one promising candidate. This audits only the selected lead and replaces that card while the rest of the list stays as Fast candidates.
 4. Export the lead pack once the lead is qualified enough for seller review.
 
-Fast results are candidates, not fully qualified leads. Deep results include website audit/scoring signals.
+Fast results are candidates, not fully qualified leads. Deep qualification is per lead: it upgrades one selected candidate with website audit/scoring signals without rerunning the full search.
 
 ## What It Does
 
@@ -103,6 +103,7 @@ The frontend displays:
 - lead cards
 - a Seller Command card with call readiness, best first contact, company fit, verification status, main risk, next action, and source confidence
 - selected lead detail
+- per-lead Deep qualification that updates only the selected company card
 - evidence and caution
 - export links
 

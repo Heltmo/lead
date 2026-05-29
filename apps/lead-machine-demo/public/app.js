@@ -289,7 +289,7 @@ function fastQualificationPanel(lead) {
   if (!isFastLead(lead)) return '<section class="qualification-panel deep"><strong>Deep qualified</strong><span>This lead includes website audit and scoring signals.</span></section>'
   return `<section class="qualification-panel fast">
     <div><strong>Needs Deep qualification</strong><span>Fast mode found this candidate quickly. Full audit and scoring are not run yet.</span></div>
-    <button type="button" id="runDeepQualification">Run Deep qualification</button>
+    <button type="button" id="runDeepQualification">Run Deep qualification for this lead</button>
   </section>`
 }
 
@@ -591,10 +591,61 @@ function renderExport(result) {
 
 document.addEventListener('click', (event) => {
   if (event.target && event.target.id === 'runDeepQualification') {
-    els.runMode.value = 'deep'
-    runSearch()
+    runSelectedDeepQualification(event.target)
   }
 })
+
+async function runSelectedDeepQualification(button) {
+  const lead = state.result?.leadPacks?.[state.selectedIndex]
+  if (!lead) return setStatus('failed: no selected lead to qualify', 'failed')
+  if (!(lead.contact?.website || lead.website)) return setStatus('failed: selected lead has no website to audit', 'failed')
+  const originalText = button.textContent
+  button.disabled = true
+  button.textContent = 'Running Deep...'
+  setStatus(`running: deep qualification for ${lead.company?.displayName || 'selected lead'}`, 'running')
+  try {
+    const response = await fetch('/api/deep-qualify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        query: state.result?.parsedQuery?.normalizedQuery || els.query.value.trim(),
+        lead,
+        enrichCompanyProfile: els.companyProfile.checked,
+      }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Deep qualification failed')
+    const updatedLead = payload.leadPack
+    if (!updatedLead) throw new Error('Deep qualification returned no lead pack')
+    state.result.leadPacks[state.selectedIndex] = updatedLead
+    state.result.summary = updateSummaryAfterLeadReplacement(state.result.summary || {}, state.result.leadPacks)
+    setStatus('completed: selected lead deep-qualified', '')
+    renderAll()
+  } catch (error) {
+    setStatus(`failed: ${error.message || 'Deep qualification failed'}`, 'failed')
+  } finally {
+    button.disabled = false
+    button.textContent = originalText
+  }
+}
+
+function updateSummaryAfterLeadReplacement(summary, leads) {
+  const callPriorityCounts = leads.reduce((counts, lead) => {
+    const key = String(lead.callPriority || lead.priority || 'unknown').toLowerCase()
+    counts[key] = (counts[key] || 0) + 1
+    return counts
+  }, {})
+  return {
+    ...summary,
+    callPriorityCounts,
+    priorityCounts: callPriorityCounts,
+    includedLeadCount: leads.length,
+    totalIncluded: leads.length,
+    totalLeads: leads.length,
+    mode: 'mixed',
+    nextRecommendedAction: callPriorityCounts.high ? 'Review HIGH leads first.' : callPriorityCounts.medium ? 'Review top MEDIUM leads as shortlist.' : 'Review verified leads and remaining Fast candidates.',
+  }
+}
 
 function setStatus(text, cls) {
   els.status.className = `status-panel ${cls || ''}`
@@ -605,7 +656,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify' }[value] || String(value).toUpperCase() }
+function readable(value) { return { exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { return value && value !== 'unknown' ? `<a href="${escapeAttr(value)}" target="_blank" rel="noreferrer" title="${escapeAttr(value)}">${escapeHtml(displayUrl(value))}</a>` : 'unknown' }
 function displayUrl(value) {
