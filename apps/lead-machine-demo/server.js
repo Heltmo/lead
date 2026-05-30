@@ -559,8 +559,8 @@ function applyDeepEnrichmentV1(lead = {}, originalLead = {}, context = {}) {
   const modules = [
     moduleStatus('company_identity', 'Brreg verification', brregStatus, brregSummary(company)),
     moduleStatus('contactability', 'Contactability refresh', contactability, contactabilitySummaryV1({ hasPhone, hasEmail, hasWebsite })),
-    moduleStatus('website_audit', 'Website audit', websiteStatus, websiteSummaryV1(websiteStatus, hasWebsite)),
-    moduleStatus('seller_summary', 'Seller leverage summary', 'completed', 'Decision summary refreshed from identity, contact, location, source and audit signals.'),
+    moduleStatus('digital_presence', 'Digital presence check', websiteStatus, websiteSummaryV1(websiteStatus, hasWebsite)),
+    moduleStatus('seller_summary', 'Seller leverage summary', 'completed', 'Decision summary refreshed from identity, contact, location, source and digital signals.'),
     moduleStatus('economy_proff', 'Economy / Proff', economy.status || 'not_enabled', proffSummary(economy)),
     moduleStatus('social_sources', 'Social/source signals', 'not_enabled', 'Not enabled. Later module for Facebook, LinkedIn, news and public source links.'),
     moduleStatus('decision_makers', 'Decision makers', 'not_enabled', 'Not enabled. Later module for public role/contact hints.'),
@@ -588,7 +588,7 @@ function applyDeepEnrichmentV1(lead = {}, originalLead = {}, context = {}) {
     summary: {
       companyIdentity: brregStatus,
       contactability,
-      websiteAudit: websiteStatus,
+      digitalPresence: websiteStatus,
       economy: economy.status || 'not_enabled',
       proff: economy.status || 'not_enabled',
     },
@@ -631,15 +631,15 @@ function contactabilitySummaryV1({ hasPhone, hasEmail, hasWebsite }) {
 }
 
 function websiteSummaryV1(status, hasWebsite) {
-  if (!hasWebsite) return 'No website available, so website audit was skipped.'
-  if (status === 'skipped_no_website') return 'Website audit skipped because no website was available.'
-  if (status === 'completed') return 'Website audit completed for selected lead.'
-  if (status === 'error') return 'Website audit failed; review source manually.'
-  return 'Website audit status recorded for selected lead.'
+  if (!hasWebsite) return 'No website available, so digital presence check was skipped.'
+  if (status === 'skipped_no_website') return 'Digital presence check skipped because no website was available.'
+  if (status === 'completed') return 'Digital presence check completed for selected lead.'
+  if (status === 'error') return 'Digital presence check failed; review source manually.'
+  return 'Digital presence check status recorded for selected lead.'
 }
 
 function deepEvidenceLine({ company, contact, websiteStatus, contactability }) {
-  if (websiteStatus === 'skipped_no_website') return 'Deep enrichment skipped website audit because no website was available.'
+  if (websiteStatus === 'skipped_no_website') return 'Deep enrichment skipped digital presence check because no website was available.'
   if (company.organizationNumber && contact.phone) return 'Deep enrichment confirms usable company identity/contact context.'
   if (contactability === 'strong') return 'Deep enrichment confirms strong contactability.'
   return 'Deep enrichment refreshed selected-lead context.'
@@ -650,7 +650,7 @@ function deepWhyRanked({ company, contact, contactability, websiteStatus }) {
     'Deep enrichment ran on this selected lead only.',
     company.organizationNumber ? 'Official company identity is confirmed.' : company.candidateOrganizationNumber ? 'Official company identity has a candidate match.' : null,
     contact.phone ? 'Direct phone exists for seller qualification.' : null,
-    websiteStatus === 'completed' ? 'Website audit signals are attached.' : null,
+    websiteStatus === 'completed' ? 'Digital presence signals are attached.' : null,
     contactability === 'strong' ? 'Contactability is strong.' : null,
   ].filter(Boolean)
 }
@@ -659,7 +659,7 @@ function deepCaution({ company, websiteStatus, economy }) {
   return [
     !company.organizationNumber && company.candidateOrganizationNumber ? 'Candidate org.nr must be manually verified before export.' : null,
     !company.organizationNumber && !company.candidateOrganizationNumber ? 'Company identity is not confirmed; verify before sales use.' : null,
-    websiteStatus === 'skipped_no_website' ? 'Website audit was skipped because no website was available.' : null,
+    websiteStatus === 'skipped_no_website' ? 'Digital presence check was skipped because no website was available.' : null,
     ['disabled', 'not_enabled'].includes(economy.status) ? 'Economy/Proff data is not enabled yet.' : null,
   ].filter(Boolean)
 }

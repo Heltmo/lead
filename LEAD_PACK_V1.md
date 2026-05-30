@@ -22,7 +22,7 @@ The machine owns:
 
 - discovery
 - deduplication
-- website audit
+- digital presence check
 - business signals
 - commercial pressure
 - ranking
@@ -50,8 +50,8 @@ Default product behavior should not generate fixed sales scripts. Scripts, call 
 
 Lead packs support two practical states:
 
-- Fast scan candidate: enough identity/contact/source context for a seller to shortlist quickly, with website audit skipped and uncertainty exposed.
-- Deep enriched lead: one selected lead upgraded with additional modules such as website audit, deeper Brreg verification, contactability refresh, evidence, caution, and later Proff/social/recent activity.
+- Fast scan candidate: enough identity/contact/source context for a seller to shortlist quickly, with digital presence check skipped and uncertainty exposed.
+- Deep enriched lead: one selected lead upgraded with additional modules such as digital presence checks, deeper Brreg verification, contactability refresh, evidence, caution, and later Proff/social/recent activity.
 
 Deep enrichment should update the selected lead pack only. It should not reclassify the whole run by default, and it should not make website pain the only definition of lead quality. A company can be a strong generic B2B sales lead even if digital presence is not the main opportunity.
 

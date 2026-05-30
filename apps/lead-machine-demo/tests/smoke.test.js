@@ -73,7 +73,7 @@ async function main() {
       leadPack: {
         ...args.lead,
         enrichmentStatus: 'deep_enriched',
-        enrichmentModules: [{ id: 'website_audit', name: 'Website audit', status: 'completed', summary: 'Website audit completed for selected lead.' }],
+        enrichmentModules: [{ id: 'digital_presence', name: 'Digital presence check', status: 'completed', summary: 'Digital presence check completed for selected lead.' }],
         callPriority: 'high',
         leadClass: 'technical_redesign',
         opportunityType: 'technical_trust_risk',
@@ -190,7 +190,7 @@ async function main() {
   })
   assert(noWebsiteDeep.status === 200, 'default deep enrichment should handle selected leads without website')
   assert(noWebsiteDeep.body.leadPack.enrichmentStatus === 'deep_enriched', 'default deep enrichment should attach enrichment status')
-  assert(noWebsiteDeep.body.leadPack.enrichmentModules.some((module) => module.id === 'website_audit' && module.status === 'skipped_no_website'), 'website audit module should be skipped when no website exists')
+  assert(noWebsiteDeep.body.leadPack.enrichmentModules.some((module) => module.id === 'digital_presence' && module.status === 'skipped_no_website'), 'digital presence module should be skipped when no website exists')
 
   const failing = createServer({ runner: async () => { throw new Error('provider unavailable') }, runsDir: path.join(root, 'runs-fail') })
   await listen(failing)
@@ -208,6 +208,8 @@ async function main() {
   assert(lower.includes('lead-filter'), 'UI should include lead filters')
   assert(lower.includes('lead-name-line'), 'Selected lead header should align company name and phone')
   assert(lower.includes('title-phone'), 'Selected lead header should show primary phone near the company name')
+  assert(lower.includes('nextleadbutton'), 'Selected lead header should include a next-lead button')
+  assert(lower.includes('selectnextvisiblelead'), 'Next lead button should advance through the visible lead list')
   assert(lower.includes('phone first'), 'UI should support phone-first sorting')
   assert(lower.includes('confirmed org.nr'), 'UI should support confirmed org number filtering/sorting')
   assert(lower.includes('needs enrichment'), 'UI should support needs-enrichment filtering')
@@ -224,12 +226,12 @@ async function main() {
   assert(lower.includes('hele norge') && lower.includes('kun sted i søket') && lower.includes('nærområde'), 'UI should use human-readable geography scope labels')
   assert(lower.includes('id="runmode" type="hidden" value="fast"'), 'UI should hide global mode and default searches to fast scan')
   assert(!lower.includes('<span>mode</span><select'), 'UI should not expose global Fast/Deep mode in the top search')
-  assert(lower.includes('audit skipped'), 'Fast mode UI should show audit skipped state')
+  assert(lower.includes('fast scan'), 'Fast mode UI should show fast scan state')
   assert(lower.includes('enrichment optional'), 'Fast leads should show optional enrichment state')
   assert(lower.includes('enrich selected lead'), 'Fast leads should expose selected-lead enrichment action')
   assert(lower.includes('/api/deep-qualify'), 'UI should call selected-lead deep qualification endpoint')
   assert(lower.includes('deep enrichment modules'), 'UI should expose Deep enrichment module panel')
-  assert(lower.includes('website audit'), 'Deep enrichment should show website audit module')
+  assert(lower.includes('digital presence check'), 'Deep enrichment should show digital presence module')
   assert(lower.includes('brreg verification'), 'Deep enrichment should show Brreg verification module')
   assert(lower.includes('economy / proff'), 'Deep enrichment should show economy/Proff module status')
   assert(lower.includes('social/source signals'), 'Deep enrichment should show social/source module status')
@@ -259,17 +261,19 @@ async function main() {
   assert(lower.includes('websitevalue'), 'UI should normalize website values before rendering')
   assert(lower.includes('seller leverage'), 'UI should expose seller leverage section')
   assert(lower.includes('seller-desk-v2'), 'UI should include seller desk V2 cards')
-  assert(lower.includes('company identity'), 'UI should expose company identity card')
-  assert(lower.includes('contactability'), 'UI should expose contactability card')
-  assert(lower.includes('market proof'), 'UI should expose market proof card')
+  assert(lower.includes('business type'), 'Call brief should expose business type')
+  assert(lower.includes('proof & checks'), 'UI should combine proof and verification into a decision card')
+  assert(lower.includes('company identity'), 'UI should expose company identity context')
+  assert(lower.includes('contactability'), 'UI should expose contactability context')
+  assert(lower.includes('market proof'), 'UI should keep market proof in details')
   assert(lower.includes('qualification'), 'UI should expose qualification card')
-  assert(lower.includes('action and risk'), 'UI should expose action and risk card')
+  assert(lower.includes('sales signals'), 'UI should expose sales signals card')
+  assert(lower.includes('risk / verify'), 'UI should expose risk/verify card')
   assert(lower.includes('weak digital angle'), 'UI should explain low digital priority as a weak digital angle, not a bad business lead')
   assert(lower.includes('do not treat low digital signal as a bad business lead'), 'UI should prevent low digital signal from disqualifying generic sales leads')
   assert(lower.includes('qualification and verification details'), 'UI should collapse secondary qualification details')
-  assert(lower.includes('verification and caution'), 'UI should expose verification and caution details')
   assert(lower.includes('export state'), 'UI should expose export readiness state')
-  assert(lower.includes('why this lead is interesting'), 'UI should collapse supporting reasons behind a details row')
+  assert(lower.includes('why call / inspect?'), 'UI should collapse supporting reasons behind a seller-focused details row')
   assert(lower.includes('source intelligence'), 'UI should include collapsible source intelligence')
   assert(lower.includes('raw lead data'), 'UI should include collapsible raw lead data')
   assert(lower.includes('unverified'), 'UI should mark Fast mode websites as unverified')
@@ -302,7 +306,9 @@ async function main() {
   assert(lower.includes('followupsortscore'), 'UI should sort by follow-up due')
   assert(lower.includes('call now'), 'UI should expose click-to-call tel action')
   assert(lower.includes('tel:'), 'UI should render phone numbers as tel links')
-  assert(lower.includes('activity timeline'), 'UI should show local activity timeline')
+  assert(lower.includes('logged activity'), 'UI should show visible local activity log')
+  assert(lower.includes('textarea name="notes"'), 'Workflow notes should use a multi-line editable field')
+  assert(lower.includes('formatworkflownotes'), 'Workflow notes should normalize quick-action note formatting')
   assert(lower.includes('call-list.csv'), 'UI should include call-list CSV export links')
   assert(lower.includes('today call queue'), 'UI should expose a today call queue')
   assert(lower.includes('todaycallqueue'), 'UI should calculate today call queue leads')

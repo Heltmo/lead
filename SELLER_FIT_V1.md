@@ -1,6 +1,6 @@
 # Seller Fit V1
 
-Lead Machine is now being reframed as a general B2B seller workflow tool. Website audit remains useful, but it is one digital-presence signal, not the product core.
+Lead Machine is now being reframed as a general B2B seller workflow tool. Digital presence checks remain useful, but they are one signal, not the product core.
 
 ## Product Boundary
 
@@ -71,8 +71,6 @@ Allowed `recommendedAction` values:
 - `contact`
 - `review`
 - `verify`
-- `find_contact`
-- `enrich`
 - `skip`
 
 ## V1 Rules
@@ -96,10 +94,16 @@ Intent-specific weighting:
 
 ## UI Language
 
-Prominent UI language should use general seller terms:
+Prominent UI language should use general seller terms and a clear decision hierarchy. The first visible lead detail should answer: who is this, can I contact them, why might they be worth time, and what must be checked before use.
 
-- Contactability
-- Company identity
+Primary visible cards:
+
+- Contact
+- Company
+- Proof & checks
+
+Secondary details can still expose:
+
 - Company fit
 - Market proof
 - Sales signals

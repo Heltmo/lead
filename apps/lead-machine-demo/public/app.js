@@ -121,7 +121,7 @@ async function runSearch() {
   try {
     const statusText = els.runMode.value === 'fast'
       ? 'running: fast discovery and lead-pack build'
-      : 'running: selected lead enrichment; website audit is one module'
+      : 'running: selected lead enrichment; digital presence is one module'
     setStatus(statusText, 'running')
     const response = await fetch('/api/runs', {
       method: 'POST',
@@ -370,7 +370,6 @@ function callQueueSortScore(lead) {
   score += sellerFitSortScore(lead)
   if (sellerRecommendedAction(lead) === 'contact') score += 120
   if (sellerRecommendedAction(lead) === 'verify') score += 35
-  if (sellerRecommendedAction(lead) === 'find_contact') score -= 180
   if (sellerRecommendedAction(lead) === 'skip') score -= 500
   return score
 }
@@ -418,7 +417,7 @@ function sellerRecommendedAction(lead) {
 }
 
 function sellerRecommendedActionScore(lead) {
-  return { contact: 90, verify: 35, enrich: 20, review: 10, find_contact: -50, skip: -200 }[sellerRecommendedAction(lead)] || 0
+  return { contact: 90, verify: 35, review: 10, skip: -200 }[sellerRecommendedAction(lead)] || 0
 }
 
 function sellerFitBadge(lead) {
@@ -519,9 +518,8 @@ function leadQueueActionLabel(lead) {
   const sellerAction = sellerRecommendedAction(lead)
   if (sellerAction === 'contact' && hasPhone) return 'Call now'
   if (sellerAction === 'verify') return 'Verify first'
-  if (sellerAction === 'find_contact') return 'Find contact first'
-  if (sellerAction === 'enrich') return 'Enrich if needed'
   if (sellerAction === 'skip') return 'Skip/deprioritize'
+  if (!hasPhone) return 'Review contact path'
   if (hasPhone && !workflow.contacted && !['contacted', 'follow_up'].includes(workflow.status)) return 'Call now'
   if (workflow.status === 'follow_up') return workflow.followUpDate ? `Follow up ${workflow.followUpDate}` : 'Follow up'
   if (['candidate_org', 'no_match', 'brreg_unavailable', 'not_run', 'manual_verify', 'weak_match'].includes(brregStatus)) return 'Verify company identity'
@@ -558,11 +556,16 @@ function renderDetail(lead) {
         <p class="eyebrow">Selected lead</p>
         <div class="lead-name-line">
           <h2>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h2>
-          ${titlePhone(contact.phone || lead.phone)}
         </div>
         <p class="muted">${escapeHtml(company.legalName || 'Legal name unknown')}</p>
       </div>
-      <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
+      <div class="detail-title-actions">
+        <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
+        <div class="lead-header-actions">
+          ${titlePhone(contact.phone || lead.phone)}
+          <button type="button" id="nextLeadButton" class="next-lead-button" ${nextLeadDisabledAttr()}>Next lead</button>
+        </div>
+      </div>
     </div>
 
     ${sellerCommandCard(command)}
@@ -572,7 +575,7 @@ function renderDetail(lead) {
     ${sellerDeskCards(lead, command)}
 
     <details class="detail-collapse lead-brief-details">
-      <summary>Why this lead is interesting</summary>
+      <summary>Why call / inspect?</summary>
       <section class="leverage-panel compact">
         <div>
           <p class="eyebrow">Seller leverage</p>
@@ -663,8 +666,24 @@ function renderDetail(lead) {
     ${section('Caution', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}
     </details>
   `
+  const nextButton = document.getElementById('nextLeadButton')
+  if (nextButton) nextButton.addEventListener('click', selectNextVisibleLead)
 }
 
+function nextLeadDisabledAttr() {
+  return getVisibleLeads(state.result?.leadPacks || []).length > 1 ? '' : 'disabled'
+}
+
+function selectNextVisibleLead() {
+  const visibleLeads = getVisibleLeads(state.result?.leadPacks || [])
+  if (visibleLeads.length <= 1) return
+  const currentPosition = Math.max(0, visibleLeads.findIndex(({ id }) => id === state.selectedLeadId))
+  const next = visibleLeads[(currentPosition + 1) % visibleLeads.length]
+  state.selectedIndex = next.index
+  state.selectedLeadId = next.id
+  renderAll()
+  focusLeadDetail({ block: 'start' })
+}
 
 function workflowPanel(lead) {
   const workflow = { status: 'new', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextAction: 'review', outcome: '', activities: [], ...(lead.workflow || {}) }
@@ -687,7 +706,7 @@ function workflowPanel(lead) {
       <label><span>Status</span><select name="status">${workflowOptions(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'], workflow.status)}</select></label>
       <label><span>Response</span><select name="response">${workflowOptions(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'], workflow.response)}</select></label>
       <label><span>Follow-up date</span><input type="date" name="followUpDate" value="${escapeAttr(workflow.followUpDate || '')}"></label>
-      <label class="workflow-notes compact-notes"><span>Note</span><input name="notes" value="${escapeAttr(workflow.notes || '')}" placeholder="Kort notat"></label>
+      <label class="workflow-notes compact-notes"><span>Note</span><textarea name="notes" rows="3" placeholder="Skriv hva som skjedde, hvem du snakket med, eller hva som må følges opp.">${escapeHtml(formatWorkflowNotes(workflow.notes || ''))}</textarea></label>
       <input type="hidden" name="contacted" value="${escapeAttr(String(Boolean(workflow.contacted)))}">
       <input type="hidden" name="channel" value="${escapeAttr(workflow.channel || '')}">
       <input type="hidden" name="personReached" value="${escapeAttr(workflow.personReached || '')}">
@@ -703,18 +722,24 @@ function workflowPanel(lead) {
           <label><span>Next action</span><input name="nextActionMore" data-workflow-sync="nextAction" value="${escapeAttr(workflow.nextAction || '')}" placeholder="review / call / follow up"></label>
           <label><span>Outcome</span><input name="outcomeMore" data-workflow-sync="outcome" value="${escapeAttr(workflow.outcome || '')}" placeholder="pending / not relevant / meeting"></label>
         </div>
-        ${workflowTimeline(workflow)}
       </details>
+      ${workflowTimeline(workflow)}
     </form>
   </section>`
 }
 
 function workflowTimeline(workflow = {}) {
   const activities = Array.isArray(workflow.activities) ? workflow.activities.slice(0, 5) : []
-  return `<div class="activity-timeline"><h4>Activity timeline</h4>${activities.length ? `<ol>${activities.map((activity) => `
-    <li><strong>${escapeHtml(readable(activity.status || 'new'))}</strong><span>${escapeHtml(activity.at || '')}</span><p>${escapeHtml(activitySummary(activity))}</p></li>`).join('')}</ol>` : '<p class="muted">No activity logged yet.</p>'}</div>`
+  return `<section class="activity-timeline"><div class="activity-timeline-head"><h4>Logged activity</h4><span>${activities.length ? (activities.length + ' shown') : 'No saved log yet'}</span></div>${activities.length ? `<ol>${activities.map((activity) => `
+    <li><div><strong>${escapeHtml(readable(activity.status || 'new'))}</strong><span>${escapeHtml(formatActivityTime(activity.at))}</span></div><p>${escapeHtml(activitySummary(activity))}</p></li>`).join('')}</ol>` : '<p class="muted">Save a workflow update or use a quick action to create the first log entry.</p>'}</section>`
 }
 
+function formatActivityTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
 function activitySummary(activity = {}) {
   return [
     activity.channel ? `Channel: ${readable(activity.channel)}` : '',
@@ -795,7 +820,7 @@ function modeGuidance(summary) {
 }
 
 function fastBadge(lead) {
-  return isFastLead(lead) ? '<span class="badge audit-skipped">Audit skipped</span>' : ''
+  return isFastLead(lead) ? '<span class="badge audit-skipped">Fast scan</span>' : ''
 }
 
 function isFastLead(lead) {
@@ -803,7 +828,7 @@ function isFastLead(lead) {
 }
 
 function fastQualificationPanel(lead) {
-  if (!isFastLead(lead)) return '<section class="qualification-panel deep"><strong>Deep enriched</strong><span>This lead includes selected enrichment modules. Website audit is one module.</span></section>'
+  if (!isFastLead(lead)) return '<section class="qualification-panel deep"><strong>Deep enriched</strong><span>This lead includes selected enrichment modules. Digital presence is one module.</span></section>'
   return `<section class="qualification-panel fast">
     <div><strong>Enrichment optional</strong><span>Fast scan found this candidate. Enrich only if you need more context than phone, location and company identity.</span></div>
     <button type="button" id="runDeepQualification">Enrich selected lead</button>
@@ -819,7 +844,7 @@ function deepEnrichmentModules(lead, command) {
     ? lead.enrichmentModules
     : Array.isArray(lead.enrichment?.modules) ? lead.enrichment.modules : []
   const modules = liveModules.length ? liveModules : [
-    { name: 'Website audit', status: isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), summary: isFastLead(lead) ? 'Run enrichment to audit website quality.' : 'Website/audit signals are attached.' },
+    { name: 'Digital presence check', status: isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), summary: isFastLead(lead) ? 'Run enrichment to check digital presence.' : 'Digital presence signals are attached.' },
     { name: 'Brreg verification', status: company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), summary: company.organizationNumber ? 'Official identity is confirmed.' : company.candidateOrganizationNumber ? 'Candidate identity needs manual verify.' : 'No confirmed identity yet.' },
     { name: 'Economy / Proff', status: economy.status || 'not_enabled', summary: economyModuleSummary(economy) },
     { name: 'Social/source signals', status: 'not_enabled', summary: 'Later module: Facebook, LinkedIn, news and public source links.' },
@@ -848,15 +873,15 @@ function sellerCommandCard(command) {
     <div class="command-main compact-command-main">
       <div>
         <p class="eyebrow">Call brief</p>
-        <h3>${escapeHtml(command.verification)}</h3>
+        <h3>${escapeHtml(command.nextAction)}</h3>
         <p>${escapeHtml(command.summary)}</p>
       </div>
     </div>
     <div class="command-grid compact-command-grid">
       ${commandMetric('Best first contact', command.bestContact, command.bestContactNote)}
-      ${commandMetric('Company fit', command.companyFit, command.companyFitNote)}
-      ${commandMetric('Verification', command.verification, command.verificationNote)}
-      ${commandMetric('Next action', command.nextAction, command.nextActionNote)}
+      ${commandMetric('Business type', command.businessType, command.businessTypeNote)}
+      ${commandMetric('Company identity', command.verification, command.verificationNote)}
+      ${commandMetric('Check before use', command.mainRisk, command.mainRiskNote)}
     </div>
   </section>`
 }
@@ -873,6 +898,9 @@ function sellerDeskCards(lead, command) {
   const sourceQuality = lead.sourceQuality || {}
   const discoveryQuality = sourceQuality.discoveryQuality || {}
   const economy = lead.economy || {}
+  const fit = lead.sellerFit || {}
+  const fitReasonText = normalizeList(fit.fitReasons).slice(0, 3).map(humanize).join(', ') || command.companyFitNote
+  const riskReasonText = normalizeList(fit.riskReasons).slice(0, 3).map(humanize).join(', ') || command.mainRiskNote
   const orgStatus = brregStatusLabel(company)
   const websiteUrl = websiteValue(contact.website || lead.website)
   const locationText = [contact.address || lead.address, contact.city || lead.city].filter(Boolean).join(', ') || 'unknown'
@@ -894,11 +922,17 @@ function sellerDeskCards(lead, command) {
     ['Discovery', discoveryQuality.score == null ? readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown') : `${discoveryQuality.score}/100`],
     ['Presence', sourceQuality.presenceSource || places.provider || 'unknown'],
   ]
+  const fitRows = [
+    ['Seller fit', command.sellerReadiness],
+    ['Intent', sellerIntentLabel(fit.sellerIntent || state.result?.summary?.sellerIntent)],
+    ['Recommended action', command.nextAction],
+    ['Why', fitReasonText],
+  ]
   const actionRows = [
-    ['Fit', command.sellerReadiness],
+    ['Important signals', normalizeList(fit.importantSignals).slice(0, 2).map(humanize).join(', ') || command.nextActionNote],
     ['Digital presence', command.websiteOpportunity],
+    ['Source confidence', command.sourceConfidence],
     ['Next action', command.nextAction],
-    ['Main risk', command.mainRisk],
   ]
   const qualificationRows = [
     ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Deep enriched'],
@@ -909,23 +943,31 @@ function sellerDeskCards(lead, command) {
   ]
   const riskRows = [
     ['Verification', command.verification],
+    ['Risk reasons', riskReasonText],
     ['Warnings', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
     ['Economy', readable(economy.status || 'not_enabled')],
     ['Export state', company.organizationNumber ? 'identity ready' : company.candidateOrganizationNumber ? 'verify candidate org.nr' : 'identity not confirmed'],
-    ['Why', command.nextActionNote],
+  ]
+  const proofRiskRows = [
+    ['Google', formatRating(places)],
+    ['Location', readable(sourceQuality.locationMatchStatus || 'unknown')],
+    ['Verification', command.verification],
+    ['Main check', command.mainRisk],
   ]
 
   return `<section class="seller-desk-v2 lead-brief-grid">
-    ${sellerDeskCard('Company identity', orgStatus, identityRows, company.sourceUrl ? link(company.sourceUrl) : '')}
-    ${sellerDeskCard('Contactability', contact.phone ? 'phone_available' : 'contact_missing', contactRows, command.bestContactNote)}
-    ${sellerDeskCard('Market proof', sourceQuality.locationMatchStatus || 'unknown', marketRows, places.placeId ? `Place ID: ${places.placeId}` : '')}
-    ${sellerDeskCard('Action and risk', command.sellerReadinessKey, actionRows, 'No script generated; seller owns angle and wording.')}
+    ${sellerDeskCard('Contact', contact.phone ? 'phone_available' : 'contact_missing', contactRows, command.bestContactNote)}
+    ${sellerDeskCard('Company', orgStatus, identityRows, company.sourceUrl ? link(company.sourceUrl) : '')}
+    ${sellerDeskCard('Proof & checks', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : sourceQuality.locationMatchStatus || command.sellerReadinessKey, proofRiskRows, command.mainRiskNote)}
   </section>
   <details class="detail-collapse lead-brief-details">
     <summary>Qualification and verification details</summary>
     <div class="seller-desk-v2 secondary-brief-grid">
+      ${sellerDeskCard('Company fit', command.sellerReadinessKey, fitRows, 'Seller fit interprets existing data; it does not change source truth.')}
+      ${sellerDeskCard('Market proof', sourceQuality.locationMatchStatus || 'unknown', marketRows, places.placeId ? `Place ID: ${places.placeId}` : '')}
+      ${sellerDeskCard('Sales signals', command.sellerReadinessKey, actionRows, 'No script generated; seller owns angle and wording.')}
+      ${sellerDeskCard('Risk / verify', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : command.sellerReadinessKey, riskRows, command.mainRiskNote)}
       ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Enrichment has not run yet.' : 'Selected enrichment modules included.')}
-      ${sellerDeskCard('Verification and caution', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : command.sellerReadinessKey, riskRows, command.mainRiskNote)}
     </div>
   </details>`
 }
@@ -1011,6 +1053,10 @@ function sellerCommand(lead) {
 
   const bestContact = hasPhone ? (contact.phone || lead.phone) : (contact.email || lead.email || 'unknown')
   const bestContactNote = hasPhone ? 'Direct phone is available.' : contact.email ? 'Email exists, phone missing.' : 'Find a direct contact before sales work.'
+  const businessType = businessActivityLabel(company) || 'Unknown activity'
+  const businessTypeNote = businessType === 'Unknown activity'
+    ? 'No NACE/business activity found yet.'
+    : 'Registered business activity from Brreg/NACE.'
 
   const verification = confirmedOrg ? 'Confirmed org.nr' : candidateOrg ? 'Candidate org.nr' : brregUnavailable ? 'Identity pending' : 'Not verified'
   const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : brregUnavailable ? 'Brreg is unavailable right now; retry before export.' : 'Brreg returned no confirmed identity.'
@@ -1028,7 +1074,7 @@ function sellerCommand(lead) {
     mainRiskNote = 'Do not treat this as an exact local lead.'
   } else if (fast) {
     mainRisk = contact.website ? 'Website unverified' : 'Fast mode only'
-    mainRiskNote = contact.website ? 'Google supplied a URL; enrichment can verify whether it is real and relevant.' : 'Website audit and deeper enrichment are skipped.'
+    mainRiskNote = contact.website ? 'Google supplied a URL; enrichment can verify whether it is real and relevant.' : 'Digital presence check and deeper enrichment are skipped.'
   } else if ((ranking.caution || []).length) {
     mainRisk = 'Review caution'
     mainRiskNote = humanizeEvidence((ranking.caution || [])[0])
@@ -1062,8 +1108,6 @@ function sellerCommand(lead) {
     sellerReadinessKey = fit.sellerFit === 'review' ? 'verify' : fit.sellerFit
     if (fit.recommendedAction === 'contact') nextAction = 'Contact now'
     else if (fit.recommendedAction === 'verify') nextAction = 'Verify first'
-    else if (fit.recommendedAction === 'find_contact') nextAction = 'Find contact first'
-    else if (fit.recommendedAction === 'enrich') nextAction = 'Enrich if needed'
     else if (fit.recommendedAction === 'skip') nextAction = 'Skip or deprioritize'
     nextActionNote = (fit.fitReasons || []).slice(0, 2).join(' · ') || nextActionNote
   }
@@ -1071,7 +1115,7 @@ function sellerCommand(lead) {
   const headline = fit ? `${sellerIntentLabel(fit.sellerIntent)} · ${sellerReadiness}` : verification
   const summary = buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority, websiteOpportunity })
 
-  return { headline, summary, callReadiness: sellerReadiness, readinessKey: sellerReadinessKey, sellerReadiness, sellerReadinessKey, websiteOpportunity, websiteOpportunityNote, bestContact, bestContactNote, companyFit, companyFitNote, verification, verificationNote, mainRisk, mainRiskNote, nextAction, nextActionNote, sourceConfidence, sourceConfidenceNote }
+  return { headline, summary, callReadiness: sellerReadiness, readinessKey: sellerReadinessKey, sellerReadiness, sellerReadinessKey, websiteOpportunity, websiteOpportunityNote, bestContact, bestContactNote, businessType, businessTypeNote, companyFit, companyFitNote, verification, verificationNote, mainRisk, mainRiskNote, nextAction, nextActionNote, sourceConfidence, sourceConfidenceNote }
 }
 
 function sellerIntentLabel(value) {
@@ -1241,7 +1285,7 @@ function leverageLabel(value) {
   if (text.includes('strong_existing_conversion_flow')) return 'Contact flow already looks strong, so urgency should not be overstated.'
   if (text.includes('contact_maturity_requires_stronger_technical_pain')) return 'Contact maturity is high; treat this as shortlist unless technical pain is clear.'
   if (text.includes('visible_technical_trust_pain')) return 'Visible technical trust evidence supports a deeper review.'
-  if (text.includes('no social links')) return 'Social proof links were not detected in the website audit.'
+  if (text.includes('no social links')) return 'Social proof links were not detected in the digital presence check.'
   if (text.includes('no recognized technology stack')) return 'Technology stack was not recognized; this can be a manual review signal for site age or custom setup.'
   if (text.includes('fetch failed') || text.includes('network error')) return 'Registry lookup was unavailable; retry Brreg before export.'
   if (text.includes('contactable')) return 'Business appears reachable from available contact data.'
@@ -1391,11 +1435,14 @@ function buildQuickWorkflow(action, current = {}) {
 }
 
 function appendQuickNote(notes, line) {
-  const current = String(notes || '').trim()
+  const current = formatWorkflowNotes(notes).trim()
   if (current.includes(line)) return current
   return [current, line].filter(Boolean).join('\n').slice(0, 2000)
 }
 
+function formatWorkflowNotes(notes) {
+  return String(notes || '').replace(/\.\s*(?=Quick action:)/g, '.\n')
+}
 function isoDateOffset(days) {
   const date = new Date()
   date.setDate(date.getDate() + Number(days || 0))
@@ -1497,7 +1544,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Audit skipped', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {

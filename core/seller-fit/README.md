@@ -8,7 +8,7 @@ It does not discover companies, change Brreg truth, call Proff, send outreach, o
 - `fitReasons`
 - `riskReasons`
 - `importantSignals`
-- `recommendedAction`
+- `recommendedAction`: `contact`, `review`, `verify`, or `skip`
 
 ## Seller intents
 

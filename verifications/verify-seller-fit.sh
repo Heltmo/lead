@@ -9,13 +9,14 @@ const path = require('path')
 const root = process.argv[2]
 const text = [
   'core/seller-fit/README.md',
+  'core/seller-fit/sellerFit.js',
   'apps/lead-machine-demo/public/index.html',
   'apps/lead-machine-demo/public/app.js',
 ].map((file) => fs.readFileSync(path.join(root, file), 'utf8')).join('\n').toLowerCase()
 for (const required of ['sellerfit', 'sellerintent', 'general_b2b', 'web_it', 'telecom', 'seller owns']) {
   if (!text.includes(required)) throw new Error(`missing seller-fit text: ${required}`)
 }
-for (const banned of ['call opener', 'ready-to-send', 'suggested wording']) {
+for (const banned of ['call opener', 'ready-to-send', 'suggested wording', 'find_contact', 'recommendedaction === \'enrich\'']) {
   if (text.includes(banned)) throw new Error(`banned sales script text found: ${banned}`)
 }
 NODE

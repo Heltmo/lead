@@ -135,10 +135,10 @@ function evaluateSellerFit(lead = {}, sellerIntent = 'general_b2b') {
 }
 
 function recommendedActionFor({ sellerFit, hasPhone, confirmedOrg, candidateOrg, fast, intent, digitalRisk }) {
-  if (!hasPhone) return 'find_contact'
+  if (!hasPhone) return 'review'
   if (!confirmedOrg && candidateOrg) return 'verify'
   if (!confirmedOrg && !candidateOrg) return 'review'
-  if (fast && intent === 'web_it' && digitalRisk) return 'enrich'
+  if (fast && intent === 'web_it' && digitalRisk) return 'review'
   if (fast && ['strong', 'good'].includes(sellerFit)) return 'contact'
   if (sellerFit === 'weak') return 'skip'
   return 'review'
