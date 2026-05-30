@@ -520,9 +520,9 @@ function renderDetail(lead) {
 
     ${sellerCommandCard(command)}
 
-    ${sellerDeskCards(lead, command)}
-
     ${workflowPanel(lead)}
+
+    ${sellerDeskCards(lead, command)}
 
     <details class="detail-collapse lead-brief-details">
       <summary>Why this lead is interesting</summary>
@@ -623,29 +623,42 @@ function workflowPanel(lead) {
   const workflow = { status: 'new', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextAction: 'review', outcome: '', activities: [], ...(lead.workflow || {}) }
   const phone = lead.contact?.phone || lead.phone || ''
   const callHref = phoneHref(phone)
-  return `<section class="workflow-panel">
-    <div class="workflow-head">
+  const savedText = workflow.updatedAt ? `Saved ${escapeHtml(workflow.updatedAt)}` : 'Not saved yet'
+  return `<section class="workflow-panel compact-workflow-panel">
+    <div class="workflow-head compact-workflow-head">
       <div>
         <p class="eyebrow">Seller workflow</p>
-        <h3>${escapeHtml(readable(workflow.status || 'new'))}</h3>
-        <p class="muted">Track manual contact, response and follow-up. No calls or emails are sent from this form.</p>
+        <h3>Logg kontakt</h3>
       </div>
-      ${badge(workflow.contacted ? 'contacted' : 'new')}
+      <div class="workflow-head-actions">
+        ${badge(workflow.contacted ? 'contacted' : 'new')}
+        ${callHref ? `<a class="call-now compact-call" href="${escapeAttr(callHref)}">Call now</a>` : ''}
+      </div>
     </div>
     ${quickActionsHtml(state.selectedIndex, 'full')}
-    <form id="workflowForm" class="workflow-form">
+    <form id="workflowForm" class="workflow-form compact-workflow-form">
       <label><span>Status</span><select name="status">${workflowOptions(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'], workflow.status)}</select></label>
-      <label><span>Contacted</span><select name="contacted">${workflowOptions(['false', 'true'], String(Boolean(workflow.contacted)))}</select></label>
-      <label><span>Channel</span><select name="channel">${workflowOptions(['', 'phone', 'email', 'contact_form', 'linkedin', 'other'], workflow.channel)}</select></label>
       <label><span>Response</span><select name="response">${workflowOptions(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'], workflow.response)}</select></label>
-      <label><span>Person reached</span><input name="personReached" value="${escapeAttr(workflow.personReached || '')}" placeholder="Name / role"></label>
       <label><span>Follow-up date</span><input type="date" name="followUpDate" value="${escapeAttr(workflow.followUpDate || '')}"></label>
-      <label><span>Next action</span><input name="nextAction" value="${escapeAttr(workflow.nextAction || '')}" placeholder="review / call / follow up"></label>
-      <label><span>Outcome</span><input name="outcome" value="${escapeAttr(workflow.outcome || '')}" placeholder="pending / not relevant / meeting"></label>
-      <label class="workflow-notes"><span>Notes</span><textarea name="notes" rows="3" placeholder="Short factual note from manual work">${escapeHtml(workflow.notes || '')}</textarea></label>
-      <div class="workflow-actions"><small>${workflow.updatedAt ? `Saved ${escapeHtml(workflow.updatedAt)}` : 'Not saved yet'}</small><div>${callHref ? `<a class="call-now" href="${escapeAttr(callHref)}">Call now</a>` : ''}<button type="submit">Save workflow</button></div></div>
+      <label class="workflow-notes compact-notes"><span>Note</span><input name="notes" value="${escapeAttr(workflow.notes || '')}" placeholder="Kort notat"></label>
+      <input type="hidden" name="contacted" value="${escapeAttr(String(Boolean(workflow.contacted)))}">
+      <input type="hidden" name="channel" value="${escapeAttr(workflow.channel || '')}">
+      <input type="hidden" name="personReached" value="${escapeAttr(workflow.personReached || '')}">
+      <input type="hidden" name="nextAction" value="${escapeAttr(workflow.nextAction || '')}">
+      <input type="hidden" name="outcome" value="${escapeAttr(workflow.outcome || '')}">
+      <div class="workflow-actions compact-save"><small>${savedText}</small><button type="submit">Save workflow</button></div>
+      <details class="workflow-more">
+        <summary>More logging fields</summary>
+        <div class="workflow-form workflow-form-more">
+          <label><span>Contacted</span><select name="contactedMore" data-workflow-sync="contacted">${workflowOptions(['false', 'true'], String(Boolean(workflow.contacted)))}</select></label>
+          <label><span>Channel</span><select name="channelMore" data-workflow-sync="channel">${workflowOptions(['', 'phone', 'email', 'contact_form', 'linkedin', 'other'], workflow.channel)}</select></label>
+          <label><span>Person reached</span><input name="personReachedMore" data-workflow-sync="personReached" value="${escapeAttr(workflow.personReached || '')}" placeholder="Name / role"></label>
+          <label><span>Next action</span><input name="nextActionMore" data-workflow-sync="nextAction" value="${escapeAttr(workflow.nextAction || '')}" placeholder="review / call / follow up"></label>
+          <label><span>Outcome</span><input name="outcomeMore" data-workflow-sync="outcome" value="${escapeAttr(workflow.outcome || '')}" placeholder="pending / not relevant / meeting"></label>
+        </div>
+        ${workflowTimeline(workflow)}
+      </details>
     </form>
-    ${workflowTimeline(workflow)}
   </section>`
 }
 
@@ -683,12 +696,17 @@ function workflowCardNote(lead) {
 
 async function saveWorkflow(event) {
   event.preventDefault()
+  event.currentTarget.querySelectorAll('[data-workflow-sync]').forEach((field) => {
+    const target = event.currentTarget.elements[field.dataset.workflowSync]
+    if (target) target.value = field.value
+  })
   const lead = state.result?.leadPacks?.[state.selectedIndex]
   if (!lead) return setStatus('failed: no selected lead for workflow save', 'failed')
   const form = new FormData(event.currentTarget)
+  const status = form.get('status')
   const workflow = {
-    status: form.get('status'),
-    contacted: form.get('contacted') === 'true',
+    status,
+    contacted: form.get('contacted') === 'true' || ['contacted', 'follow_up', 'interested', 'rejected'].includes(status),
     channel: form.get('channel'),
     response: form.get('response'),
     personReached: form.get('personReached'),

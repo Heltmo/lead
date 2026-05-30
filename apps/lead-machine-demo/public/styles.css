@@ -164,6 +164,27 @@ a { color: var(--blue); }
 @media (max-width: 1180px) { .workflow-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .workflow-form { grid-template-columns: 1fr; } .workflow-head, .workflow-actions { flex-direction: column; align-items: stretch; } }
 
+
+.compact-workflow-panel { margin: 10px 0 12px; padding: 10px; background: #f8fcfa; }
+.compact-workflow-head { align-items: center; margin-bottom: 8px; }
+.compact-workflow-head h3 { font-size: 16px; }
+.workflow-head-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.compact-call { min-height: 30px; padding: 6px 9px; font-size: 12px; }
+.compact-workflow-panel .quick-actions { margin-bottom: 8px; }
+.compact-workflow-form { grid-template-columns: 140px 150px 150px minmax(220px, 1fr) auto; gap: 8px; align-items: end; }
+.compact-workflow-form label { min-width: 0; }
+.compact-workflow-form input, .compact-workflow-form select { min-height: 36px; padding: 7px 9px; }
+.compact-workflow-form .compact-notes { grid-column: auto; }
+.compact-save { grid-column: auto; align-self: end; min-width: 150px; justify-content: flex-end; }
+.compact-save small { display: none; }
+.compact-save button { min-height: 36px; padding: 8px 11px; white-space: nowrap; }
+.workflow-more { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 8px; background: #fff; overflow: hidden; }
+.workflow-more summary { cursor: pointer; padding: 9px 10px; font-weight: 800; background: #fbfcfb; }
+.workflow-form-more { grid-template-columns: repeat(5, minmax(130px, 1fr)); padding: 10px; }
+.workflow-more .activity-timeline { margin: 0 10px 10px; }
+@media (max-width: 1180px) { .compact-workflow-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .compact-save, .workflow-more { grid-column: 1 / -1; } .compact-save { justify-content: space-between; } .compact-save small { display: block; } .workflow-form-more { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .compact-workflow-head, .workflow-head-actions { align-items: stretch; flex-direction: column; } .compact-workflow-form, .workflow-form-more { grid-template-columns: 1fr; } }
+
 .workflow-board { margin: 10px 0 12px; padding: 10px; border: 1px solid #c7e5d6; border-radius: 8px; background: #f3faf7; }
 .workflow-board.empty { color: var(--muted); border-color: var(--line); background: #fbfcfb; }
 .workflow-board > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
