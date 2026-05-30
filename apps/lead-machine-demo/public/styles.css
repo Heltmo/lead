@@ -128,6 +128,17 @@ button, input, select { font: inherit; }
 .module-card strong { font-size: 14px; line-height: 1.25; }
 .module-card small { color: var(--muted); line-height: 1.35; }
 
+.detail-tools { display: grid; gap: 8px; margin-top: 12px; }
+.detail-tool { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 0; overflow: hidden; }
+.detail-tool summary { cursor: pointer; padding: 10px 12px; font-weight: 800; color: var(--ink); background: #f8faf9; }
+.detail-tool[open] summary { border-bottom: 1px solid var(--line); }
+.detail-tool > .source-grid, .detail-tool > .detail-section, .detail-tool > .leverage-panel, .detail-tool > .module-grid { margin: 10px; }
+.enrichment-tool, .detail-tool-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #fffaf0; border-color: #e5c987; }
+.detail-tool-status { background: #f3faf7; border-color: #c7e5d6; }
+.enrichment-tool strong, .detail-tool-status strong { display: block; font-size: 14px; margin-bottom: 2px; }
+.enrichment-tool span, .detail-tool-status span { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.enrichment-tool button { border: 0; border-radius: 8px; background: var(--green); color: #fff; font-weight: 800; padding: 9px 12px; cursor: pointer; white-space: nowrap; }
+
 .detail-collapse { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 0; overflow: hidden; }
 .detail-collapse summary { cursor: pointer; padding: 11px 12px; font-weight: 800; color: var(--ink); background: #f8faf9; }
 .detail-collapse[open] summary { border-bottom: 1px solid var(--line); }

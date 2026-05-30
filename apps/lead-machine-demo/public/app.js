@@ -574,57 +574,54 @@ function renderDetail(lead) {
 
     ${sellerDeskCards(lead, command)}
 
-    <details class="detail-collapse lead-brief-details">
-      <summary>Why call / inspect?</summary>
-      <section class="leverage-panel compact">
-        <div>
-          <p class="eyebrow">Seller leverage</p>
-          <h3>Supporting reasons</h3>
+    <section class="detail-tools">
+      <details class="detail-tool">
+        <summary>Why inspect?</summary>
+        <section class="leverage-panel compact">
+          <div>
+            <p class="eyebrow">Seller context</p>
+            <h3>Reasons to review</h3>
+          </div>
+          ${bullets(leverage)}
+        </section>
+      </details>
+      ${enrichmentTool(lead)}
+      <details class="detail-tool">
+        <summary>Sources</summary>
+        <div class="source-grid">
+        ${sourceCard('Google Places', places.provider || 'available', [
+          ['Rating', formatRating(places)],
+          ['Place ID', places.placeId || 'unknown'],
+          ['Reviews', places.reviewCount ?? 'unknown'],
+        ])}
+        ${sourceCard('Digital presence check', website.auditStatus || 'available', [
+          ['Contactability', website.contactability || 'unknown'],
+          ['Top signal', (website.topEvidence || [])[0] || 'none'],
+          ['CTA profile', website.ctaProfile ? 'available' : 'unknown'],
+        ])}
+        ${brregSourceCard(company)}
+        ${sourceCard('Source strategy', sourceStrategyStatus(company, sourceQuality, places), [
+          ['Identity source', isBrregUnavailable(company) ? 'brreg unavailable' : (sourceQuality.identitySource || company.source || 'unknown')],
+          ['Presence source', sourceQuality.presenceSource || places.provider || 'unknown'],
+          ['Strategy', sourceStrategyLabel(company, sourceQuality)],
+        ])}
+        ${sourceCard('Economy / Proff', economy.status || 'not_enabled', [
+          ['Revenue', economy.revenue ?? 'not enabled'],
+          ['Profit', economy.profit ?? 'not enabled'],
+          ['Employees', economy.employees ?? 'not enabled'],
+          ['Source', economy.source || 'not enabled'],
+          ['Warnings', normalizeList(economy.warnings).map(humanize).join(', ') || 'none'],
+        ])}
+        ${sourceCard('Discovery quality', discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown', [
+          ['Score', discoveryQuality.score == null ? 'unknown' : `${discoveryQuality.score}/100`],
+          ['Reasons', (discoveryQuality.reasons || []).slice(0, 3).map(humanize).join(', ') || 'unknown'],
+          ['Warnings', (discoveryQuality.warnings || []).slice(0, 3).map(humanize).join(', ') || 'none'],
+        ])}
         </div>
-        ${bullets(leverage)}
-      </section>
-    </details>
-
-    ${fastQualificationPanel(lead)}
-
-    ${deepEnrichmentModules(lead, command)}
-
-    <details class="detail-collapse">
-      <summary>Source intelligence</summary>
-      <div class="source-grid">
-      ${sourceCard('Google Places', places.provider || 'available', [
-        ['Rating', formatRating(places)],
-        ['Place ID', places.placeId || 'unknown'],
-        ['Reviews', places.reviewCount ?? 'unknown'],
-      ])}
-      ${sourceCard('Digital presence check', website.auditStatus || 'available', [
-        ['Contactability', website.contactability || 'unknown'],
-        ['Top signal', (website.topEvidence || [])[0] || 'none'],
-        ['CTA profile', website.ctaProfile ? 'available' : 'unknown'],
-      ])}
-      ${brregSourceCard(company)}
-      ${sourceCard('Source strategy', sourceStrategyStatus(company, sourceQuality, places), [
-        ['Identity source', isBrregUnavailable(company) ? 'brreg unavailable' : (sourceQuality.identitySource || company.source || 'unknown')],
-        ['Presence source', sourceQuality.presenceSource || places.provider || 'unknown'],
-        ['Strategy', sourceStrategyLabel(company, sourceQuality)],
-      ])}
-      ${sourceCard('Economy / Proff', economy.status || 'not_enabled', [
-        ['Revenue', economy.revenue ?? 'not enabled'],
-        ['Profit', economy.profit ?? 'not enabled'],
-        ['Employees', economy.employees ?? 'not enabled'],
-        ['Source', economy.source || 'not enabled'],
-        ['Warnings', normalizeList(economy.warnings).map(humanize).join(', ') || 'none'],
-      ])}
-      ${sourceCard('Discovery quality', discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown', [
-        ['Score', discoveryQuality.score == null ? 'unknown' : `${discoveryQuality.score}/100`],
-        ['Reasons', (discoveryQuality.reasons || []).slice(0, 3).map(humanize).join(', ') || 'unknown'],
-        ['Warnings', (discoveryQuality.warnings || []).slice(0, 3).map(humanize).join(', ') || 'none'],
-      ])}
-      </div>
-    </details>
-
-    <details class="detail-collapse">
-      <summary>Raw lead data</summary>
+      </details>
+      ${deepEnrichmentModules(lead, command)}
+      <details class="detail-tool">
+        <summary>Raw data</summary>
     ${section('Company and contact', kv([
       ['Confirmed org.nr', company.organizationNumber || 'none'],
       ['Candidate org.nr', company.candidateOrganizationNumber || 'none'],
@@ -664,7 +661,8 @@ function renderDetail(lead) {
     ]))}
     ${section('Evidence', bullets((website.topEvidence || lead.topEvidence || lead.evidence || []).map(humanizeEvidence)))}
     ${section('Caution', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}
-    </details>
+      </details>
+    </section>
   `
   const nextButton = document.getElementById('nextLeadButton')
   if (nextButton) nextButton.addEventListener('click', selectNextVisibleLead)
@@ -827,11 +825,11 @@ function isFastLead(lead) {
   return lead?.meta?.mode === 'fast' || lead?.website?.auditStatus === 'skipped_fast_mode' || lead?.leadClass === 'fast_discovery'
 }
 
-function fastQualificationPanel(lead) {
-  if (!isFastLead(lead)) return '<section class="qualification-panel deep"><strong>Deep enriched</strong><span>This lead includes selected enrichment modules. Digital presence is one module.</span></section>'
-  return `<section class="qualification-panel fast">
-    <div><strong>Enrichment optional</strong><span>Fast scan found this candidate. Enrich only if you need more context than phone, location and company identity.</span></div>
-    <button type="button" id="runDeepQualification">Enrich selected lead</button>
+function enrichmentTool(lead) {
+  if (!isFastLead(lead)) return `<section class="detail-tool detail-tool-status"><strong>Enriched</strong><span>Selected enrichment has run. Website/digital presence is one module.</span></section>`
+  return `<section class="detail-tool enrichment-tool">
+    <div><strong>Need more context?</strong><span>Keep it fast unless this lead is worth a deeper check.</span></div>
+    <button type="button" id="runDeepQualification">Enrich lead</button>
   </section>`
 }
 
@@ -852,8 +850,8 @@ function deepEnrichmentModules(lead, command) {
     { name: 'Recent activity', status: 'not_enabled', summary: 'Later module: hiring, news, website updates and public activity.' },
     { name: 'Seller fit summary', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Uses seller intent plus contact, company, location and source signals.' },
   ]
-  return `<details class="detail-collapse enrichment-modules">
-    <summary>Deep enrichment modules</summary>
+  return `<details class="detail-tool enrichment-modules">
+    <summary>Enrichment modules</summary>
     <div class="module-grid">
       ${modules.map((module) => `<div class="module-card"><div>${badge(module.status)}<strong>${escapeHtml(module.name)}</strong></div><small>${escapeHtml(module.summary || module.note || '')}</small></div>`).join('')}
     </div>
