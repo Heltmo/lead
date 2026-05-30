@@ -320,6 +320,8 @@ async function main() {
   assert(lower.includes('current call'), 'UI should expose a single current-call panel')
   assert(lower.includes('find leads · call · log outcome · follow up'), 'Header should use simple seller workflow copy')
   assert(lower.includes('søk fritt i hele norge'), 'Search hint should explain broad free-text search')
+  assert(lower.includes('data-query-example="escape room"'), 'UI should offer clickable free-text query examples')
+  assert(lower.includes('searchsuggestions'), 'UI should expose autocomplete suggestions without separate required fields')
   assert(lower.includes('compactrunstatus'), 'Summary should use compact run status instead of noisy operational metrics')
   assert(lower.includes('data-queue-preset'), 'UI should expose call queue preset buttons')
   assert(lower.includes('call queue first'), 'UI should support call-queue-first sorting')

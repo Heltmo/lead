@@ -29,7 +29,11 @@ button, input, select { font: inherit; }
 .app-shell { width: 100%; padding: 14px clamp(14px, 3vw, 34px) 34px; display: grid; gap: 14px; }
 .search-panel, .status-panel, .summary-panel, .lead-list, .lead-detail, .export-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
 .search-panel { padding: 12px 14px; display: grid; grid-template-columns: minmax(360px, 1fr) 160px 120px; gap: 10px; align-items: end; }
-.search-panel .search-hint { grid-column: 1 / -1; margin: -2px 0 0; color: var(--muted); font-size: 13px; }
+.search-help { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: -2px; }
+.search-panel .search-hint { margin: 0; color: var(--muted); font-size: 13px; }
+.search-examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.search-examples button { height: auto; min-height: 27px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--muted); padding: 4px 9px; font-size: 12px; font-weight: 760; cursor: pointer; }
+.search-examples button:hover, .search-examples button:focus-visible { border-color: var(--green); color: var(--green); background: var(--green-soft); outline: none; }
 .search-panel input, .search-panel select { width: 100%; height: 42px; border: 1px solid #b8c8c0; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--ink); }
 .toggle { height: 42px; display: flex; align-items: center; gap: 8px; color: var(--muted); }
 .search-panel button { height: 42px; border: 0; border-radius: 8px; background: var(--green); color: #fff; font-weight: 800; cursor: pointer; }

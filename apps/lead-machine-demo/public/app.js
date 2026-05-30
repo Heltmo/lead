@@ -55,11 +55,13 @@ const els = {
   leadFilters: Array.from(document.querySelectorAll('.lead-filter')),
   clearLeadFilters: document.getElementById('clearLeadFilters'),
   leadFilterSummary: document.getElementById('leadFilterSummary'),
+  queryExamples: Array.from(document.querySelectorAll('[data-query-example]')),
 }
 
 initStructuredSearch()
 els.runButton.addEventListener('click', runSearch)
 els.query.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
+els.queryExamples.forEach((button) => button.addEventListener('click', () => { els.query.value = button.dataset.queryExample || ''; els.query.focus() }))
 els.location.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
 els.profession.addEventListener('change', syncQueryFromStructuredSearch)
 els.location.addEventListener('input', syncQueryFromStructuredSearch)
