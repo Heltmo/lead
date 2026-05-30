@@ -103,7 +103,7 @@ The frontend displays:
 - summary counts
 - lead cards with filters for phone, org.nr, website, exact location, enrichment need, and Brreg issues
 - lead sorting by best first, phone, confirmed org.nr, Google reviews, employees, and discovery confidence
-- a Seller Command card with call readiness, best first contact, company fit, verification status, main risk, next action, and source confidence
+- a neutral Call Brief card with best first contact, company fit, verification status, main risk, next action, and source confidence
 - a compact Seller Desk V2 layer with company identity, contactability, market proof, and action/risk
 - secondary qualification, verification, source intelligence, and raw source data collapsed below the decision layer
 - per-lead Deep enrichment that updates only the selected company card
@@ -152,7 +152,7 @@ Seller owns:
 - relationship
 - close
 
-No prepared pitch text, email templates, or automated outreach are included. The Seller Command card is a decision brief, not a script.
+No prepared pitch text, email templates, or automated outreach are included. The Call Brief card is a decision brief, not a script.
 
 ## Limitations
 

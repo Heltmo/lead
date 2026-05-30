@@ -761,15 +761,11 @@ function deepEnrichmentModules(lead, command) {
 
 function sellerCommandCard(command) {
   return `<section class="command-card">
-    <div class="command-main">
+    <div class="command-main compact-command-main">
       <div>
-        <p class="eyebrow">Seller command</p>
-        <h3>${escapeHtml(command.headline)}</h3>
+        <p class="eyebrow">Call brief</p>
+        <h3>${escapeHtml(command.verification)}</h3>
         <p>${escapeHtml(command.summary)}</p>
-      </div>
-      <div class="command-score ${escapeAttr(command.sellerReadinessKey)}">
-        <span>Seller readiness</span>
-        <strong>${escapeHtml(command.sellerReadiness)}</strong>
       </div>
     </div>
     <div class="command-grid compact-command-grid">
@@ -815,14 +811,14 @@ function sellerDeskCards(lead, command) {
     ['Presence', sourceQuality.presenceSource || places.provider || 'unknown'],
   ]
   const actionRows = [
-    ['Seller readiness', command.sellerReadiness],
+    ['Call status', command.sellerReadiness],
     ['Website opportunity', command.websiteOpportunity],
     ['Next action', command.nextAction],
     ['Main risk', command.mainRisk],
   ]
   const qualificationRows = [
     ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Deep enriched'],
-    ['Seller readiness', command.sellerReadiness],
+    ['Call status', command.sellerReadiness],
     ['Website opportunity', command.websiteOpportunity],
     ['Main risk', command.mainRisk],
     ['Source confidence', command.sourceConfidence],
@@ -911,10 +907,10 @@ function sellerCommand(lead) {
 
   const sellerReadinessKey = sellerScore >= 10 ? 'strong' : sellerScore >= 7 ? 'good' : sellerScore >= 4 ? 'verify' : 'weak'
   const sellerReadiness = {
-    strong: 'Strong seller lead',
-    good: 'Good seller lead',
+    strong: 'Ready now',
+    good: 'Usable contact',
     verify: 'Verify first',
-    weak: 'Weak seller lead',
+    weak: 'Needs contact',
   }[sellerReadinessKey]
 
   const websiteOpportunity = {
@@ -973,7 +969,7 @@ function sellerCommand(lead) {
   const sourceConfidence = discoveryLevel === 'unknown' ? 'Unknown' : readable(discoveryLevel)
   const sourceConfidenceNote = discoveryQuality.score == null ? 'No discovery score available.' : `Discovery score ${discoveryQuality.score}/100.`
 
-  const headline = `${sellerReadiness} · ${verification}`
+  const headline = verification
   const summary = buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority, websiteOpportunity })
 
   return { headline, summary, callReadiness: sellerReadiness, readinessKey: sellerReadinessKey, sellerReadiness, sellerReadinessKey, websiteOpportunity, websiteOpportunityNote, bestContact, bestContactNote, companyFit, companyFitNote, verification, verificationNote, mainRisk, mainRiskNote, nextAction, nextActionNote, sourceConfidence, sourceConfidenceNote }
