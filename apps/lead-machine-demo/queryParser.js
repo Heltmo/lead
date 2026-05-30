@@ -9,6 +9,8 @@ const VERTICALS = [
   { terms: ['bilverksted', 'bilverksteder', 'verksted', 'verksteder'], canonical: 'bilverksted' },
   { terms: ['frisør', 'frisører', 'frisor', 'frisorer'], canonical: 'frisør' },
   { terms: ['eiendomsmegler', 'eiendomsmeglere', 'megler', 'meglere'], canonical: 'eiendomsmegler' },
+  { terms: ['paintball'], canonical: 'paintball' },
+  { terms: ['escape room', 'escape rooms', 'escaperoom', 'escapreroom', 'rømningsrom', 'romningsrom', 'rømningsspill', 'romningsspill'], canonical: 'escape room' },
 ]
 
 function parseLeadQuery(rawQuery) {
@@ -20,6 +22,9 @@ function parseLeadQuery(rawQuery) {
     const vertical = matchVertical(viaI[1])
     if (vertical) return result(query, vertical, cleanupLocation(viaI[2]))
   }
+
+  const exactVertical = matchVertical(query)
+  if (exactVertical) return { ok: true, originalQuery: query, vertical: exactVertical.canonical, location: null, normalizedQuery: exactVertical.canonical }
 
   const tokens = query.split(' ')
   for (let i = 0; i < tokens.length; i += 1) {

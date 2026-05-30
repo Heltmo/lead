@@ -181,5 +181,46 @@
       "{term} i {location}",
       "{location} {term}"
     ]
+  },
+  "paintball": {
+    "canonical": "paintball",
+    "norwegian": [
+      "paintball",
+      "paintballbane",
+      "paintballsenter"
+    ],
+    "english": [
+      "paintball",
+      "paintball center",
+      "paintball field"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
+  },
+  "escapeRoom": {
+    "canonical": "escape room",
+    "norwegian": [
+      "escape room",
+      "escaperoom",
+      "escapreroom",
+      "rømningsrom",
+      "romningsrom",
+      "rømningsspill",
+      "romningsspill"
+    ],
+    "english": [
+      "escape room",
+      "escape rooms",
+      "escape game",
+      "escape games"
+    ],
+    "searchPatterns": [
+      "{term} {location}",
+      "{term} i {location}",
+      "{location} {term}"
+    ]
   }
 }

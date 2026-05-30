@@ -15,6 +15,8 @@ async function main() {
   assert(golIntent.vertical === 'advokater', 'location intent should preserve vertical term')
   assert(golIntent.requestedLocation === 'Gol', 'location intent should parse Norwegian i location')
   assertQuery('regnskapsfører Sarpsborg', 'accountant', 'Sarpsborg', 'accounting firm Sarpsborg')
+  assertQuery('escapreroom', 'escape room', '', 'escape room')
+  assertQuery('paintball', 'paintball', '', 'paintball')
   assertTarget('https://haldentannlegene.no', 'directBusiness', true)
   assertTarget('https://www.legelisten.no/tannleger/Viken/Halden', 'directory', false)
   assertTarget('https://www.1881.no/tannlege/tannlege-oestfold/tannlege-halden', 'directory', false)

@@ -77,7 +77,6 @@ function initStructuredSearch() {
   els.profession.innerHTML = PROFESSIONS.map((item) => `<option value="${escapeAttr(item.value)}">${escapeHtml(item.label)}</option>`).join('')
   els.locationOptions.innerHTML = LOCATIONS.map((location) => `<option value="${escapeAttr(location)}"></option>`).join('')
   els.profession.value = 'rørlegger'
-  syncQueryFromStructuredSearch()
 }
 
 function syncQueryFromStructuredSearch() {

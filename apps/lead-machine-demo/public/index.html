@@ -22,26 +22,20 @@
 
   <main class="app-shell">
     <section class="search-panel structured-search">
-      <label>
-        <span>Bransje</span>
-        <select id="professionSelect"></select>
-      </label>
-      <label>
-        <span>Sted</span>
-        <input id="locationInput" value="Kristiansand" list="locationOptions" autocomplete="off">
-        <datalist id="locationOptions"></datalist>
-      </label>
+      <select id="professionSelect" hidden></select>
+      <input id="locationInput" type="hidden" value="">
+      <datalist id="locationOptions"></datalist>
       <label class="query-label">
         <span>Søk</span>
-        <input id="queryInput" value="rørlegger i Kristiansand" autocomplete="off">
+        <input id="queryInput" value="" placeholder="escape room, paintball, advokat i Oslo" autocomplete="off">
       </label>
       <input id="provider" type="hidden" value="balanced">
       <input id="runMode" type="hidden" value="fast">
       <input id="maxResults" type="hidden" value="25">
-      <label><span>Område</span><select id="searchScope"><option value="strict">Kun valgt sted</option><option value="nearby">Nærområde</option><option value="regional">Regionalt</option></select></label>
+      <label><span>Område</span><select id="searchScope"><option value="regional" selected>Hele Norge</option><option value="strict">Kun sted i søket</option><option value="nearby">Nærområde</option></select></label>
       <input id="companyProfile" type="hidden" value="true">
       <button id="runButton" type="button">Kjør søk</button>
-      <p class="search-hint">Finn lokale bedrifter raskt. Berik valgt lead når du trenger mer kontekst.</p>
+      <p class="search-hint">Søk fritt i hele Norge. Skriv sted i søket når du vil snevre inn.</p>
     </section>
 
     <section id="statusPanel" class="status-panel" hidden></section>
