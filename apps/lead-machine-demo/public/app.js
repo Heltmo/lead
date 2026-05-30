@@ -506,7 +506,10 @@ function renderDetail(lead) {
     <div class="detail-title">
       <div>
         <p class="eyebrow">Selected lead</p>
-        <h2>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h2>
+        <div class="lead-name-line">
+          <h2>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h2>
+          ${titlePhone(contact.phone || lead.phone)}
+        </div>
         <p class="muted">${escapeHtml(company.legalName || 'Legal name unknown')}</p>
       </div>
       <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
@@ -1349,6 +1352,13 @@ function phoneLink(value) {
   const href = phoneHref(raw)
   if (!raw || raw === 'unknown' || !href) return escapeHtml(raw || 'unknown')
   return `<a href="${escapeAttr(href)}" class="phone-link">${escapeHtml(raw)}</a>`
+}
+
+function titlePhone(value) {
+  const raw = String(value || '').trim()
+  const href = phoneHref(raw)
+  if (!raw || raw === 'unknown' || !href) return ''
+  return `<a href="${escapeAttr(href)}" class="title-phone">${escapeHtml(raw)}</a>`
 }
 
 function clearStatus() {

@@ -200,6 +200,8 @@ async function main() {
   assert(!lower.includes('demo-fixture'), 'UI should not expose demo fixture as the seller workflow')
   assert(lower.includes('leadsort'), 'UI should include lead sorting control')
   assert(lower.includes('lead-filter'), 'UI should include lead filters')
+  assert(lower.includes('lead-name-line'), 'Selected lead header should align company name and phone')
+  assert(lower.includes('title-phone'), 'Selected lead header should show primary phone near the company name')
   assert(lower.includes('phone first'), 'UI should support phone-first sorting')
   assert(lower.includes('confirmed org.nr'), 'UI should support confirmed org number filtering/sorting')
   assert(lower.includes('needs enrichment'), 'UI should support needs-enrichment filtering')

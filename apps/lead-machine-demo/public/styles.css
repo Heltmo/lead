@@ -70,6 +70,9 @@ button, input, select { font: inherit; }
 .badge.high { background: var(--red-soft); color: var(--red); } .badge.medium { background: var(--amber-soft); color: var(--amber); } .badge.low { background: var(--blue-soft); color: var(--blue); } .badge.exact_location { background: var(--green-soft); color: var(--green); } .badge.regional_fallback { background: var(--amber-soft); color: var(--amber); } .badge.audit-skipped, .badge.audit_skipped { background: #edf1ef; color: #44524b; } .badge.confirmed_org, .badge.phone_available, .badge.completed, .badge.good, .badge.strong { background: var(--green-soft); color: var(--green); } .badge.candidate_org, .badge.manual_verify, .badge.weak_match, .badge.verify { background: var(--amber-soft); color: var(--amber); } .badge.no_match, .badge.not_run, .badge.contact_missing { background: #edf1ef; color: #44524b; } .badge.error, .badge.weak { background: var(--red-soft); color: var(--red); } .badge.brreg_unavailable { background: #edf1ef; color: #44524b; border: 1px solid #cfd8d3; }
 .detail-title { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 14px; }
 .detail-title h2 { margin: 0; font-size: clamp(34px, 5.2vw, 58px); line-height: .95; letter-spacing: 0; }
+.lead-name-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; }
+.title-phone { display: inline-flex; align-items: baseline; color: var(--green); font-size: clamp(20px, 2.4vw, 30px); font-weight: 850; line-height: 1; text-decoration: none; white-space: nowrap; }
+.title-phone:hover { text-decoration: underline; }
 .quick-facts { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 10px; margin: 12px 0 14px; }
 .secondary-facts { opacity: .96; }
 .fact-card, .source-card, .leverage-panel, .command-card { border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; padding: 12px; }
