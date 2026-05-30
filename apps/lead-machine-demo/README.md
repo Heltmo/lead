@@ -171,6 +171,7 @@ No prepared pitch text, email templates, or automated outreach are included. The
 - Deep enrichment can attach a discovered email when it is found in the website audit report or on likely contact pages such as `/kontakt`, `/contact`, or `/om-oss`.
 - The Brreg panel shows confirmed org.nr only for strong matches. Uncertain results stay as candidate org.nr/manual verify with legal name, organization form, address, municipality, NACE, employees, status, match confidence, warnings, and candidate records when available.
 - Economy/Proff is optional. It remains `disabled` until `PROFF_API_KEY` exists, runs only for confirmed org.nr, and does not affect lead scoring.
+- SSB market context is not wired into the UI yet. It should be added as area/market context, not as company identity.
 - Run folders are local and ignored by git.
 
 ## Speed Notes

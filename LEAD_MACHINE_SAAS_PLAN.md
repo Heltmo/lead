@@ -118,6 +118,20 @@ Use for:
 - enhet / underenhet context
 - match confidence and warnings
 
+### SSB / Market Context
+
+Role: market and area context, not company identity. SSB should make the product stronger by explaining the market around the lead, not by deciding which org.nr is true.
+
+Use for later:
+
+- municipality population and growth
+- business density by region/industry where available
+- employment and establishment trends
+- local purchasing-power/context indicators
+- market-size notes on a search result, for example `small local supply`, `dense service market`, or `growth area`
+
+SSB should appear as a market context panel and summary signal. It should not replace Brreg, Google Places, Proff, or website evidence.
+
 ### Proff Later
 
 Role: optional premium economy/commercial enrichment.
@@ -173,7 +187,7 @@ User Query
      -> Brreg Verification
      -> Contactability Refresh
      -> Evidence + Caution Update
-     -> Later: Proff, social/source signals, decision makers, recent activity
+     -> Later: SSB market context, Proff, social/source signals, decision makers, recent activity
 ```
 
 ## Lead Pack Object Shape
@@ -253,6 +267,7 @@ Deep enrichment modules should evolve toward:
 - company identity verification with Brreg/company-profile
 - website audit and source evidence
 - contactability refresh
+- SSB market context for area/industry signals
 - Proff/economy after confirmed org.nr
 - social/source signals
 - decision-maker hints from public records/sources

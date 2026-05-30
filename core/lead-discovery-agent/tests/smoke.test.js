@@ -24,6 +24,7 @@ async function main() {
   assertTarget('https://www.gulesider.no/tannlege/bedrifter', 'directory', false)
   assertTarget('https://ofk.no/tjenester/tannhelse/tannklinikker/halden-tannklinikk', 'publicSector', false)
   assertTarget('https://halden.kommune.no/tjenester/helse', 'publicSector', false)
+  assertTarget('https://www.nav.no/no/lokalt/halden', 'publicSector', false)
   const server = http.createServer((request, response) => {
     response.writeHead(200, { 'content-type': 'text/html' })
     response.end('<title>Halden Tannklinikk</title>')
@@ -225,6 +226,58 @@ async function main() {
   assert(googleRows[0].placeId === 'places/norfloss', 'Google Places handoff should preserve place id')
   assert(googleRows[0].locationMatchStatus === 'exact_location', 'Google Places handoff should preserve location match status')
 
+
+  const lawyerPlacesFixture = path.join(root, 'lawyer-google-places.mock-results.json')
+  fs.writeFileSync(lawyerPlacesFixture, JSON.stringify({
+    places: [
+      {
+        id: 'places/nav-halden',
+        displayName: { text: 'NAV Halden' },
+        websiteUri: 'https://www.nav.no/no/lokalt/halden',
+        nationalPhoneNumber: '+47 55 55 33 33',
+        formattedAddress: 'Storgata 8, 1771 Halden, Norway',
+        rating: 2.1,
+        userRatingCount: 27,
+        types: ['local_government_office'],
+      },
+      {
+        id: 'places/halden-lawyer',
+        displayName: { text: 'Advokat Test Halden AS' },
+        websiteUri: 'https://advokat-test-halden.example',
+        nationalPhoneNumber: '+47 69 00 00 00',
+        formattedAddress: 'Advokatgata 1, 1771 Halden, Norway',
+        rating: 4.8,
+        userRatingCount: 8,
+        types: ['lawyer'],
+      },
+      {
+        id: 'places/revisor-wrong-vertical',
+        displayName: { text: 'Revisorteam DA' },
+        websiteUri: 'https://revisorteam.example',
+        nationalPhoneNumber: '+47 69 17 67 05',
+        formattedAddress: 'Storgata 9, 1771 Halden, Norway',
+        rating: 5,
+        userRatingCount: 1,
+        types: ['accounting'],
+      },
+    ],
+  }, null, 2))
+  const lawyerGoogleReport = await discoverLocalBusinesses({
+    query: 'advokat',
+    provider: 'google-places',
+    mockResultsPath: lawyerPlacesFixture,
+    maxResults: 3,
+    validate: false,
+  })
+  const navCandidate = lawyerGoogleReport.candidates.find((candidate) => candidate.businessName === 'NAV Halden')
+  const wrongVerticalCandidate = lawyerGoogleReport.candidates.find((candidate) => candidate.businessName === 'Revisorteam DA')
+  const matchingLawyerCandidate = lawyerGoogleReport.candidates.find((candidate) => candidate.businessName === 'Advokat Test Halden AS')
+  assert(navCandidate.sourceType === 'publicSector', 'NAV should be classified as public sector')
+  assert(shouldIncludeInFastLeadPack(navCandidate) === false, 'NAV should not become a Fast seller lead for advokat search')
+  assert(wrongVerticalCandidate.industryMatchStatus === 'mismatch', 'wrong vertical Google result should be marked industry mismatch')
+  assert(shouldIncludeInFastLeadPack(wrongVerticalCandidate) === false, 'wrong vertical Google result should not become a Fast seller lead')
+  assert(matchingLawyerCandidate.industryMatchStatus === 'relevant', 'matching lawyer Google result should keep industry relevance')
+  assert(shouldIncludeInFastLeadPack(matchingLawyerCandidate) === true, 'matching lawyer Google result should remain Fast eligible')
 
 
   const brregFixture = {

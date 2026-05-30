@@ -6,6 +6,8 @@ const DOMAIN_RULES = [
   { domain: 'ofk.no', sourceType: 'publicSector', reason: 'known public-sector healthcare domain' },
   { domain: 'kommune.no', sourceType: 'publicSector', reason: 'known municipal/public-sector domain' },
   { domain: 'helsenorge.no', sourceType: 'publicSector', reason: 'known public healthcare domain' },
+  { domain: 'nav.no', sourceType: 'publicSector', reason: 'known public welfare domain' },
+  { domain: 'ssb.no', sourceType: 'publicSector', reason: 'known public statistics domain' },
   { domain: 'facebook.com', sourceType: 'social', reason: 'known social platform' },
   { domain: 'instagram.com', sourceType: 'social', reason: 'known social platform' },
   { domain: 'linkedin.com', sourceType: 'social', reason: 'known social platform' },

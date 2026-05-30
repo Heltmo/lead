@@ -4,6 +4,7 @@ const { loadDiscoverySources } = require('./providers/searchProvider')
 const { loadLiveSearchResults } = require('./providers/liveSearchProvider')
 const { createDiscoveryReport } = require('./reports/discoveryReport')
 const { deduplicateCandidates, normalizeLeadCandidate, parseDiscoveryQuery } = require('./normalizers/leadCandidate')
+const { findNaceForIndustry } = require('./normalizers/naceMapping')
 const { validateWebsiteReachability } = require('./normalizers/websiteReachability')
 const { parseLocationIntent, applyLocationQuality, normalizeSearchScope } = require('./normalizers/locationQuality')
 
@@ -50,6 +51,7 @@ async function discoverLocalBusinesses(options) {
     .filter(Boolean)
   const candidates = deduplicateCandidates(normalized)
     .map((candidate) => applyLocationQuality(candidate, { searchScope, includeOutOfArea: options.includeOutOfArea === true || options.includeOutOfArea === 'true' }))
+    .map((candidate) => applyIndustryQuality(candidate, { canonicalIndustry, industry, industryTerms, query }))
     .map(enrichDiscoveryQuality)
   if (options.validate !== false && !options.dryRun) {
     for (const candidate of candidates) {
@@ -162,6 +164,85 @@ function shouldIncludeInFastLeadPack(candidate = {}) {
   return reason === 'missing_website_for_audit' && Boolean(candidate.phone || candidate.placeId || candidate.address || candidate.organizationNumber || candidate.candidateOrganizationNumber)
 }
 
+
+function applyIndustryQuality(candidate = {}, context = {}) {
+  const relevance = buildIndustryRelevance(candidate, context)
+  const next = { ...candidate, industryMatchStatus: relevance.status, industryMatchReasons: relevance.reasons }
+  if (relevance.matches) return next
+  return {
+    ...next,
+    auditEligible: false,
+    auditExclusionReason: appendReason(candidate.auditExclusionReason, `industry_mismatch:${context.canonicalIndustry || context.industry || 'unknown'}`),
+  }
+}
+
+function buildIndustryRelevance(candidate = {}, context = {}) {
+  const canonicalIndustry = String(context.canonicalIndustry || context.industry || '').trim()
+  if (!canonicalIndustry) return { matches: true, status: 'unknown', reasons: ['no_industry_constraint'] }
+  const terms = industryTermsFor(canonicalIndustry, context.industryTerms)
+  if (!terms.length) return { matches: true, status: 'unknown', reasons: ['no_industry_terms'] }
+  const expectedNace = findNaceForIndustry({ canonicalIndustry, industry: context.industry, query: context.query }).map((item) => item.code)
+  const naceCode = String(candidate.naceCode || '').trim()
+  if (naceCode && expectedNace.some((code) => naceCode === code || naceCode.startsWith(code + '.'))) return { matches: true, status: 'relevant', reasons: ['nace_match'] }
+  if (candidate.identitySource === 'brreg' && naceCode && expectedNace.length) return { matches: false, status: 'mismatch', reasons: ['nace_mismatch'] }
+
+  const haystack = normalizeIndustryText([
+    candidate.businessName,
+    candidate.legalName,
+    candidate.candidateLegalName,
+    candidate.description,
+    candidate.providerTypes?.join(' '),
+    candidate.website,
+  ].filter(Boolean).join(' '))
+  if (terms.some((term) => termMatches(haystack, term))) return { matches: true, status: 'relevant', reasons: ['term_match'] }
+  if (candidate.sourceType === 'officialRegistry' && !expectedNace.length) return { matches: true, status: 'unknown', reasons: ['official_registry_no_nace_constraint'] }
+  return { matches: false, status: 'mismatch', reasons: ['no_industry_signal'] }
+}
+
+function industryTermsFor(canonicalIndustry, rawTerms = []) {
+  const base = [canonicalIndustry, ...(rawTerms || [])]
+  const extras = {
+    lawyer: ['advokat', 'advokater', 'advokatfirma', 'juridisk', 'lawyer', 'law firm', 'attorney'],
+    plumber: ['rørlegger', 'rorlegger', 'rørleggere', 'vvs', 'bad', 'varme', 'plumber'],
+    electrician: ['elektriker', 'elektro', 'electrical', 'electrician'],
+    accountant: ['regnskap', 'regnskapsfører', 'regnskapsforer', 'revisor', 'accounting', 'accountant'],
+    dentist: ['tannlege', 'tannklinikk', 'tannhelse', 'dentist', 'dental'],
+    physiotherapist: ['fysioterapeut', 'fysio', 'kiropraktor', 'physiotherapist'],
+    restaurant: ['restaurant', 'spisested', 'kafe', 'cafe', 'dining'],
+    paintball: ['paintball'],
+    'escape room': ['escape room', 'escaperoom', 'escapreroom', 'rømningsrom', 'romningsrom', 'escape game'],
+  }[canonicalIndustry] || []
+  return uniqueText([...base, ...extras].map(normalizeIndustryText).filter(Boolean))
+}
+
+function termMatches(haystack, term) {
+  if (!haystack || !term) return false
+  if (haystack.includes(term)) return true
+  return haystack.includes(term.replace(/\s+/g, ''))
+}
+
+function appendReason(existing, reason) {
+  const current = String(existing || '').trim()
+  return current ? `${current}|${reason}` : reason
+}
+
+function normalizeIndustryText(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/æ/g, 'ae')
+    .replace(/ø/g, 'o')
+    .replace(/å/g, 'a')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function uniqueText(values) {
+  return Array.from(new Set(values))
+}
+
 function enrichDiscoveryQuality(candidate = {}) {
   const quality = buildDiscoveryQuality(candidate)
   return { ...candidate, discoveryQuality: quality, discoveryConfidence: quality.level }
@@ -192,6 +273,8 @@ function buildDiscoveryQuality(candidate = {}) {
   if (candidate.identitySource === 'brreg' || candidate.sourceType === 'officialRegistry') { score += 8; reasons.push('official_registry') }
   if (candidate.naceCode) { score += 5; reasons.push('nace_available') }
   if (candidate.employees !== '' && candidate.employees != null) { score += 4; reasons.push('employees_available') }
+  if (candidate.industryMatchStatus === 'relevant') { score += 8; reasons.push('industry_relevant') }
+  if (candidate.industryMatchStatus === 'mismatch') warnings.push('industry_mismatch')
   if (candidate.auditEligible === false && candidate.auditExclusionReason !== 'missing_website_for_audit') warnings.push('not_audit_eligible')
 
   const capped = Math.max(0, Math.min(100, score))
@@ -249,4 +332,4 @@ function normalizeSourceFiles(value) {
     .filter(Boolean)
 }
 
-module.exports = { discoverLocalBusinesses, writeDiscoveryOutputs, toSummary, normalizeSourceFiles, formatHandoffCandidate, shouldIncludeInHandoff, shouldIncludeInFastLeadPack, buildDiscoveryQuality }
+module.exports = { discoverLocalBusinesses, writeDiscoveryOutputs, toSummary, normalizeSourceFiles, formatHandoffCandidate, shouldIncludeInHandoff, shouldIncludeInFastLeadPack, buildDiscoveryQuality, applyIndustryQuality }
