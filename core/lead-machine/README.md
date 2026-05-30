@@ -123,7 +123,7 @@ Planned module stack:
 - Brreg/company identity verification
 - website audit
 - contactability refresh
-- seller leverage summary
+- seller fit summary
 - Proff/economy after confirmed org.nr
 - social/source signals
 - decision-maker hints

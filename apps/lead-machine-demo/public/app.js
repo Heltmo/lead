@@ -39,6 +39,7 @@ const els = {
   locationOptions: document.getElementById('locationOptions'),
   query: document.getElementById('queryInput'),
   provider: document.getElementById('provider'),
+  sellerIntent: document.getElementById('sellerIntent'),
   runMode: document.getElementById('runMode'),
   maxResults: document.getElementById('maxResults'),
   searchScope: document.getElementById('searchScope'),
@@ -130,6 +131,7 @@ async function runSearch() {
         provider: els.provider.value,
         maxResults: Number(els.maxResults.value),
         searchScope: els.searchScope.value,
+        sellerIntent: els.sellerIntent?.value || 'general_b2b',
         mode: els.runMode.value,
         enrichCompanyProfile: true,
       }),
@@ -545,7 +547,7 @@ function renderDetail(lead) {
         ['Place ID', places.placeId || 'unknown'],
         ['Reviews', places.reviewCount ?? 'unknown'],
       ])}
-      ${sourceCard('Website audit', website.auditStatus || 'available', [
+      ${sourceCard('Digital presence check', website.auditStatus || 'available', [
         ['Contactability', website.contactability || 'unknown'],
         ['Top signal', (website.topEvidence || [])[0] || 'none'],
         ['CTA profile', website.ctaProfile ? 'available' : 'unknown'],
@@ -597,6 +599,9 @@ function renderDetail(lead) {
     ]))}
     ${candidateSection(company)}
     ${section('Lead intelligence', kv([
+      ['Seller intent', humanize(lead.sellerFit?.sellerIntent || state.result?.summary?.sellerIntent || 'general_b2b')],
+      ['Seller fit', humanize(lead.sellerFit?.sellerFit || 'unknown')],
+      ['Recommended action', humanize(lead.sellerFit?.recommendedAction || 'unknown')],
       ['Lead class', humanize(lead.leadClass || 'unknown')],
       ['Opportunity', humanize(lead.opportunityType || 'unknown')],
       ['Sales ease', readable(ranking.salesEase || 'unknown')],
@@ -755,7 +760,7 @@ function deepEnrichmentModules(lead, command) {
     { name: 'Social/source signals', status: 'not_enabled', summary: 'Later module: Facebook, LinkedIn, news and public source links.' },
     { name: 'Decision makers', status: 'not_enabled', summary: 'Later module: public role/contact hints when available.' },
     { name: 'Recent activity', status: 'not_enabled', summary: 'Later module: hiring, news, website updates and public activity.' },
-    { name: 'Seller leverage summary', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Uses current contact, company, location and source signals.' },
+    { name: 'Seller fit summary', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Uses seller intent plus contact, company, location and source signals.' },
   ]
   return `<details class="detail-collapse enrichment-modules">
     <summary>Deep enrichment modules</summary>
@@ -825,15 +830,15 @@ function sellerDeskCards(lead, command) {
     ['Presence', sourceQuality.presenceSource || places.provider || 'unknown'],
   ]
   const actionRows = [
-    ['Call status', command.sellerReadiness],
-    ['Website opportunity', command.websiteOpportunity],
+    ['Fit', command.sellerReadiness],
+    ['Digital presence', command.websiteOpportunity],
     ['Next action', command.nextAction],
     ['Main risk', command.mainRisk],
   ]
   const qualificationRows = [
     ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Deep enriched'],
-    ['Call status', command.sellerReadiness],
-    ['Website opportunity', command.websiteOpportunity],
+    ['Fit', command.sellerReadiness],
+    ['Digital presence', command.websiteOpportunity],
     ['Main risk', command.mainRisk],
     ['Source confidence', command.sourceConfidence],
   ]
@@ -919,8 +924,8 @@ function sellerCommand(lead) {
   if (!hasPhone) sellerScore -= 3
   if (!exactLocation) sellerScore -= 2
 
-  const sellerReadinessKey = sellerScore >= 10 ? 'strong' : sellerScore >= 7 ? 'good' : sellerScore >= 4 ? 'verify' : 'weak'
-  const sellerReadiness = {
+  let sellerReadinessKey = sellerScore >= 10 ? 'strong' : sellerScore >= 7 ? 'good' : sellerScore >= 4 ? 'verify' : 'weak'
+  let sellerReadiness = {
     strong: 'Ready now',
     good: 'Usable contact',
     verify: 'Verify first',
@@ -928,16 +933,16 @@ function sellerCommand(lead) {
   }[sellerReadinessKey]
 
   const websiteOpportunity = {
-    high: 'High website opportunity',
-    medium: 'Medium website opportunity',
-    low: 'Low website opportunity',
+    high: 'Strong digital signal',
+    medium: 'Medium digital signal',
+    low: 'Low digital signal',
     verify: fast ? 'Not checked yet' : 'Needs review',
   }[priority] || 'Needs review'
   const websiteOpportunityNote = fast
     ? 'Fast mode has not audited the website yet.'
     : priority === 'low'
-      ? 'Website audit did not find strong website pain; this can still be a usable B2B lead.'
-      : 'Website/audit signals can inform the sales angle if relevant.'
+      ? 'Digital presence did not show strong pain; this can still be a usable B2B lead.'
+      : 'Digital presence signals can support the seller if relevant.'
 
   const bestContact = hasPhone ? (contact.phone || lead.phone) : (contact.email || lead.email || 'unknown')
   const bestContactNote = hasPhone ? 'Direct phone is available.' : contact.email ? 'Email exists, phone missing.' : 'Find a direct contact before sales work.'
@@ -973,8 +978,8 @@ function sellerCommand(lead) {
     nextAction = confirmedOrg ? 'Enrich if more context is needed' : candidateOrg ? 'Verify org.nr, then enrich if needed' : brregUnavailable ? 'Retry Brreg before export' : 'Enrich if needed'
     nextActionNote = 'Fast found a usable candidate; enrichment adds optional context modules.'
   } else if (priority === 'low' && sellerReadinessKey !== 'weak') {
-    nextAction = 'Usable lead; weak website angle'
-    nextActionNote = 'Do not treat LOW website opportunity as a bad business lead.'
+    nextAction = 'Usable lead; weak digital angle'
+    nextActionNote = 'Do not treat LOW digital signal as a bad business lead.'
   } else if (priority === 'high') {
     nextAction = 'Review first'
     nextActionNote = 'Enrichment evidence supports website/opportunity urgency.'
@@ -983,10 +988,39 @@ function sellerCommand(lead) {
   const sourceConfidence = discoveryLevel === 'unknown' ? 'Unknown' : readable(discoveryLevel)
   const sourceConfidenceNote = discoveryQuality.score == null ? 'No discovery score available.' : `Discovery score ${discoveryQuality.score}/100.`
 
-  const headline = verification
+  const fit = lead.sellerFit || null
+  if (fit) {
+    if (fit.sellerFit === 'strong') sellerReadiness = 'Strong fit'
+    else if (fit.sellerFit === 'good') sellerReadiness = 'Good fit'
+    else if (fit.sellerFit === 'review') sellerReadiness = 'Review fit'
+    else sellerReadiness = 'Weak fit'
+    sellerReadinessKey = fit.sellerFit === 'review' ? 'verify' : fit.sellerFit
+    if (fit.recommendedAction === 'contact') nextAction = 'Contact now'
+    else if (fit.recommendedAction === 'verify') nextAction = 'Verify first'
+    else if (fit.recommendedAction === 'find_contact') nextAction = 'Find contact first'
+    else if (fit.recommendedAction === 'enrich') nextAction = 'Enrich if needed'
+    else if (fit.recommendedAction === 'skip') nextAction = 'Skip or deprioritize'
+    nextActionNote = (fit.fitReasons || []).slice(0, 2).join(' · ') || nextActionNote
+  }
+
+  const headline = fit ? `${sellerIntentLabel(fit.sellerIntent)} · ${sellerReadiness}` : verification
   const summary = buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority, websiteOpportunity })
 
   return { headline, summary, callReadiness: sellerReadiness, readinessKey: sellerReadinessKey, sellerReadiness, sellerReadinessKey, websiteOpportunity, websiteOpportunityNote, bestContact, bestContactNote, companyFit, companyFitNote, verification, verificationNote, mainRisk, mainRiskNote, nextAction, nextActionNote, sourceConfidence, sourceConfidenceNote }
+}
+
+function sellerIntentLabel(value) {
+  return {
+    general_b2b: 'General B2B',
+    web_it: 'Web/IT',
+    ads_marketing: 'Ads/marketing',
+    telecom: 'Telecom',
+    accounting: 'Accounting',
+    insurance: 'Insurance',
+    finance: 'Finance',
+    recruiting: 'Recruiting',
+    other: 'Other',
+  }[String(value || 'general_b2b')] || 'General B2B'
 }
 
 function buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority, websiteOpportunity }) {
@@ -999,7 +1033,7 @@ function buildCommandSummary({ company, contact, places, confirmedOrg, candidate
   if (places.rating) parts.push(`Google rating ${places.rating}/5`)
   if (exactLocation) parts.push('location matches the search')
   if (fast) parts.push(contact.website ? 'website URL is unverified until enrichment runs' : 'deeper enrichment has not run yet')
-  else parts.push(`website opportunity is ${websiteOpportunity || String(priority || 'unknown').toUpperCase()}`)
+  else parts.push(`digital presence signal is ${websiteOpportunity || String(priority || 'unknown').toUpperCase()}`)
   return `${parts.join('; ')}.`
 }
 
@@ -1125,8 +1159,8 @@ function leverageLabel(value) {
   if (isInternalLabel(text)) return null
   if (text.includes('brand_identity_confusion') || text.includes('brand identity confusion')) return 'Brand/domain alignment may be unclear. Verify that the company name, website and legal entity point to the same business.'
   if (text === 'brand_identity' || text.includes('leadclass:brand_identity')) return 'Identity signal: verify whether the public brand and legal firm name are aligned.'
-  if (text.includes('technical_trust_risk') || text.includes('technical trust')) return 'Website trust or reliability signals may be weaker than the business itself.'
-  if (text.includes('many_failed_requests') || text.includes('failed network')) return 'Website reliability evidence exists; verify before using it as a sales point.'
+  if (text.includes('technical_trust_risk') || text.includes('technical trust')) return 'Digital trust or reliability signals may be weaker than the business itself.'
+  if (text.includes('many_failed_requests') || text.includes('failed network')) return 'Digital reliability evidence exists; verify before using it as a sales point.'
   if (text.includes('accessibility') || text.includes('usability')) return 'Usability/accessibility friction may affect customer confidence.'
   if (text.includes('high_value_service') || text.includes('service_line')) return 'High-value services are present and may deserve clearer lead paths.'
   if (text.includes('local_visibility')) return 'Local visibility lead: contact and location are clear, but urgency may be lower without stronger pain.'
@@ -1161,7 +1195,7 @@ function nextSellerStep(lead) {
   if (match === 'manual_verify' || match === 'weak_match') return 'Verify company identity first'
   if (priority === 'high') return 'Review first'
   if (priority === 'medium') return 'Shortlist and inspect evidence'
-  if (priority === 'low') return 'Usable lead; weak website angle'
+  if (priority === 'low') return 'Usable lead; weak digital angle'
   if (priority === 'verify') return 'Manual verification required'
   return 'Review source data'
 }
@@ -1309,6 +1343,7 @@ async function runSelectedDeepQualification(button) {
       body: JSON.stringify({
         query: state.result?.parsedQuery?.normalizedQuery || els.query.value.trim(),
         lead,
+        sellerIntent: els.sellerIntent?.value || state.result?.summary?.sellerIntent || 'general_b2b',
         enrichCompanyProfile: true,
       }),
     })

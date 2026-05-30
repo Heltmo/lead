@@ -79,7 +79,7 @@ The profession selector is a controlled list of supported verticals. The locatio
 ## Fast Scan vs Deep Enrich
 
 - `Fast scan` is the default for daily use. It runs broad discovery, location quality, Brreg identity enrichment, Google Places presence, and basic contact context without a full website audit.
-- `Deep enrich` upgrades one selected lead with enrichment modules. V1 refreshes Brreg/company identity, contactability, seller leverage summary, website audit status when a website exists, and tries to find email from the audited website/contact pages. Proff/economy is optional and only runs when a confirmed org.nr exists. Social/source signals, decision-maker hints, and recent activity remain planned modules.
+- `Deep enrich` upgrades one selected lead with enrichment modules. V1 refreshes Brreg/company identity, contactability, seller fit summary, website audit status when a website exists, and tries to find email from the audited website/contact pages. Proff/economy is optional and only runs when a confirmed org.nr exists. Social/source signals, decision-maker hints, and recent activity remain planned modules.
 - Use Fast scan for 10-25 candidate scans, then enrich only the leads where extra context is worth the wait.
 
 Recommended workflow:
@@ -89,7 +89,7 @@ Recommended workflow:
 3. Use `Enrich selected lead` on one promising candidate. This enriches only the selected lead and replaces that card while the rest of the list stays as Fast candidates.
 4. Export the lead pack once the lead has enough context for seller review.
 
-Fast results are candidates, not final verdicts. Deep enrichment is per lead: it upgrades one selected candidate with extra modules without rerunning the full search. Website audit is only one enrichment module and is skipped cleanly when no website exists. A contactable, active, correctly located company can still be a useful B2B lead even when website opportunity is low.
+Fast results are candidates, not final verdicts. Deep enrichment is per lead: it upgrades one selected candidate with extra modules without rerunning the full search. Website audit is only one enrichment module and is skipped cleanly when no website exists. A contactable, active, correctly located company can still be a useful B2B lead even when digital presence is not the main opportunity.
 
 ## What It Does
 
@@ -198,6 +198,15 @@ Deep is now the selected-lead intelligence layer, not just a website audit butto
 - social/source signals such as Facebook, LinkedIn, news, and public links
 - decision-maker hints from public firm/source data
 - company size/fit and recent activity
-- seller leverage summary based on evidence and caution
+- seller fit summary based on evidence and caution
 
 Lead Machine remains the source of truth. Planned modules should append context and warnings, not replace confirmed data or generate outreach scripts.
+
+
+## Seller Intent / Seller Fit
+
+The demo includes a `Hva selger du?` selector. It lets the seller choose a context such as General B2B, Web/IT, Ads/marketing, Telecom, Accounting, Insurance, Finance, Recruiting, or Other.
+
+The selector does not change source truth from Google Places, Brreg, Proff, or website data. It changes how the lead is interpreted: phone, org.nr, employees, location, Google proof, digital presence, and risk are weighted differently depending on what the seller sells.
+
+Seller-fit fields are added to the lead JSON/CSV exports.

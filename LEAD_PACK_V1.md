@@ -53,7 +53,7 @@ Lead packs support two practical states:
 - Fast scan candidate: enough identity/contact/source context for a seller to shortlist quickly, with website audit skipped and uncertainty exposed.
 - Deep enriched lead: one selected lead upgraded with additional modules such as website audit, deeper Brreg verification, contactability refresh, evidence, caution, and later Proff/social/recent activity.
 
-Deep enrichment should update the selected lead pack only. It should not reclassify the whole run by default, and it should not make website pain the only definition of lead quality. A company can be a strong generic B2B sales lead even if website opportunity is low.
+Deep enrichment should update the selected lead pack only. It should not reclassify the whole run by default, and it should not make website pain the only definition of lead quality. A company can be a strong generic B2B sales lead even if digital presence is not the main opportunity.
 
 ## Lead Pack Fields
 
@@ -100,7 +100,7 @@ Target lead object:
 - enrichmentStatus
 - enrichmentModules[]
 - sellerReadiness
-- websiteOpportunity
+- digitalPresenceSignal
 - last checked at
 
 ## Example Lead Pack
@@ -137,7 +137,7 @@ rating: 4.8
 review count: 55
 contactability summary: phone and email found; visible contact/booking path detected
 CTA/contact profile: phone | email | contact_link | booking_link | emergency_call
-why ranked: Technical trust and reliability evidence on a contactable local clinic.
+why ranked: Contactable local clinic with usable company/contact context and digital presence evidence.
 evidence bullets:
   - Failed network requests detected
   - Serious accessibility/usability findings detected
@@ -339,3 +339,17 @@ The pilot should remain small, manual, and honest. The lead pack should become t
 ## Search Scope
 
 See `SEARCH_SCOPE_V1.md` for strict/nearby/regional fallback behavior and low-supply metadata.
+
+
+## Seller Fit V1
+
+Lead packs can now carry seller-fit context:
+
+- sellerIntent
+- sellerFit
+- recommendedAction
+- fitReasons
+- riskReasons
+- importantSignals
+
+This makes Lead Machine more general than the original website-audit direction. Digital presence remains one enrichment signal. The lead pack should answer whether this company is worth the seller's time for their sales motion, not only whether the website looks weak.

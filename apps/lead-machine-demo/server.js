@@ -7,6 +7,7 @@ const { runLeadPack } = require('../../core/lead-pack-runner/leadPackRunner')
 const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
 const { enrichProffCompany } = require('../../core/company-profile/proffProvider')
 const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
+const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-fit/sellerFit')
 const { parseLeadQuery } = require('./queryParser')
 
 const DEFAULT_PORT = Number(process.env.PORT || 8787)
@@ -66,6 +67,7 @@ async function handleRun(req, res, context) {
   const provider = ['demo-fixture', 'google-places', 'brreg', 'balanced', 'mock'].includes(body.provider) ? body.provider : 'balanced'
   const searchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'strict'
   const mode = ['fast', 'deep'].includes(body.mode) ? body.mode : 'fast'
+  const sellerIntent = normalizeSellerIntent(body.sellerIntent)
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
   const runId = createSafeRunId(parsedQuery.normalizedQuery)
   const outputDir = path.join(context.runsDir, runId)
@@ -77,6 +79,7 @@ async function handleRun(req, res, context) {
       parsedQuery,
       maxResults,
       searchScope,
+      sellerIntent,
       enrichCompanyProfile,
       outputDir,
       runId,
@@ -88,6 +91,7 @@ async function handleRun(req, res, context) {
       maxResults,
       searchScope,
       enrichCompanyProfile,
+      sellerIntent,
       mode,
       outputDir,
       runId,
@@ -99,7 +103,9 @@ async function handleRun(req, res, context) {
   const leadPackSummaryPath = path.join(leadPackOutputPath, 'summary.json')
   const csvPath = path.join(leadPackOutputPath, 'lead-packs.csv')
   const machineSummaryPath = result.summaryPath || path.join(outputDir, 'lead-machine-summary.json')
-  context.runIndex.set(runId, { outputDir, leadPackOutputPath, csvPath, leadPacksPath, machineSummaryPath })
+  writeSummarySellerIntent(machineSummaryPath, sellerIntent)
+  writeSummarySellerIntent(leadPackSummaryPath, sellerIntent)
+  context.runIndex.set(runId, { outputDir, leadPackOutputPath, csvPath, leadPacksPath, machineSummaryPath, sellerIntent })
 
   return json(res, 200, buildRunPayload({
     runId,
@@ -110,6 +116,7 @@ async function handleRun(req, res, context) {
     leadPackSummaryPath,
     machineSummaryPath,
     workflowPath: context.workflowPath,
+    sellerIntent,
     machineSummaryOverride: result.summary,
   }))
 }
@@ -134,10 +141,17 @@ async function handleLatestRun(res, context) {
   }))
 }
 
-function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, leadPacksPath, leadPackSummaryPath, machineSummaryPath, workflowPath, machineSummaryOverride }) {
-  const leadPacks = attachWorkflowToLeads(readJsonFile(leadPacksPath, []), readWorkflowStore(workflowPath))
+function writeSummarySellerIntent(filePath, sellerIntent) {
+  const summary = readJsonFile(filePath, null)
+  if (!summary || typeof summary !== 'object') return
+  fs.writeFileSync(filePath, JSON.stringify({ ...summary, sellerIntent: normalizeSellerIntent(sellerIntent) }, null, 2))
+}
+
+function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, leadPacksPath, leadPackSummaryPath, machineSummaryPath, workflowPath, sellerIntent, machineSummaryOverride }) {
   const leadPackSummary = readJsonFile(leadPackSummaryPath, {})
   const machineSummary = machineSummaryOverride || readJsonFile(machineSummaryPath, {})
+  const normalizedSellerIntent = normalizeSellerIntent(sellerIntent || machineSummary.sellerIntent || leadPackSummary.sellerIntent)
+  const leadPacks = attachSellerFitToLeads(attachWorkflowToLeads(readJsonFile(leadPacksPath, []), readWorkflowStore(workflowPath)), normalizedSellerIntent)
   const normalizedQuery = parsedQuery?.normalizedQuery || machineSummary.query || leadPacks[0]?.meta?.sourceQuery || ''
   return {
     runId,
@@ -154,7 +168,7 @@ function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, le
       callListFollowUps: `/api/runs/${runId}/call-list.csv?view=followUpDue`,
       callListInterested: `/api/runs/${runId}/call-list.csv?view=interested`,
     },
-    summary: { ...leadPackSummary, ...machineSummary },
+    summary: { ...leadPackSummary, ...machineSummary, sellerIntent: normalizedSellerIntent },
     leadPacks,
   }
 }
@@ -183,9 +197,10 @@ async function handleDeepQualify(req, res, context) {
   const lead = body.lead && typeof body.lead === 'object' ? body.lead : null
   if (!lead) return json(res, 400, { error: 'Lead is required' })
   const query = String(body.query || lead.meta?.sourceQuery || '').trim() || 'selected lead'
+  const sellerIntent = normalizeSellerIntent(body.sellerIntent || lead.sellerFit?.sellerIntent)
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
   const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir })
-  if (result && result.leadPack) result.leadPack = attachWorkflowToLeads([result.leadPack], readWorkflowStore(context.workflowPath))[0]
+  if (result && result.leadPack) result.leadPack = attachSellerFitToLeads(attachWorkflowToLeads([result.leadPack], readWorkflowStore(context.workflowPath)), sellerIntent)[0]
   return json(res, 200, result)
 }
 
@@ -649,7 +664,7 @@ function deepCaution({ company, websiteStatus, economy }) {
   ].filter(Boolean)
 }
 
-function createDemoFixtureRun({ parsedQuery, maxResults, searchScope, enrichCompanyProfile, outputDir, runId }) {
+function createDemoFixtureRun({ parsedQuery, maxResults, searchScope, sellerIntent, enrichCompanyProfile, outputDir, runId }) {
   const fixture = readJsonFile(DEMO_FIXTURE_PATH, null)
   if (!fixture) throw new Error('Demo fixture data is missing')
 
@@ -657,8 +672,8 @@ function createDemoFixtureRun({ parsedQuery, maxResults, searchScope, enrichComp
   fs.mkdirSync(leadPackOutputPath, { recursive: true })
 
   const allLeadPacks = Array.isArray(fixture.leadPacks) ? fixture.leadPacks : []
-  const leadPacks = allLeadPacks.slice(0, maxResults).map((lead) => withDemoRunMetadata(lead, parsedQuery, searchScope, enrichCompanyProfile))
-  const summary = buildDemoSummary(fixture.summary || {}, leadPacks, parsedQuery, maxResults, searchScope, enrichCompanyProfile, outputDir, leadPackOutputPath)
+  const leadPacks = attachSellerFitToLeads(allLeadPacks.slice(0, maxResults).map((lead) => withDemoRunMetadata(lead, parsedQuery, searchScope, enrichCompanyProfile)), sellerIntent)
+  const summary = buildDemoSummary(fixture.summary || {}, leadPacks, parsedQuery, maxResults, searchScope, sellerIntent, enrichCompanyProfile, outputDir, leadPackOutputPath)
 
   fs.writeFileSync(path.join(leadPackOutputPath, 'lead-packs.json'), JSON.stringify(leadPacks, null, 2))
   fs.writeFileSync(path.join(leadPackOutputPath, 'lead-packs.csv'), toLeadPackCsv(leadPacks))
@@ -711,7 +726,7 @@ function withDemoRunMetadata(lead, parsedQuery, searchScope, enrichCompanyProfil
   return copy
 }
 
-function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searchScope, enrichCompanyProfile, outputDir, leadPackOutputPath) {
+function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searchScope, sellerIntent, enrichCompanyProfile, outputDir, leadPackOutputPath) {
   const priorityCounts = leadPacks.reduce((counts, lead) => {
     const key = String(lead.callPriority || 'unknown').toLowerCase()
     counts[key] = (counts[key] || 0) + 1
@@ -739,6 +754,7 @@ function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searc
     query: parsedQuery.normalizedQuery,
     provider: 'demo-fixture',
     searchScope,
+    sellerIntent: normalizeSellerIntent(sellerIntent),
     maxResults,
     sourceRunPath: 'demo-fixture',
     leadPackOutputPath,
@@ -765,7 +781,7 @@ function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searc
 }
 
 function toLeadPackCsv(leadPacks) {
-  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'workflowStatus', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextAction', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
+  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'sellerIntent', 'sellerFit', 'sellerRecommendedAction', 'fitReasons', 'riskReasons', 'workflowStatus', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextAction', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
   const rows = leadPacks.map((lead) => {
     const workflow = normalizeWorkflow(lead.workflow || {})
     return [
@@ -780,6 +796,11 @@ function toLeadPackCsv(leadPacks) {
       lead.callPriority,
       lead.leadClass,
       lead.company && lead.company.matchStatus,
+      lead.sellerFit && lead.sellerFit.sellerIntent,
+      lead.sellerFit && lead.sellerFit.sellerFit,
+      lead.sellerFit && lead.sellerFit.recommendedAction,
+      lead.sellerFit && Array.isArray(lead.sellerFit.fitReasons) ? lead.sellerFit.fitReasons.join(' | ') : '',
+      lead.sellerFit && Array.isArray(lead.sellerFit.riskReasons) ? lead.sellerFit.riskReasons.join(' | ') : '',
       workflow.status,
       workflow.contacted ? 'yes' : 'no',
       workflow.channel,
@@ -809,14 +830,16 @@ function handleRunFile(url, res, runIndex, workflowPath) {
   const run = runIndex.get(runId)
   if (!run) return json(res, 404, { error: 'Run not found in this server session' })
   if (file === 'lead-packs.csv' || file === 'call-list.csv') {
-    const leads = attachWorkflowToLeads(readJsonFile(run.leadPacksPath, []), readWorkflowStore(workflowPath))
+    const summary = readJsonFile(run.machineSummaryPath, {})
+    const leads = attachSellerFitToLeads(attachWorkflowToLeads(readJsonFile(run.leadPacksPath, []), readWorkflowStore(workflowPath)), run.sellerIntent || summary.sellerIntent)
     const csvLeads = file === 'call-list.csv' ? filterCallListLeads(leads, url.searchParams.get('view') || 'all') : leads
     res.writeHead(200, { 'content-type': 'text/csv' })
     res.end(toLeadPackCsv(csvLeads))
     return
   }
   if (file === 'lead-packs.json') {
-    return json(res, 200, attachWorkflowToLeads(readJsonFile(run.leadPacksPath, []), readWorkflowStore(workflowPath)))
+    const summary = readJsonFile(run.machineSummaryPath, {})
+    return json(res, 200, attachSellerFitToLeads(attachWorkflowToLeads(readJsonFile(run.leadPacksPath, []), readWorkflowStore(workflowPath)), run.sellerIntent || summary.sellerIntent))
   }
   if (file === 'summary.json') return serveFile(res, run.machineSummaryPath, 'application/json')
   return json(res, 404, { error: 'Run file not found' })
@@ -846,6 +869,16 @@ async function handleWorkflowPost(req, res, workflowPath) {
   store.leads[leadId] = workflow
   writeWorkflowStore(workflowPath, store)
   return json(res, 200, { workflow })
+}
+
+function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b') {
+  const normalizedSellerIntent = normalizeSellerIntent(sellerIntent)
+  return (Array.isArray(leadPacks) ? leadPacks : []).map((lead) => {
+    const copy = JSON.parse(JSON.stringify(lead || {}))
+    copy.sellerFit = evaluateSellerFit(copy, normalizedSellerIntent)
+    copy.meta = { ...(copy.meta || {}), sellerIntent: normalizedSellerIntent }
+    return copy
+  })
 }
 
 function attachWorkflowToLeads(leadPacks, store) {

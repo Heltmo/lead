@@ -33,3 +33,8 @@ Location quality is now part of lead discovery and lead-pack output. User query 
 ## Lead Machine Runner
 
 `core/lead-machine/` provides the first single-command product flow: discovery, orchestrator audit, and seller-ready lead-pack packaging. It preserves search scope/location quality metadata and keeps Proff/outreach/frontend out of V1.
+
+
+## Seller Fit
+
+`core/seller-fit/` interprets existing lead-pack data through a seller intent. It keeps Lead Machine general-purpose: website audit is a digital-presence signal, while seller fit decides whether a lead is useful for a given B2B sales motion.

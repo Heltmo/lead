@@ -1,0 +1,117 @@
+# Seller Fit V1
+
+Lead Machine is now being reframed as a general B2B seller workflow tool. Website audit remains useful, but it is one digital-presence signal, not the product core.
+
+## Product Boundary
+
+Machine provides:
+
+- discovery
+- company/contact data
+- enrichment
+- ranking
+- evidence
+- caution
+- workflow structure
+- seller-fit interpretation
+- export
+
+Seller owns:
+
+- angle
+- wording
+- outreach
+- timing
+- relationship
+- close
+
+No sales scripts, call openers, email automation, or auto-outreach are generated in V1.
+
+## Seller Intent
+
+The seller can choose what they sell:
+
+- `general_b2b`
+- `web_it`
+- `ads_marketing`
+- `telecom`
+- `accounting`
+- `insurance`
+- `finance`
+- `recruiting`
+- `other`
+
+Seller intent does not change raw truth data. It changes which signals are considered important for seller fit.
+
+## Seller Fit Output
+
+`core/seller-fit/` returns:
+
+```json
+{
+  "sellerIntent": "general_b2b",
+  "sellerFit": "strong",
+  "score": 12,
+  "fitReasons": [],
+  "riskReasons": [],
+  "importantSignals": [],
+  "recommendedAction": "contact"
+}
+```
+
+Allowed `sellerFit` values:
+
+- `strong`
+- `good`
+- `review`
+- `weak`
+
+Allowed `recommendedAction` values:
+
+- `contact`
+- `review`
+- `verify`
+- `find_contact`
+- `enrich`
+- `skip`
+
+## V1 Rules
+
+General B2B weights:
+
+- direct phone improves fit
+- confirmed/candidate org.nr improves fit
+- exact location improves fit
+- active company improves fit
+- Google rating/reviews improve fit
+- missing phone, uncertain identity, wrong location, and low source confidence reduce fit
+
+Intent-specific weighting:
+
+- `web_it`: digital presence issues matter more
+- `ads_marketing`: Google presence, reviews, website/social presence matter more
+- `telecom`: phone, company size, active business, and branch/location context matter more
+- `accounting`, `finance`, `insurance`: legal identity, company form, employees, and economy readiness matter more
+- `recruiting`: employees, company size, and growth/activity matter more
+
+## UI Language
+
+Prominent UI language should use general seller terms:
+
+- Contactability
+- Company identity
+- Company fit
+- Market proof
+- Sales signals
+- Risk / verify
+- Workflow
+- Digital presence
+
+Avoid making website weakness the main reason a lead is good. Digital presence belongs under enrichment/context.
+
+## Next Steps
+
+- Persist seller intent per user/workspace once storage exists.
+- Use seller fit in call queue sorting.
+- Add market context later for territory intelligence.
+- Add Proff/economy only behind confirmed org.nr.

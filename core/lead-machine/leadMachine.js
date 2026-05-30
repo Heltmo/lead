@@ -186,7 +186,7 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
   const whyRanked = [
     'Fast mode lead: local discovery and contact data only.',
     candidate.phone ? 'Phone available from discovery source.' : null,
-    candidate.website ? 'Website URL is unverified until Deep audit confirms it.' : null,
+    candidate.website ? 'Website URL is unverified until enrichment confirms it.' : null,
     candidate.rating ? `Google rating ${candidate.rating}${candidate.reviewCount ? ` from ${candidate.reviewCount} reviews` : ''}.` : null,
     candidate.discoveryQuality?.level ? `Discovery confidence: ${candidate.discoveryQuality.level}.` : null,
     companyProfile?.matchStatus ? `companyProfile:${companyProfile.matchStatus}` : null,
@@ -221,7 +221,7 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
     website: {
       auditStatus: 'skipped_fast_mode',
       topEvidence: [
-        candidate.website ? 'Website URL from discovery; not verified and may be parked/wrong until Deep audit runs.' : 'No website URL found in discovery.',
+        candidate.website ? 'Website URL from discovery; not verified and may be parked/wrong until enrichment runs.' : 'No website URL found in discovery.',
         candidate.phone ? 'Phone found in discovery source.' : 'Phone not found in discovery source.',
       ],
       contactability,

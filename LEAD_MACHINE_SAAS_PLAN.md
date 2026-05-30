@@ -272,7 +272,7 @@ Deep enrichment modules should evolve toward:
 - social/source signals
 - decision-maker hints from public records/sources
 - recent activity and company-size/fit signals
-- seller leverage summary based on evidence and caution
+- seller fit summary based on evidence and caution
 
 Deep must not generate sales scripts, call openers, or outreach automation.
 
@@ -347,3 +347,10 @@ It is not a production SaaS frontend and does not add Proff, backend services, a
 `apps/lead-machine-demo/` is the first browser-driven local app where a user can type a query such as `Kristiansand rørlegger` and run the existing Lead Machine flow. The local backend calls `core/lead-machine` directly instead of shelling out, then returns run summary, lead packs, CSV/JSON download links, and output paths to the browser.
 
 This is not full SaaS. It does not add auth, database, Proff, saved searches, CRM, scoring changes, or outreach automation. Its purpose is to demonstrate the live product loop: user query -> lead-machine run -> ranked lead packs.
+
+
+### Seller Intent / Seller Fit V1
+
+Lead Machine is being reframed as a general B2B seller workflow tool. Website audit is one digital-presence enrichment module, not the product core.
+
+`core/seller-fit/` interprets each lead through a seller intent such as `general_b2b`, `web_it`, `ads_marketing`, `telecom`, `accounting`, `insurance`, `finance`, or `recruiting`. It returns seller fit, fit reasons, risk reasons, important signals, and recommended action without changing raw truth data or generating outreach scripts.
