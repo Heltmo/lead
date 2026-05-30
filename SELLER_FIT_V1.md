@@ -109,9 +109,14 @@ Prominent UI language should use general seller terms:
 
 Avoid making website weakness the main reason a lead is good. Digital presence belongs under enrichment/context.
 
+## Call Queue Use
+
+Seller fit is now used by the live demo when ranking the call queue. Follow-ups and interested leads still stay urgent, but new leads are ordered by seller fit, recommended action, contactability, org identity, location quality, and market proof. This makes `Call queue first` answer the practical seller question: who should I work next for the thing I sell?
+
+The separate `Seller fit first` sort lets a seller inspect fit ranking directly without changing raw lead data.
+
 ## Next Steps
 
 - Persist seller intent per user/workspace once storage exists.
-- Use seller fit in call queue sorting.
 - Add market context later for territory intelligence.
 - Add Proff/economy only behind confirmed org.nr.

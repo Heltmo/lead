@@ -255,7 +255,7 @@ function renderLeads(visibleLeads) {
     const queueAction = leadQueueActionLabel(lead)
     return `
       <button class="lead-card ${id === state.selectedLeadId ? 'active' : ''}" type="button" data-index="${index}" data-id="${escapeAttr(id)}">
-        <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
+        <div class="badge-row">${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
         <p class="queue-action"><strong>Next:</strong> ${escapeHtml(queueAction)}</p>
@@ -345,6 +345,7 @@ function leadSortScore(lead, sortKey) {
   if (sortKey === 'employees') return Number(company.employees || 0)
   if (sortKey === 'discovery') return Number(discovery.score || 0)
   if (sortKey === 'followUp') return followUpSortScore(lead)
+  if (sortKey === 'sellerFit') return sellerFitSortScore(lead)
   if (sortKey === 'callQueue') return callQueueSortScore(lead)
   return bestLeadScore(lead)
 }
@@ -366,6 +367,11 @@ function callQueueSortScore(lead) {
   if (sourceQuality.locationMatchStatus === 'exact_location') score += 50
   if (websiteValue(contact.website || lead.website)) score += 20
   if (isFastLead(lead)) score += 15
+  score += sellerFitSortScore(lead)
+  if (sellerRecommendedAction(lead) === 'contact') score += 120
+  if (sellerRecommendedAction(lead) === 'verify') score += 35
+  if (sellerRecommendedAction(lead) === 'find_contact') score -= 180
+  if (sellerRecommendedAction(lead) === 'skip') score -= 500
   return score
 }
 
@@ -384,6 +390,41 @@ function bestLeadScore(lead) {
   score += Number(places.rating || 0)
   if (isFastLead(lead)) score += 1
   return score
+}
+
+function sellerFitSortScore(lead) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const places = lead.places || {}
+  const sourceQuality = lead.sourceQuality || {}
+  let score = sellerFitValue(lead) * 100
+  score += sellerRecommendedActionScore(lead)
+  if (contact.phone || lead.phone) score += 35
+  else score -= 60
+  if (company.organizationNumber) score += 25
+  else if (company.candidateOrganizationNumber) score += 12
+  if (sourceQuality.locationMatchStatus === 'exact_location') score += 20
+  if (websiteValue(contact.website || lead.website)) score += 8
+  score += Math.min(Number(places.reviewCount || 0), 100) / 10
+  return score
+}
+
+function sellerFitValue(lead) {
+  return { strong: 4, good: 3, review: 2, weak: 0 }[String(lead.sellerFit?.sellerFit || '').toLowerCase()] ?? 1
+}
+
+function sellerRecommendedAction(lead) {
+  return String(lead.sellerFit?.recommendedAction || '').toLowerCase()
+}
+
+function sellerRecommendedActionScore(lead) {
+  return { contact: 90, verify: 35, enrich: 20, review: 10, find_contact: -50, skip: -200 }[sellerRecommendedAction(lead)] || 0
+}
+
+function sellerFitBadge(lead) {
+  const fit = String(lead.sellerFit?.sellerFit || '').toLowerCase()
+  if (!fit) return ''
+  return badge(`${fit}_fit`)
 }
 
 function workflowCounts(leads) {
@@ -475,6 +516,12 @@ function leadQueueActionLabel(lead) {
   if (workflow.status === 'rejected') return 'Rejected; keep out of call queue'
   if (isFollowUpDue(lead)) return `Follow up today: ${workflow.followUpDate}`
   if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return 'Interested: follow up'
+  const sellerAction = sellerRecommendedAction(lead)
+  if (sellerAction === 'contact' && hasPhone) return 'Call now'
+  if (sellerAction === 'verify') return 'Verify first'
+  if (sellerAction === 'find_contact') return 'Find contact first'
+  if (sellerAction === 'enrich') return 'Enrich if needed'
+  if (sellerAction === 'skip') return 'Skip/deprioritize'
   if (hasPhone && !workflow.contacted && !['contacted', 'follow_up'].includes(workflow.status)) return 'Call now'
   if (workflow.status === 'follow_up') return workflow.followUpDate ? `Follow up ${workflow.followUpDate}` : 'Follow up'
   if (['candidate_org', 'no_match', 'brreg_unavailable', 'not_run', 'manual_verify', 'weak_match'].includes(brregStatus)) return 'Verify company identity'
@@ -1042,17 +1089,26 @@ function sellerIntentLabel(value) {
 }
 
 function buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority, websiteOpportunity }) {
+  const activity = businessActivityLabel(company)
   const parts = []
-  if (confirmedOrg) parts.push(`Legal identity is confirmed${company.organizationNumber ? ` (${company.organizationNumber})` : ''}`)
-  else if (candidateOrg) parts.push('Legal identity has a candidate match but needs manual verification')
-  else parts.push('Legal identity is not verified')
-  if (contact.phone) parts.push(`phone ${contact.phone} is available`)
-  if (employees) parts.push(`${employees} employees registered`)
-  if (places.rating) parts.push(`Google rating ${places.rating}/5`)
+  if (activity) parts.push(`Registered as ${activity}`)
+  if (contact.phone) parts.push(`direct phone ${contact.phone} is available`)
+  if (employees != null && employees !== '' && !Number.isNaN(Number(employees))) parts.push(`${employees} employees registered`)
+  if (places.rating) parts.push(`Google ${places.rating}/5${places.reviewCount != null ? ` from ${places.reviewCount} reviews` : ''}`)
   if (exactLocation) parts.push('location matches the search')
-  if (fast) parts.push(contact.website ? 'website URL is unverified until enrichment runs' : 'deeper enrichment has not run yet')
+  if (confirmedOrg) parts.push(`org.nr is confirmed${company.organizationNumber ? ` (${company.organizationNumber})` : ''}`)
+  else if (candidateOrg) parts.push('org.nr has a candidate match and must be verified')
+  else parts.push('company identity is not verified yet')
+  if (fast) parts.push(contact.website ? 'website is only a presence signal until enrichment runs' : 'enrichment has not run yet')
   else parts.push(`digital presence signal is ${websiteOpportunity || String(priority || 'unknown').toUpperCase()}`)
   return `${parts.join('; ')}.`
+}
+
+function businessActivityLabel(company = {}) {
+  const nace = [company.naceCode, company.naceDescription].filter(Boolean).join(' - ')
+  if (nace) return nace
+  if (company.organizationForm) return readable(company.organizationForm)
+  return ''
 }
 
 function factCard(label, value, note) {
