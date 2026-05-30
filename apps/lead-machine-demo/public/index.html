@@ -36,12 +36,12 @@
         <input id="queryInput" value="rørlegger i Kristiansand" autocomplete="off">
       </label>
       <input id="provider" type="hidden" value="balanced">
-      <label><span>Mode</span><select id="runMode"><option value="fast">Fast scan</option><option value="deep">Deep enrich</option></select></label>
+      <input id="runMode" type="hidden" value="fast">
       <input id="maxResults" type="hidden" value="25">
-      <label><span>Scope</span><select id="searchScope"><option value="strict">strict</option><option value="nearby">nearby</option><option value="regional">regional</option></select></label>
+      <label><span>Område</span><select id="searchScope"><option value="strict">Kun valgt sted</option><option value="nearby">Nærområde</option><option value="regional">Regionalt</option></select></label>
       <input id="companyProfile" type="hidden" value="true">
       <button id="runButton" type="button">Kjør søk</button>
-      <p class="search-hint">Finn lokale bedrifter raskt. Velg én lead og berik den hvis du trenger mer kontekst før oppfølging.</p>
+      <p class="search-hint">Finn lokale bedrifter raskt. Berik valgt lead når du trenger mer kontekst.</p>
     </section>
 
     <section id="statusPanel" class="status-panel" hidden></section>

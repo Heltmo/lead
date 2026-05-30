@@ -174,7 +174,7 @@ Live runs are slower than the fixture because each included lead can trigger:
 4. lead-pack generation
 5. automatic Brreg company-profile lookup for non-Brreg-first candidates
 
-Use `Fast scan` for broad automatic scans. The local demo uses an internal cap of 25 leads so the seller does not need to choose a technical max-results value. Use selected-lead `Deep enrich` when one candidate needs more context. Brreg runs by default for seller-ready identity context.
+Searches now run as Fast scan by default from the top search bar. The seller should not choose a global Fast/Deep mode before searching; selected-lead enrichment is available on the lead card when one company needs more context. The local demo uses an internal cap of 25 leads so the seller does not need to choose a technical max-results value. Brreg runs by default for seller-ready identity context.
 
 Repeated Brreg/company-profile lookups use the local `.cache/company-profile/` file cache. Successful non-error matches are reused across runs for speed; failed Brreg lookups are not cached, so a later run can retry.
 
