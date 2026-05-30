@@ -62,40 +62,43 @@
       <aside class="lead-list">
         <div class="panel-title">Current call</div>
         <div id="workflowBoard" class="workflow-board empty">Run a search to build the next call.</div>
-        <div class="lead-controls">
-          <div class="queue-presets" aria-label="Queue presets">
-            <button type="button" class="queue-preset" data-queue-preset="callNow">Call now</button>
-            <button type="button" class="queue-preset" data-queue-preset="verify">Needs verification</button>
-            <button type="button" class="queue-preset" data-queue-preset="followUp">Follow-ups</button>
-            <button type="button" class="queue-preset" data-queue-preset="interested">Interested</button>
+        <details class="lead-controls advanced-lead-controls">
+          <summary>Filter / sort lead list</summary>
+          <div class="lead-controls-body">
+            <div class="queue-presets" aria-label="Queue presets">
+              <button type="button" class="queue-preset" data-queue-preset="callNow">Call now</button>
+              <button type="button" class="queue-preset" data-queue-preset="verify">Needs verification</button>
+              <button type="button" class="queue-preset" data-queue-preset="followUp">Follow-ups</button>
+              <button type="button" class="queue-preset" data-queue-preset="interested">Interested</button>
+            </div>
+            <label><span>Sort</span><select id="leadSort">
+              <option value="callQueue" selected>Call queue first</option>
+              <option value="sellerFit">Seller fit first</option>
+              <option value="best">Best first</option>
+              <option value="phone">Phone first</option>
+              <option value="confirmed">Confirmed org.nr</option>
+              <option value="reviews">Google reviews</option>
+              <option value="employees">Employees</option>
+              <option value="discovery">Discovery confidence</option>
+              <option value="followUp">Follow-up due</option>
+            </select></label>
+            <div class="filter-chips" aria-label="Lead filters">
+              <label><input type="checkbox" class="lead-filter" value="phone"> Phone</label>
+              <label><input type="checkbox" class="lead-filter" value="confirmed"> Confirmed org.nr</label>
+              <label><input type="checkbox" class="lead-filter" value="candidate"> Candidate org.nr</label>
+              <label><input type="checkbox" class="lead-filter" value="website"> Website</label>
+              <label><input type="checkbox" class="lead-filter" value="exact"> Exact location</label>
+              <label><input type="checkbox" class="lead-filter" value="needsDeep"> Needs enrichment</label>
+              <label><input type="checkbox" class="lead-filter" value="brregIssue"> Brreg issue</label>
+              <label><input type="checkbox" class="lead-filter" value="notContacted"> Not contacted</label>
+              <label><input type="checkbox" class="lead-filter" value="contacted"> Contacted</label>
+              <label><input type="checkbox" class="lead-filter" value="followUpDue"> Follow-up due</label>
+              <label><input type="checkbox" class="lead-filter" value="interested"> Interested</label>
+            </div>
+            <button type="button" id="clearLeadFilters">Clear filters</button>
+            <p id="leadFilterSummary" class="filter-summary">No filters applied.</p>
           </div>
-          <label><span>Sort</span><select id="leadSort">
-            <option value="callQueue" selected>Call queue first</option>
-            <option value="sellerFit">Seller fit first</option>
-            <option value="best">Best first</option>
-            <option value="phone">Phone first</option>
-            <option value="confirmed">Confirmed org.nr</option>
-            <option value="reviews">Google reviews</option>
-            <option value="employees">Employees</option>
-            <option value="discovery">Discovery confidence</option>
-            <option value="followUp">Follow-up due</option>
-          </select></label>
-          <div class="filter-chips" aria-label="Lead filters">
-            <label><input type="checkbox" class="lead-filter" value="phone"> Phone</label>
-            <label><input type="checkbox" class="lead-filter" value="confirmed"> Confirmed org.nr</label>
-            <label><input type="checkbox" class="lead-filter" value="candidate"> Candidate org.nr</label>
-            <label><input type="checkbox" class="lead-filter" value="website"> Website</label>
-            <label><input type="checkbox" class="lead-filter" value="exact"> Exact location</label>
-            <label><input type="checkbox" class="lead-filter" value="needsDeep"> Needs enrichment</label>
-            <label><input type="checkbox" class="lead-filter" value="brregIssue"> Brreg issue</label>
-            <label><input type="checkbox" class="lead-filter" value="notContacted"> Not contacted</label>
-            <label><input type="checkbox" class="lead-filter" value="contacted"> Contacted</label>
-            <label><input type="checkbox" class="lead-filter" value="followUpDue"> Follow-up due</label>
-            <label><input type="checkbox" class="lead-filter" value="interested"> Interested</label>
-          </div>
-          <button type="button" id="clearLeadFilters">Clear filters</button>
-          <p id="leadFilterSummary" class="filter-summary">No filters applied.</p>
-        </div>
+        </details>
         <div id="leadCards"></div>
       </aside>
       <section class="lead-detail">

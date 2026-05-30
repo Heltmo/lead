@@ -332,6 +332,7 @@ async function main() {
   assert(lower.includes('searchsuggestions'), 'UI should expose autocomplete suggestions without separate required fields')
   assert(lower.includes('compactrunstatus'), 'Summary should use compact run status instead of noisy operational metrics')
   assert(lower.includes('data-queue-preset'), 'UI should expose call queue preset buttons')
+  assert(lower.includes('filter / sort lead list'), 'Advanced lead filters should be collapsed behind a filter/sort control')
   assert(lower.includes('call queue first'), 'UI should support call-queue-first sorting')
   assert(lower.includes('seller fit first'), 'UI should support seller-fit-first sorting')
   assert(lower.includes('applyqueuepreset'), 'UI should apply queue preset filters locally')
