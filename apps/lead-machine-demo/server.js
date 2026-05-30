@@ -959,6 +959,7 @@ function normalizeActivities(activities) {
 }
 
 function createWorkflowActivity(previous = {}, workflow = {}) {
+  const notesChanged = String(previous.notes || '') !== String(workflow.notes || '')
   const changed = ['status', 'contacted', 'channel', 'response', 'personReached', 'followUpDate', 'nextAction', 'outcome', 'notes']
     .some((field) => String(previous[field] || '') !== String(workflow[field] || ''))
   if (!changed) return null
@@ -971,7 +972,7 @@ function createWorkflowActivity(previous = {}, workflow = {}) {
     followUpDate: workflow.followUpDate || '',
     nextAction: workflow.nextAction || '',
     outcome: workflow.outcome || '',
-    notes: workflow.notes || '',
+    notes: notesChanged ? (workflow.notes || '') : '',
   }
 }
 

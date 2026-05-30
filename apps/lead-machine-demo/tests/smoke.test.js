@@ -149,13 +149,14 @@ async function main() {
     response: 'no_answer',
     followUpDate: '2026-06-02',
     nextAction: 'call again',
-    notes: 'Quick action: no answer.',
     outcome: 'pending',
   })
   assert(quickWorkflow.status === 200, 'quick workflow-style save should succeed')
   assert(quickWorkflow.body.workflow.status === 'follow_up', 'quick workflow action should update status')
   assert(quickWorkflow.body.workflow.response === 'no_answer', 'quick workflow action should update response')
   assert(quickWorkflow.body.workflow.activities.length >= 2, 'quick workflow action should append activity timeline entry')
+  assert(!String(quickWorkflow.body.workflow.notes || '').includes('Quick action:'), 'quick actions should not write system text into seller notes')
+  assert(!String(quickWorkflow.body.workflow.activities[0].notes || '').includes('Quick action:'), 'quick action activity should not duplicate system text as notes')
   const workflowCsv = await get(port, response.body.downloads.csv)
   assert(workflowCsv.body.includes('workflowStatus'), 'CSV should include workflow status column')
   assert(workflowCsv.body.includes('lastActivityAt'), 'CSV should include last activity timestamp column')
@@ -308,7 +309,7 @@ async function main() {
   assert(lower.includes('tel:'), 'UI should render phone numbers as tel links')
   assert(lower.includes('logged activity'), 'UI should show visible local activity log')
   assert(lower.includes('textarea name="notes"'), 'Workflow notes should use a multi-line editable field')
-  assert(lower.includes('formatworkflownotes'), 'Workflow notes should normalize quick-action note formatting')
+  assert(lower.includes('cleanworkflownote'), 'Workflow notes should hide old quick-action noise from visible notes')
   assert(lower.includes('call-list.csv'), 'UI should include call-list CSV export links')
   assert(lower.includes('today call queue'), 'UI should expose a today call queue')
   assert(lower.includes('todaycallqueue'), 'UI should calculate today call queue leads')

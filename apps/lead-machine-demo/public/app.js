@@ -729,8 +729,8 @@ function workflowPanel(lead) {
 }
 
 function workflowTimeline(workflow = {}) {
-  const activities = Array.isArray(workflow.activities) ? workflow.activities.slice(0, 5) : []
-  return `<section class="activity-timeline"><div class="activity-timeline-head"><h4>Logged activity</h4><span>${activities.length ? (activities.length + ' shown') : 'No saved log yet'}</span></div>${activities.length ? `<ol>${activities.map((activity) => `
+  const activities = Array.isArray(workflow.activities) ? workflow.activities.slice(0, 3) : []
+  return `<section class="activity-timeline"><div class="activity-timeline-head"><h4>Logged activity</h4><span>${activities.length ? (activities.length + ' latest') : 'No saved log yet'}</span></div>${activities.length ? `<ol>${activities.map((activity) => `
     <li><div><strong>${escapeHtml(readable(activity.status || 'new'))}</strong><span>${escapeHtml(formatActivityTime(activity.at))}</span></div><p>${escapeHtml(activitySummary(activity))}</p></li>`).join('')}</ol>` : '<p class="muted">Save a workflow update or use a quick action to create the first log entry.</p>'}</section>`
 }
 
@@ -747,7 +747,7 @@ function activitySummary(activity = {}) {
     activity.personReached ? `Person: ${activity.personReached}` : '',
     activity.followUpDate ? `Follow-up: ${activity.followUpDate}` : '',
     activity.nextAction ? `Next: ${activity.nextAction}` : '',
-    activity.notes ? `Note: ${activity.notes}` : '',
+    cleanWorkflowNote(activity.notes) ? `Note: ${cleanWorkflowNote(activity.notes)}` : '',
   ].filter(Boolean).join(' · ') || 'Workflow updated.'
 }
 
@@ -1425,23 +1425,26 @@ function buildQuickWorkflow(action, current = {}) {
   const base = { status: 'new', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextAction: 'review', outcome: '', ...current }
   const tomorrow = isoDateOffset(1)
   const nextWeek = isoDateOffset(7)
-  if (action === 'mark_called') return { ...base, status: 'contacted', contacted: true, channel: base.channel || 'phone', response: base.response || 'neutral', nextAction: 'review call result', notes: appendQuickNote(base.notes, 'Quick action: marked called.') }
-  if (action === 'no_answer') return { ...base, status: 'follow_up', contacted: true, channel: base.channel || 'phone', response: 'no_answer', followUpDate: base.followUpDate || tomorrow, nextAction: 'call again', notes: appendQuickNote(base.notes, 'Quick action: no answer.') }
-  if (action === 'interested') return { ...base, status: 'interested', contacted: true, channel: base.channel || 'phone', response: 'interested', nextAction: 'follow up interested lead', outcome: base.outcome || 'interested', notes: appendQuickNote(base.notes, 'Quick action: interested.') }
-  if (action === 'not_relevant') return { ...base, status: 'rejected', contacted: true, channel: base.channel || 'phone', response: 'negative', nextAction: 'do not contact', outcome: 'not relevant', notes: appendQuickNote(base.notes, 'Quick action: not relevant.') }
-  if (action === 'follow_up_tomorrow') return { ...base, status: 'follow_up', followUpDate: tomorrow, nextAction: 'follow up tomorrow', notes: appendQuickNote(base.notes, 'Quick action: follow up tomorrow.') }
-  if (action === 'follow_up_next_week') return { ...base, status: 'follow_up', followUpDate: nextWeek, nextAction: 'follow up next week', notes: appendQuickNote(base.notes, 'Quick action: follow up next week.') }
+  if (action === 'mark_called') return { ...base, status: 'contacted', contacted: true, channel: base.channel || 'phone', response: base.response || 'neutral', nextAction: 'review call result' }
+  if (action === 'no_answer') return { ...base, status: 'follow_up', contacted: true, channel: base.channel || 'phone', response: 'no_answer', followUpDate: base.followUpDate || tomorrow, nextAction: 'call again' }
+  if (action === 'interested') return { ...base, status: 'interested', contacted: true, channel: base.channel || 'phone', response: 'interested', nextAction: 'follow up interested lead', outcome: base.outcome || 'interested' }
+  if (action === 'not_relevant') return { ...base, status: 'rejected', contacted: true, channel: base.channel || 'phone', response: 'negative', nextAction: 'do not contact', outcome: 'not relevant' }
+  if (action === 'follow_up_tomorrow') return { ...base, status: 'follow_up', followUpDate: tomorrow, nextAction: 'follow up tomorrow' }
+  if (action === 'follow_up_next_week') return { ...base, status: 'follow_up', followUpDate: nextWeek, nextAction: 'follow up next week' }
   return null
 }
 
-function appendQuickNote(notes, line) {
-  const current = formatWorkflowNotes(notes).trim()
-  if (current.includes(line)) return current
-  return [current, line].filter(Boolean).join('\n').slice(0, 2000)
+function cleanWorkflowNote(notes) {
+  return String(notes || '')
+    .replace(/\.\s*(?=Quick action:)/g, '.\n')
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.toLowerCase().startsWith('quick action:'))
+    .join('\n')
 }
 
 function formatWorkflowNotes(notes) {
-  return String(notes || '').replace(/\.\s*(?=Quick action:)/g, '.\n')
+  return cleanWorkflowNote(notes)
 }
 function isoDateOffset(days) {
   const date = new Date()
