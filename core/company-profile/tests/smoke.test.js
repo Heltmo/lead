@@ -2,6 +2,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const { enrichCompanyProfile, matchCompanyProfile, normalizeName } = require('../companyProfile')
+const { enrichProffCompany } = require('../proffProvider')
 
 async function main() {
   const glomma = entity({
@@ -125,6 +126,25 @@ async function main() {
   assert(profile.matchStatus === 'strong_match' || profile.matchStatus === 'exact_match', 'mocked API search should return strong/exact match')
   assert(profile.organizationNumber === '912345678', 'mocked API match should include org number')
   assert(normalizeName('Glomma Tannklinikk AS') === 'glomma tannklinikk', 'normalization should strip company suffix')
+
+  const proffDisabled = await enrichProffCompany({ organizationNumber: '912345678', matchStatus: 'exact_match' }, { apiKey: '' })
+  assert(proffDisabled.enrichmentStatus === 'disabled', 'Proff should be disabled when API key is missing')
+  const proffNotEligible = await enrichProffCompany({ organizationNumber: '912345678', matchStatus: 'manual_verify' }, { apiKey: 'test-token' })
+  assert(proffNotEligible.enrichmentStatus === 'not_eligible', 'Proff should require confirmed org number')
+  let proffUrl = ''
+  const proffSuccess = await enrichProffCompany({ organizationNumber: '912345678', matchStatus: 'exact_match' }, {
+    apiKey: 'test-token',
+    fetchImpl: async (url, init) => {
+      proffUrl = String(url)
+      assert(init.headers.authorization === 'Token test-token', 'Proff should use Authorization Token header')
+      return { ok: true, status: 200, json: async () => ({ name: 'GLOMMA TANNKLINIKK AS', annualAccounts: [{ operatingRevenue: 12000000, annualResult: 900000 }], numberOfEmployees: 8 }) }
+    },
+  })
+  assert(proffUrl.includes('912345678'), 'Proff lookup should include organization number')
+  assert(proffSuccess.enrichmentStatus === 'success', 'Proff success should return success status')
+  assert(proffSuccess.revenue === 12000000, 'Proff success should map revenue')
+  assert(proffSuccess.profit === 900000, 'Proff success should map profit')
+  assert(proffSuccess.employees === 8, 'Proff success should map employees')
 }
 
 function entity({ organisasjonsnummer, navn, poststed = 'OSLO', kommune = 'Oslo', telefon, mobil, hjemmeside, type = 'entity', adresse = ['Testveien 1'] }) {

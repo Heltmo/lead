@@ -97,6 +97,29 @@ Confirmed `organizationNumber` remains reserved for exact/strong matches with en
 
 Proff enrichment must wait until `organizationNumber` is confirmed. Running Proff on weak/manual candidates risks attaching financial data to the wrong legal entity.
 
+## Optional Proff Provider
+
+`proffProvider.js` is an optional commercial enrichment layer for confirmed organization numbers. It is deliberately separate from Brreg matching:
+
+- Brreg remains the official identity source.
+- Proff runs only when `organizationNumber` is confirmed and `matchStatus` is `exact_match`, `strong_match`, or `confirmed_org`.
+- Missing `PROFF_API_KEY` returns `enrichmentStatus: disabled` and does not fail the lead run.
+- Weak/manual/candidate org.nr returns `enrichmentStatus: not_eligible`.
+- Proff fields are attached as economy context only and do not affect V1 scoring.
+- Full raw Proff responses are not stored; the provider maps selected fields such as revenue, profit, employees, roles, owners, credit score, payment remarks, available field names, and warnings.
+
+Expected environment:
+
+```bash
+PROFF_API_KEY=your-proff-api-key
+```
+
+The API key is sent as:
+
+```text
+Authorization: Token <PROFF_API_KEY>
+```
+
 ## CLI
 
 ```bash
@@ -120,4 +143,4 @@ npm test
 
 ## Integration Status
 
-V1 is standalone. It is ready to be consumed by future lead-pack generation, review workspace export, or CRM export work, but it does not change lead scoring or ranking.
+V1 is standalone. It is ready to be consumed by future lead-pack generation, review workspace export, or CRM export work, but it does not change lead scoring or ranking. Proff enrichment is optional and should only be used after Brreg has produced a confirmed org.nr.

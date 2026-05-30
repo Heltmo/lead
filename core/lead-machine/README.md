@@ -8,7 +8,7 @@ It coordinates existing modules without becoming a new scoring engine:
 fast discovery -> lead-pack-runner -> selected-lead enrichment when requested
 ```
 
-It does not implement scoring, outreach, Proff, frontend, saved searches, or sales scripts. Balanced discovery is the default and combines Brreg official identity with Google Places public presence when both are available.
+It does not implement scoring, outreach, frontend, saved searches, or sales scripts. Balanced discovery is the default and combines Brreg official identity with Google Places public presence when both are available. Optional Proff enrichment belongs to selected-lead Deep enrichment and is gated behind confirmed org.nr.
 
 ## Usage
 
@@ -113,8 +113,9 @@ Deep enrichment should:
 - preserve the rest of the Fast scan list unchanged
 - append deeper evidence and caution instead of hiding uncertainty
 - treat website audit as one module, not the whole product
+- try to find email from the audited website/contact pages when a website exists
 - keep `organizationNumber` confirmed-only and expose candidate/manual-verify states
-- keep `economy.status = not_enabled` until Proff is explicitly integrated
+- keep Proff/economy optional and run it only for confirmed org.nr when `PROFF_API_KEY` is configured
 - avoid scripts, call openers, and outreach automation
 
 Planned module stack:

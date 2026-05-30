@@ -558,8 +558,10 @@ function renderDetail(lead) {
       ])}
       ${sourceCard('Economy / Proff', economy.status || 'not_enabled', [
         ['Revenue', economy.revenue ?? 'not enabled'],
+        ['Profit', economy.profit ?? 'not enabled'],
         ['Employees', economy.employees ?? 'not enabled'],
         ['Source', economy.source || 'not enabled'],
+        ['Warnings', normalizeList(economy.warnings).map(humanize).join(', ') || 'none'],
       ])}
       ${sourceCard('Discovery quality', discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown', [
         ['Score', discoveryQuality.score == null ? 'unknown' : `${discoveryQuality.score}/100`],
@@ -749,7 +751,7 @@ function deepEnrichmentModules(lead, command) {
   const modules = liveModules.length ? liveModules : [
     { name: 'Website audit', status: isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), summary: isFastLead(lead) ? 'Run enrichment to audit website quality.' : 'Website/audit signals are attached.' },
     { name: 'Brreg verification', status: company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), summary: company.organizationNumber ? 'Official identity is confirmed.' : company.candidateOrganizationNumber ? 'Candidate identity needs manual verify.' : 'No confirmed identity yet.' },
-    { name: 'Economy / Proff', status: economy.status || 'not_enabled', summary: 'Requires confirmed org.nr and Proff integration.' },
+    { name: 'Economy / Proff', status: economy.status || 'not_enabled', summary: economyModuleSummary(economy) },
     { name: 'Social/source signals', status: 'not_enabled', summary: 'Later module: Facebook, LinkedIn, news and public source links.' },
     { name: 'Decision makers', status: 'not_enabled', summary: 'Later module: public role/contact hints when available.' },
     { name: 'Recent activity', status: 'not_enabled', summary: 'Later module: hiring, news, website updates and public activity.' },
@@ -761,6 +763,14 @@ function deepEnrichmentModules(lead, command) {
       ${modules.map((module) => `<div class="module-card"><div>${badge(module.status)}<strong>${escapeHtml(module.name)}</strong></div><small>${escapeHtml(module.summary || module.note || '')}</small></div>`).join('')}
     </div>
   </details>`
+}
+
+function economyModuleSummary(economy = {}) {
+  if (economy.status === 'success') return 'Proff economy fields are attached for confirmed org.nr.'
+  if (economy.status === 'disabled') return 'Set PROFF_API_KEY to enable Proff enrichment.'
+  if (economy.status === 'not_eligible') return 'Skipped because org.nr is not confirmed.'
+  if (economy.status === 'error') return 'Proff lookup failed; retry later.'
+  return 'Requires confirmed org.nr and Proff integration.'
 }
 
 function sellerCommandCard(command) {
@@ -1378,7 +1388,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Audit skipped', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Audit skipped', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {

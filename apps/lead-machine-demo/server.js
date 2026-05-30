@@ -5,6 +5,7 @@ const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
 const { runAuditQueue } = require('../../core/orchestrator/pipelines/auditQueue')
 const { runLeadPack } = require('../../core/lead-pack-runner/leadPackRunner')
 const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
+const { enrichProffCompany } = require('../../core/company-profile/proffProvider')
 const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { parseLeadQuery } = require('./queryParser')
 
@@ -201,11 +202,13 @@ async function deepQualifyLead({ lead, query, enrichCompanyProfile: shouldEnrich
   fs.mkdirSync(outputDir, { recursive: true })
 
   const refreshedCompanyProfile = shouldEnrichCompanyProfile ? await safeSelectedCompanyProfile(lead) : null
+  const proffProfile = await safeSelectedProffProfile(lead, refreshedCompanyProfile)
   const websiteUrl = selectedWebsiteUrl(lead)
   const hasWebsite = Boolean(websiteUrl)
   if (!hasWebsite) {
-    const deepLead = applyDeepEnrichmentV1(mergeSelectedCompanyProfile(originalLead, refreshedCompanyProfile), originalLead, {
+    const deepLead = applyDeepEnrichmentV1(mergeProffProfile(mergeSelectedCompanyProfile(originalLead, refreshedCompanyProfile), proffProfile), originalLead, {
       companyProfile: refreshedCompanyProfile,
+      proffProfile,
       websiteAuditStatus: 'skipped_no_website',
       outputDir,
     })
@@ -273,6 +276,7 @@ async function deepQualifyLead({ lead, query, enrichCompanyProfile: shouldEnrich
     rootDir: orchestratorRootDir,
     maxRetries: 1,
   })
+  const discoveredEmail = await discoverEmailFromAuditRun(auditResult, websiteUrl)
   const leadPackResult = await runLeadPack({
     query,
     runDir: path.dirname(auditResult.summaryPath),
@@ -283,8 +287,10 @@ async function deepQualifyLead({ lead, query, enrichCompanyProfile: shouldEnrich
   const deepLead = leadPacks[0]
   if (!deepLead) throw new Error('Deep qualification did not produce a lead pack')
   deepLead.rank = lead.rank || deepLead.rank
-  const mergedLead = applyDeepEnrichmentV1(mergeSelectedCompanyProfile(deepLead, refreshedCompanyProfile), originalLead, {
+  const mergedLead = applyDeepEnrichmentV1(mergeDiscoveredEmail(mergeProffProfile(mergeSelectedCompanyProfile(deepLead, refreshedCompanyProfile), proffProfile), discoveredEmail), originalLead, {
     companyProfile: refreshedCompanyProfile,
+    proffProfile,
+    discoveredEmail,
     websiteAuditStatus: deepLead.website?.auditStatus || 'completed',
     outputDir,
   })
@@ -310,6 +316,34 @@ function selectedWebsiteUrl(lead = {}) {
     return String(lead.website.url || lead.website.href || lead.website.website || lead.website.uri || '').trim()
   }
   return ''
+}
+
+
+async function safeSelectedProffProfile(lead = {}, companyProfile = null) {
+  const company = lead.company || {}
+  const organizationNumber = companyProfile?.organizationNumber || company.organizationNumber
+  const matchStatus = companyProfile?.organizationNumber ? companyProfile.matchStatus : (company.matchStatus || companyProfile?.matchStatus)
+  try {
+    return await enrichProffCompany({ organizationNumber, matchStatus })
+  } catch (error) {
+    return {
+      source: 'proff',
+      enrichmentStatus: 'error',
+      errorType: 'unknown_error',
+      organizationNumber: organizationNumber || null,
+      companyName: null,
+      revenue: null,
+      profit: null,
+      employees: null,
+      roles: [],
+      owners: [],
+      creditScore: null,
+      paymentRemarks: null,
+      rawAvailableFields: [],
+      warnings: [error && error.message ? error.message : 'proff_error'],
+      sourceUrl: null,
+    }
+  }
 }
 
 async function safeSelectedCompanyProfile(lead = {}) {
@@ -350,6 +384,116 @@ async function safeSelectedCompanyProfile(lead = {}) {
       candidates: [],
     }
   }
+}
+
+
+function mergeProffProfile(lead = {}, proffProfile) {
+  const copy = JSON.parse(JSON.stringify(lead || {}))
+  const current = copy.economy || {}
+  if (!proffProfile) {
+    copy.economy = { status: current.status || 'not_enabled', source: current.source || null, revenue: current.revenue ?? null, profit: current.profit ?? null, employees: current.employees ?? null }
+    return copy
+  }
+  copy.economy = {
+    ...current,
+    status: proffProfile.enrichmentStatus || current.status || 'not_enabled',
+    source: 'proff',
+    organizationNumber: proffProfile.organizationNumber || null,
+    companyName: proffProfile.companyName || null,
+    revenue: proffProfile.revenue ?? current.revenue ?? null,
+    profit: proffProfile.profit ?? current.profit ?? null,
+    employees: proffProfile.employees ?? current.employees ?? null,
+    creditScore: proffProfile.creditScore ?? current.creditScore ?? null,
+    paymentRemarks: proffProfile.paymentRemarks ?? current.paymentRemarks ?? null,
+    roles: Array.isArray(proffProfile.roles) ? proffProfile.roles : [],
+    owners: Array.isArray(proffProfile.owners) ? proffProfile.owners : [],
+    warnings: Array.from(new Set([...(current.warnings || []), ...(proffProfile.warnings || [])].filter(Boolean))),
+    sourceUrl: proffProfile.sourceUrl || null,
+    rawAvailableFields: Array.isArray(proffProfile.rawAvailableFields) ? proffProfile.rawAvailableFields : [],
+  }
+  return copy
+}
+
+function mergeDiscoveredEmail(lead = {}, email) {
+  const cleanEmail = String(email || '').trim().toLowerCase()
+  if (!cleanEmail) return lead
+  const copy = JSON.parse(JSON.stringify(lead || {}))
+  copy.contact = { ...(copy.contact || {}), email: copy.contact?.email || cleanEmail }
+  copy.website = {
+    ...(copy.website || {}),
+    topEvidence: Array.from(new Set([...(copy.website?.topEvidence || []), `Email found during Deep enrichment: ${cleanEmail}`].filter(Boolean))),
+  }
+  copy.ranking = {
+    ...(copy.ranking || {}),
+    whyRanked: Array.from(new Set([...(copy.ranking?.whyRanked || []), 'Email contact path found during Deep enrichment.'].filter(Boolean))),
+  }
+  return copy
+}
+
+async function discoverEmailFromAuditRun(auditResult, websiteUrl) {
+  const reportPath = auditResult?.run?.queue?.[0]?.reportPath
+  const report = reportPath ? readJsonFile(reportPath, null) : null
+  const directEmail = firstUsableEmail(report?.signals?.emails)
+  if (directEmail) return directEmail
+  const links = Array.isArray(report?.signals?.links) ? report.signals.links : []
+  return await discoverEmailFromContactPages(websiteUrl, links)
+}
+
+async function discoverEmailFromContactPages(websiteUrl, links = []) {
+  if (typeof fetch !== 'function') return null
+  const urls = candidateContactUrls(websiteUrl, links).slice(0, 4)
+  for (const url of urls) {
+    try {
+      const response = await withTimeout(fetch(url, { headers: { accept: 'text/html,text/plain' } }), 8000)
+      if (!response || !response.ok) continue
+      const text = await response.text()
+      const email = firstUsableEmail(extractEmails(text))
+      if (email) return email
+    } catch (_) {}
+  }
+  return null
+}
+
+function candidateContactUrls(websiteUrl, links = []) {
+  const base = normalizeWebsiteBase(websiteUrl)
+  if (!base) return []
+  const contactWords = /(kontakt|contact|om-oss|om oss|about|ansatte|team|medarbeidere)/i
+  const fromLinks = links
+    .filter((link) => contactWords.test(`${link.text || ''} ${link.href || ''}`))
+    .map((link) => absoluteUrl(link.href, base))
+    .filter(Boolean)
+  return Array.from(new Set([...fromLinks, absoluteUrl('/kontakt', base), absoluteUrl('/contact', base), absoluteUrl('/om-oss', base)]))
+}
+
+function normalizeWebsiteBase(value) {
+  try {
+    const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`)
+    return `${url.protocol}//${url.host}`
+  } catch (_) {
+    return null
+  }
+}
+
+function absoluteUrl(value, base) {
+  try { return new URL(value || '/', base).toString() } catch (_) { return null }
+}
+
+function extractEmails(text) {
+  return String(text || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || []
+}
+
+function firstUsableEmail(values) {
+  return (Array.isArray(values) ? values : [])
+    .map((value) => String(value || '').trim().toLowerCase())
+    .find((email) => email && !/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(email) && !email.includes('example.')) || null
+}
+
+function withTimeout(promise, timeoutMs) {
+  let timeout
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('timeout')), timeoutMs) }),
+  ]).finally(() => clearTimeout(timeout))
 }
 
 function mergeSelectedCompanyProfile(lead = {}, profile) {
@@ -402,7 +546,7 @@ function applyDeepEnrichmentV1(lead = {}, originalLead = {}, context = {}) {
     moduleStatus('contactability', 'Contactability refresh', contactability, contactabilitySummaryV1({ hasPhone, hasEmail, hasWebsite })),
     moduleStatus('website_audit', 'Website audit', websiteStatus, websiteSummaryV1(websiteStatus, hasWebsite)),
     moduleStatus('seller_summary', 'Seller leverage summary', 'completed', 'Decision summary refreshed from identity, contact, location, source and audit signals.'),
-    moduleStatus('economy_proff', 'Economy / Proff', economy.status || 'not_enabled', 'Not enabled. Requires confirmed org.nr and Proff integration.'),
+    moduleStatus('economy_proff', 'Economy / Proff', economy.status || 'not_enabled', proffSummary(economy)),
     moduleStatus('social_sources', 'Social/source signals', 'not_enabled', 'Not enabled. Later module for Facebook, LinkedIn, news and public source links.'),
     moduleStatus('decision_makers', 'Decision makers', 'not_enabled', 'Not enabled. Later module for public role/contact hints.'),
     moduleStatus('recent_activity', 'Recent activity', 'not_enabled', 'Not enabled. Later module for hiring, news, website updates and public activity.'),
@@ -431,6 +575,7 @@ function applyDeepEnrichmentV1(lead = {}, originalLead = {}, context = {}) {
       contactability,
       websiteAudit: websiteStatus,
       economy: economy.status || 'not_enabled',
+      proff: economy.status || 'not_enabled',
     },
   }
   copy.meta = {
@@ -441,6 +586,14 @@ function applyDeepEnrichmentV1(lead = {}, originalLead = {}, context = {}) {
     enrichedAt: copy.enrichment.enrichedAt,
   }
   return copy
+}
+
+function proffSummary(economy = {}) {
+  if (economy.status === 'success') return 'Proff enrichment attached economy fields for confirmed org.nr.'
+  if (economy.status === 'disabled') return 'Proff disabled; set PROFF_API_KEY to enable economy enrichment.'
+  if (economy.status === 'not_eligible') return 'Proff skipped because org.nr is not confirmed.'
+  if (economy.status === 'error') return `Proff lookup failed${economy.warnings?.length ? `: ${economy.warnings.join(', ')}` : '.'}`
+  return 'Not enabled. Requires confirmed org.nr and Proff integration.'
 }
 
 function moduleStatus(id, name, status, summary, warnings = []) {
@@ -492,7 +645,7 @@ function deepCaution({ company, websiteStatus, economy }) {
     !company.organizationNumber && company.candidateOrganizationNumber ? 'Candidate org.nr must be manually verified before export.' : null,
     !company.organizationNumber && !company.candidateOrganizationNumber ? 'Company identity is not confirmed; verify before sales use.' : null,
     websiteStatus === 'skipped_no_website' ? 'Website audit was skipped because no website was available.' : null,
-    economy.status === 'not_enabled' ? 'Economy/Proff data is not enabled yet.' : null,
+    ['disabled', 'not_enabled'].includes(economy.status) ? 'Economy/Proff data is not enabled yet.' : null,
   ].filter(Boolean)
 }
 
