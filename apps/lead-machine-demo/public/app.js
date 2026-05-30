@@ -1364,6 +1364,10 @@ document.addEventListener('submit', (event) => {
 document.addEventListener('click', (event) => {
   const quickActionButton = event.target.closest('[data-workflow-action]')
   if (quickActionButton) {
+    if (!quickActionButton.closest('.queue-row')) {
+      applyWorkflowQuickActionDraft(quickActionButton)
+      return
+    }
     runWorkflowQuickAction(quickActionButton)
     return
   }
@@ -1410,6 +1414,55 @@ async function runWorkflowQuickAction(button) {
     button.disabled = false
     button.textContent = originalText
   }
+}
+
+function applyWorkflowQuickActionDraft(button) {
+  const form = document.getElementById('workflowForm')
+  const index = Number(button.dataset.index ?? state.selectedIndex)
+  const lead = state.result?.leadPacks?.[index]
+  if (!form || !lead) return setStatus('failed: no selected lead for workflow draft', 'failed')
+  const workflow = buildQuickWorkflow(button.dataset.workflowAction, readWorkflowDraft(form, lead.workflow || {}))
+  if (!workflow) return setStatus('failed: unknown quick action', 'failed')
+  setWorkflowFormValues(form, workflow)
+  const saveText = form.querySelector('.workflow-actions small')
+  if (saveText) saveText.textContent = 'Draft only - click Save workflow to log it'
+  setStatus('workflow draft updated - click Save workflow to log it', 'running')
+}
+
+function readWorkflowDraft(form, current = {}) {
+  const data = new FormData(form)
+  return {
+    status: data.get('status') || current.status || 'new',
+    contacted: String(data.get('contacted') ?? current.contacted ?? 'false') === 'true',
+    channel: data.get('channel') || current.channel || '',
+    response: data.get('response') || current.response || '',
+    personReached: data.get('personReached') || current.personReached || '',
+    notes: data.get('notes') || current.notes || '',
+    followUpDate: data.get('followUpDate') || current.followUpDate || '',
+    nextAction: data.get('nextAction') || current.nextAction || 'review',
+    outcome: data.get('outcome') || current.outcome || '',
+  }
+}
+
+function setWorkflowFormValues(form, workflow = {}) {
+  setFormValue(form, 'status', workflow.status || 'new')
+  setFormValue(form, 'response', workflow.response || '')
+  setFormValue(form, 'followUpDate', workflow.followUpDate || '')
+  setFormValue(form, 'notes', formatWorkflowNotes(workflow.notes || ''))
+  setFormValue(form, 'contacted', String(Boolean(workflow.contacted)))
+  setFormValue(form, 'channel', workflow.channel || '')
+  setFormValue(form, 'personReached', workflow.personReached || '')
+  setFormValue(form, 'nextAction', workflow.nextAction || '')
+  setFormValue(form, 'outcome', workflow.outcome || '')
+  form.querySelectorAll('[data-workflow-sync]').forEach((field) => {
+    const value = workflow[field.dataset.workflowSync]
+    if (value !== undefined) field.value = String(value)
+  })
+}
+
+function setFormValue(form, name, value) {
+  const field = form.elements[name]
+  if (field) field.value = String(value)
 }
 
 function selectNextQueueLead(previousLead) {

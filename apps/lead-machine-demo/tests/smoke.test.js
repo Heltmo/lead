@@ -326,6 +326,8 @@ async function main() {
   assert(lower.includes('follow up next week'), 'UI should include next-week follow-up quick action')
   assert(lower.includes('data-workflow-action'), 'UI should wire quick workflow buttons through data attributes')
   assert(lower.includes('buildquickworkflow'), 'UI should build quick workflow payloads locally')
+  assert(lower.includes('applyworkflowquickactiondraft'), 'Detail quick actions should update a draft instead of saving immediately')
+  assert(lower.includes('draft only - click save workflow to log it'), 'Detail quick actions should explain that Save workflow is required')
   assert(lower.includes('/api/latest-run'), 'UI should auto-load the latest local run on startup')
   assert(lower.includes('loadlatestrun'), 'UI should define latest-run restore logic')
   assert(lower.includes('current call'), 'UI should expose a single current-call panel')
