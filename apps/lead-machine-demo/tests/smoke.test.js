@@ -337,6 +337,8 @@ async function main() {
   assert(lower.includes('general_b2b') && lower.includes('web_it') && lower.includes('telecom'), 'UI should include seller intent options')
   assert(lower.includes('sellerintent'), 'UI should send sellerIntent through requests')
   assert(lower.includes('seller fit'), 'UI should expose seller fit output')
+  assert(lower.includes('virksomhet.brreg.no/nb/oppslag/enheter'), 'UI should link visible Brreg identity to public Brønnøysund lookup')
+  assert(lower.includes('åpne i brønnøysund'), 'UI should label public Brønnøysund links for sellers')
   assert(lower.includes('data-query-example="escape room"'), 'UI should offer clickable free-text query examples')
   assert(lower.includes('searchsuggestions'), 'UI should expose autocomplete suggestions without separate required fields')
   assert(lower.includes('compactrunstatus'), 'Summary should use compact run status instead of noisy operational metrics')

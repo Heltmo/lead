@@ -957,7 +957,7 @@ function sellerDeskCards(lead, command) {
 
   return `<section class="seller-desk-v2 lead-brief-grid">
     ${sellerDeskCard('Contact', contact.phone ? 'phone_available' : 'contact_missing', contactRows, command.bestContactNote)}
-    ${sellerDeskCard('Company', orgStatus, identityRows, company.sourceUrl ? link(company.sourceUrl) : '')}
+    ${sellerDeskCard('Company', orgStatus, identityRows, brregPublicLink(company))}
     ${sellerDeskCard('Proof & checks', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : sourceQuality.locationMatchStatus || command.sellerReadinessKey, proofRiskRows, command.mainRiskNote)}
   </section>
   <details class="detail-collapse lead-brief-details">
@@ -1201,8 +1201,19 @@ function brregSourceCard(company) {
     ['Status', company.activeStatus || 'unknown'],
     ['Confidence', company.matchConfidence ?? 'unknown'],
     ['Warnings', normalizeList(company.warnings).length ? normalizeList(company.warnings).map(humanize).join(', ') : 'none'],
+    ['Brønnøysund', brregPublicLink(company) || 'unknown'],
   ]
   return sourceCard('Brreg firmaprofil', brregStatusLabel(company), rows)
+}
+
+function brregPublicLink(company = {}) {
+  const href = brregPublicUrl(company)
+  return href ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">Åpne i Brønnøysund</a>` : ''
+}
+
+function brregPublicUrl(company = {}) {
+  const orgNumber = String(company.organizationNumber || company.candidateOrganizationNumber || '').replace(/\D/g, '')
+  return orgNumber ? `https://virksomhet.brreg.no/nb/oppslag/enheter/${orgNumber}` : ''
 }
 
 function brregStatusLabel(company = {}) {
