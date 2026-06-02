@@ -817,7 +817,7 @@ function renderDetail(lead) {
             <h2>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h2>
           </div>
           <p class="muted">${escapeHtml(company.legalName || 'Legal name unknown')}</p>
-          <div class="badge-row instant-badges">${badge(callReadiness(lead).key)}${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
+          <div class="badge-row instant-badges">${badge(callReadiness(lead).key)}${sourceFusionBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
         </div>
         <div class="instant-call-box">
           <span>Best contact</span>
@@ -1275,6 +1275,8 @@ function sellerDeskCards(lead, command, options = {}) {
   const discoveryQuality = sourceQuality.discoveryQuality || {}
   const economy = lead.economy || {}
   const fit = lead.sellerFit || {}
+  const fusion = sourceFusionForLead(lead)
+  const fusionSummary = sourceFusionUiSummary(fusion)
   const fitReasonText = normalizeList(fit.fitReasons).slice(0, 3).map(humanize).join(', ') || command.companyFitNote
   const riskReasonText = normalizeList(fit.riskReasons).slice(0, 3).map(humanize).join(', ') || command.mainRiskNote
   const orgStatus = brregStatusLabel(company)
@@ -1330,16 +1332,32 @@ function sellerDeskCards(lead, command, options = {}) {
     ['Verification', command.verification],
     ['Main check', command.mainRisk],
   ]
+  const confidenceRows = [
+    ['Lead confidence', leadConfidenceLabel(fusion.leadConfidence)],
+    ['Trust action', trustActionLabel(fusion.recommendedTrustAction)],
+    ['Identity', identityConfidenceLabel(fusion.identityConfidence)],
+    ['Contact', contactConfidenceLabel(fusion.contactConfidence)],
+    ['Location', locationConfidenceLabel(fusion.locationConfidence)],
+  ]
+  const sourceCoverageRows = [
+    ['Source coverage', fusionSummary.coverage || 'none'],
+    ['Verified fields', fusionSummary.verified || 'none'],
+    ['Proof', fusionSummary.proof || 'none'],
+    ['Risk', fusionSummary.risk || 'none'],
+    ['Warnings', fusionSummary.warnings || 'none'],
+  ]
 
   const topCards = `<section class="seller-desk-v2 lead-brief-grid">
     ${sellerDeskCard('Contact', contact.phone ? 'phone_available' : 'contact_missing', contactRows, command.bestContactNote)}
     ${sellerDeskCard('Company', orgStatus, identityRows, brregPublicLink(company))}
     ${sellerDeskCard('Proof & checks', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : sourceQuality.locationMatchStatus || command.sellerReadinessKey, proofRiskRows, command.mainRiskNote)}
+    ${sellerDeskCard('Proof & confidence', fusion.recommendedTrustAction || fusion.leadConfidence, confidenceRows, sourceFusionFooter(fusion))}
   </section>`
   const details = `<details class="detail-collapse lead-brief-details">
     <summary>Qualification and verification details</summary>
     <div class="seller-desk-v2 secondary-brief-grid">
       ${sellerDeskCard('Company fit', command.sellerReadinessKey, fitRows, 'Seller fit interprets existing data; it does not change source truth.')}
+      ${sellerDeskCard('Source coverage', fusion.leadConfidence || 'unknown', sourceCoverageRows, 'Brreg is legal identity; website/contact is one source signal.')}
       ${sellerDeskCard('Market proof', sourceQuality.locationMatchStatus || 'unknown', marketRows, places.placeId ? `Place ID: ${places.placeId}` : '')}
       ${sellerDeskCard('Sales signals', command.sellerReadinessKey, actionRows, 'No script generated; seller owns angle and wording.')}
       ${sellerDeskCard('Risk / verify', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : command.sellerReadinessKey, riskRows, command.mainRiskNote)}
@@ -1739,8 +1757,8 @@ function renderExport(result) {
     <p><a href="${escapeAttr(withBetaToken(result.downloads.csv))}">Download CSV</a> · <a href="${escapeAttr(withBetaToken(result.downloads.json))}">Download JSON</a> · <button type="button" id="copyPath">Copy run path</button></p>
     ${callListLinks(result.downloads || {})}
     <table>
-      <thead><tr><th>rank</th><th>company</th><th>phone</th><th>city</th><th>queue</th><th>priority</th><th>osint</th><th>workflow</th><th>response</th><th>follow-up</th><th>last contacted</th><th>next action</th></tr></thead>
-      <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${phoneLink(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(workQueueLabel(leadWorkQueue(lead)))}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(osintExportCell(lead))}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.nextFollowUpAt || workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.lastContactedAt || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
+      <thead><tr><th>rank</th><th>company</th><th>phone</th><th>city</th><th>queue</th><th>priority</th><th>confidence</th><th>osint</th><th>workflow</th><th>response</th><th>follow-up</th><th>last contacted</th><th>next action</th></tr></thead>
+      <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${phoneLink(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(workQueueLabel(leadWorkQueue(lead)))}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(sourceFusionExportCell(lead))}</td><td>${escapeHtml(osintExportCell(lead))}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.nextFollowUpAt || workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.lastContactedAt || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
     </table>
   `
   const copy = document.getElementById('copyPath')
@@ -1979,6 +1997,91 @@ function updateSummaryAfterLeadReplacement(summary, leads) {
   }
 }
 
+function sourceFusionForLead(lead = {}) {
+  if (lead.sourceFusion && typeof lead.sourceFusion === 'object') return lead.sourceFusion
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const sourceQuality = lead.sourceQuality || {}
+  const hasPhone = Boolean(contact.phone || lead.phone)
+  const hasEmail = Boolean(contact.email || lead.email)
+  const hasWebsite = Boolean(contact.website || lead.website)
+  const identityConfidence = company.organizationNumber ? 'confirmed' : company.candidateOrganizationNumber || ['manual_verify', 'weak_match'].includes(String(company.matchStatus || '').toLowerCase()) ? 'manual_verify' : 'unknown'
+  const contactConfidence = hasPhone && (hasEmail || hasWebsite) ? 'strong' : hasPhone ? 'good' : hasEmail || hasWebsite ? 'review' : 'weak'
+  const locationConfidence = sourceQuality.locationMatchStatus === 'exact_location' ? 'exact' : sourceQuality.locationMatchStatus === 'regional_fallback' ? 'fallback' : sourceQuality.locationMatchStatus === 'out_of_area' ? 'conflict' : 'unknown'
+  const sellerFit = String(lead.sellerFit?.sellerFit || 'unknown').toLowerCase()
+  const recommendedTrustAction = contactConfidence === 'weak' ? 'skip' : identityConfidence === 'manual_verify' || ['fallback', 'conflict', 'unknown'].includes(locationConfidence) ? 'verify_first' : ['strong', 'good'].includes(sellerFit) ? 'call' : 'review'
+  return {
+    leadConfidence: recommendedTrustAction === 'call' ? 'good' : recommendedTrustAction === 'skip' ? 'weak' : 'review',
+    identityConfidence,
+    contactConfidence,
+    locationConfidence,
+    sellerFit,
+    recommendedTrustAction,
+    sourceCoverage: [],
+    verifiedFields: { phone: hasPhone, email: hasEmail, website: hasWebsite, address: Boolean(contact.address || lead.address || company.registeredAddress), organizationNumber: identityConfidence === 'confirmed', location: ['exact'].includes(locationConfidence) },
+    proofReasons: [],
+    riskReasons: [],
+    conflicts: [],
+    warnings: [],
+  }
+}
+
+function sourceFusionBadge(lead) {
+  const fusion = sourceFusionForLead(lead)
+  const action = fusion.recommendedTrustAction || fusion.leadConfidence || 'unknown'
+  return '<span class="badge ' + escapeAttr(String(action).toLowerCase()) + '">' + escapeHtml(trustActionLabel(action)) + '</span>'
+}
+
+function sourceFusionUiSummary(fusion = {}) {
+  return {
+    coverage: sourceCoverageLabels(fusion.sourceCoverage).join(', '),
+    verified: verifiedFieldLabels(fusion.verifiedFields).join(', '),
+    proof: normalizeList(fusion.proofReasons).slice(0, 2).join(' · '),
+    risk: normalizeList(fusion.riskReasons).slice(0, 2).join(' · '),
+    warnings: [...normalizeList(fusion.warnings), ...normalizeList(fusion.conflicts)].slice(0, 2).join(' · '),
+  }
+}
+
+function sourceFusionFooter(fusion = {}) {
+  const summary = sourceFusionUiSummary(fusion)
+  return summary.warnings || summary.risk || summary.proof || 'Uses existing Google, Brreg and contact signals.'
+}
+
+function sourceCoverageLabels(values = []) {
+  const labels = { google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Contact data', website_contact_profile: 'Website/contact profile', workflow: 'Workflow' }
+  return normalizeList(values).map((value) => labels[value] || humanize(value))
+}
+
+function verifiedFieldLabels(fields = {}) {
+  const labels = { phone: 'phone', email: 'email', website: 'website', address: 'address', organizationNumber: 'org.nr', location: 'location' }
+  return Object.entries(fields || {}).filter(([, value]) => Boolean(value)).map(([key]) => labels[key] || humanize(key))
+}
+
+function leadConfidenceLabel(value) {
+  return { strong: 'Trygg å ringe', good: 'Trygg nok', review: 'Bør vurderes', weak: 'Svak/usikker', unknown: 'Ukjent' }[String(value || '').toLowerCase()] || humanize(value)
+}
+
+function trustActionLabel(value) {
+  return { call: 'Trygg å ringe', review: 'Bør vurderes', verify_first: 'Verifiser først', skip: 'Svak/usikker' }[String(value || '').toLowerCase()] || leadConfidenceLabel(value)
+}
+
+function identityConfidenceLabel(value) {
+  return { confirmed: 'Confirmed company', candidate: 'Candidate org.nr', manual_verify: 'Manual verify', unknown: 'Unknown identity' }[String(value || '').toLowerCase()] || humanize(value)
+}
+
+function contactConfidenceLabel(value) {
+  return { strong: 'Contact available', good: 'Phone available', review: 'Missing phone', weak: 'No contact path', unknown: 'Unknown contact' }[String(value || '').toLowerCase()] || humanize(value)
+}
+
+function locationConfidenceLabel(value) {
+  return { exact: 'Exact location', nearby: 'Nearby location', fallback: 'Regional fallback', conflict: 'Location conflict', unknown: 'Unknown location' }[String(value || '').toLowerCase()] || humanize(value)
+}
+
+function sourceFusionExportCell(lead) {
+  const fusion = sourceFusionForLead(lead)
+  return trustActionLabel(fusion.recommendedTrustAction) + ' / ' + leadConfidenceLabel(fusion.leadConfidence)
+}
+
 function osintExportCell(lead) {
   const summary = lead.osint?.summary
   if (!summary) return ''
@@ -2027,7 +2130,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed', ready_to_call: 'Ready to call', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Needs contact', follow_up_due: 'Follow-up due', later: 'Later', skip: 'Skip', queue_change: 'Queue change', follow_up_set: 'Follow-up set', contact_attempt: 'Contact attempt', status_change: 'Status change', note: 'Note' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed', ready_to_call: 'Ready to call', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Needs contact', follow_up_due: 'Follow-up due', later: 'Later', skip: 'Skip', queue_change: 'Queue change', follow_up_set: 'Follow-up set', contact_attempt: 'Contact attempt', status_change: 'Status change', note: 'Note', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Exact location', nearby: 'Nearby location', fallback: 'Regional fallback', conflict: 'Conflict', confirmed: 'Confirmed company', candidate: 'Candidate org.nr', unknown: 'Unknown', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Contact data', website_contact_profile: 'Website/contact profile', workflow: 'Workflow' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {

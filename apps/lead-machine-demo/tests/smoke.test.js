@@ -5,6 +5,7 @@ const path = require('path')
 const { createServer } = require('../server')
 const { parseLeadQuery } = require('../queryParser')
 const { workflowForLead, normalizeWorkflow } = require('../workQueues')
+const { evaluateSourceFusion } = require('../../../core/source-fusion/sourceFusion')
 
 async function main() {
   const strongLead = { sellerFit: { sellerFit: 'strong', recommendedAction: 'contact' }, contact: { phone: '12345678' }, company: { organizationNumber: '999888777' }, sourceQuality: { locationMatchStatus: 'exact_location' } }
@@ -17,6 +18,13 @@ async function main() {
   assert(normalizeWorkflow({ status: 'rejected', outcome: 'not relevant' }).queue === 'not_relevant', 'rejected/not_relevant outcome should move to not_relevant')
   assert(normalizeWorkflow({ queue: 'archived' }).queue === 'archived', 'archive should hide a lead from active queues')
   assert(normalizeWorkflow({ queue: 'verify_first' }).queue === 'verify_first', 'manual queue override should persist when no outcome overrides it')
+
+  const fusedStrongLead = evaluateSourceFusion(strongLead)
+  assert(['strong', 'good'].includes(fusedStrongLead.leadConfidence), 'source fusion should trust confirmed phone-ready leads')
+  assert(fusedStrongLead.recommendedTrustAction === 'call', 'source fusion should recommend call for trusted contactable leads')
+  const fusedVerifyLead = evaluateSourceFusion(verifyLead)
+  assert(fusedVerifyLead.identityConfidence === 'manual_verify', 'source fusion should mark candidate org.nr as manual verify')
+  assert(fusedVerifyLead.recommendedTrustAction === 'verify_first', 'source fusion should recommend verify_first for candidate/fallback leads')
 
   assert(parseLeadQuery('Kristiansand rørlegger').normalizedQuery === 'rørlegger i Kristiansand', 'location-first query should parse')
   assert(parseLeadQuery('rørlegger Kristiansand').normalizedQuery === 'rørlegger i Kristiansand', 'vertical-first query should parse')
@@ -129,6 +137,8 @@ async function main() {
   assert(response.body.leadPacks.length === 1, 'completed run should return lead packs')
   assert(response.body.summary.sellerIntent === 'telecom', 'completed run should return seller intent in summary')
   assert(response.body.leadPacks[0].sellerFit.sellerIntent === 'telecom', 'completed run should attach seller fit to lead packs')
+  assert(response.body.leadPacks[0].sourceFusion && response.body.leadPacks[0].sourceFusion.identityConfidence === 'manual_verify', 'completed run should attach source fusion to lead packs')
+  assert(response.body.leadPacks[0].sourceFusion.recommendedTrustAction === 'verify_first', 'source fusion should recommend verify first for candidate identity')
   assert(response.body.downloads.csv.includes('/api/runs/'), 'completed run should return CSV download path')
   assert(response.body.readiness.sourceGuard.proffStatus.includes('optional'), 'readiness should mark Proff as optional, not required')
   assert(response.body.readiness.sourceGuard.searchCap === 25, 'readiness should expose the 25-lead cost guard')
@@ -149,6 +159,7 @@ async function main() {
   const csv = await get(port, response.body.downloads.csv)
   assert(csv.status === 200 && csv.body.includes('Kristiansand Rør AS'), 'CSV download should return generated CSV')
   assert(csv.body.includes('sellerIntent') && csv.body.includes('sellerFit'), 'CSV should include seller-fit columns')
+  assert(csv.body.includes('leadConfidence') && csv.body.includes('recommendedTrustAction'), 'CSV should include source fusion confidence columns')
   assert(csv.body.includes('osintEvidenceCount'), 'CSV should include OSINT summary columns')
   const latestRun = await get(port, '/api/latest-run')
   assert(latestRun.status === 200, 'latest run endpoint should load previous run from disk')
@@ -210,6 +221,8 @@ async function main() {
   assert(Array.isArray(workspaceExport.body.activityLog) && workspaceExport.body.activityLog.length >= 1, 'workspace export should include activity log entries')
 
   const workflowCsv = await get(port, response.body.downloads.csv)
+  assert(workflowCsv.body.includes('leadConfidence'), 'CSV should keep source fusion fields after workflow saves')
+  assert(workflowCsv.body.includes('sourceFusionWarnings'), 'CSV should include source fusion warnings field')
   assert(workflowCsv.body.includes('workflowQueue'), 'CSV should include workflow queue column')
   assert(workflowCsv.body.includes('nextFollowUpAt'), 'CSV should include next follow-up column')
   assert(workflowCsv.body.includes('lastContactedAt'), 'CSV should include last contacted column')
@@ -331,6 +344,10 @@ async function main() {
   assert(lower.includes('seller-desk-v2'), 'UI should include seller desk V2 cards')
   assert(lower.includes('business type'), 'Call brief should expose business type')
   assert(lower.includes('proof & checks'), 'UI should combine proof and verification into a decision card')
+  assert(lower.includes('proof & confidence'), 'UI should expose Proof & confidence section')
+  assert(lower.includes('sourcefusionforlead'), 'UI should read source fusion data from lead packs')
+  assert(lower.includes('sourcefusionexportcell'), 'Export preview should include Source Fusion confidence')
+  assert(lower.includes('trygg å ringe') && lower.includes('verifiser først') && lower.includes('svak/usikker'), 'UI should use human Source Fusion trust labels')
   assert(lower.includes('company identity'), 'UI should expose company identity context')
   assert(lower.includes('contactability'), 'UI should expose contactability context')
   assert(lower.includes('market proof'), 'UI should keep market proof in details')

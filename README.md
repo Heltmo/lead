@@ -9,6 +9,7 @@ Lead Machine is the seller desk product: sellers search for a market, review ran
 - `core/lead-discovery-agent`: Brreg, Google Places, mock, and manual-source discovery.
 - `core/company-profile`: conservative Brreg/company identity enrichment.
 - `core/seller-fit`: interprets each lead based on what the seller sells.
+- `core/source-fusion`: combines Brreg, Google/contact data, seller fit, and workflow context into Proof & Confidence.
 - `core/osint`: narrow public-evidence summary for one selected lead.
 - `netlify/functions/api.js`: hosted friend-beta API for shared notes/follow-ups.
 
@@ -34,7 +35,7 @@ npm run netlify:check
 ./verifications/verify-netlify-hosted-beta.sh
 ```
 
-Use `FRIEND_BETA_READINESS.md` for the test script, `NETLIFY_BETA.md` for Netlify deployment, and `SELLER_WORK_QUEUES_V1.md` for the current workflow rules.
+Use `FRIEND_BETA_READINESS.md` for the test script, `NETLIFY_BETA.md` for Netlify deployment, `SELLER_WORK_QUEUES_V1.md` for workflow rules, and `SOURCE_FUSION_V1.md` for Proof & Confidence rules.
 
 ## Boundary
 

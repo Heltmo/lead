@@ -7,6 +7,7 @@ const { enrichProffCompany } = require('../../core/company-profile/proffProvider
 const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-fit/sellerFit')
 const { enrichOsint } = require('../../core/osint/osint')
+const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { parseLeadQuery } = require('./queryParser')
 const { createWorkspaceStore } = require('./localStore')
 const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowActivity, workflowForLead, inferLeadQueue, leadMatchesQueue, normalizeQueue } = require('./workQueues')
@@ -360,7 +361,7 @@ function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, le
   const machineSummary = machineSummaryOverride || readJsonFile(machineSummaryPath, {})
   const normalizedSellerIntent = normalizeSellerIntent(sellerIntent || machineSummary.sellerIntent || leadPackSummary.sellerIntent)
   const fittedLeadPacks = attachSellerFitToLeads(readJsonFile(leadPacksPath, []), normalizedSellerIntent)
-  const leadPacks = attachWorkflowToLeads(fittedLeadPacks, readWorkflowStore(workflowStore))
+  const leadPacks = attachSourceFusionToLeads(attachWorkflowToLeads(fittedLeadPacks, readWorkflowStore(workflowStore)))
   const normalizedQuery = parsedQuery?.normalizedQuery || machineSummary.query || leadPacks[0]?.meta?.sourceQuery || ''
   return {
     runId,
@@ -412,7 +413,7 @@ async function handleDeepQualify(req, res, context) {
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
   const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir, sellerIntent })
   if (result && result.leadPack) {
-    const fittedLead = attachWorkflowToLeads(attachSellerFitToLeads([result.leadPack], sellerIntent), readWorkflowStore(context.workflowStore))[0]
+    const fittedLead = attachSourceFusionToLeads(attachWorkflowToLeads(attachSellerFitToLeads([result.leadPack], sellerIntent), readWorkflowStore(context.workflowStore)))[0]
     result.leadPack = attachOsintToLead(fittedLead, sellerIntent)
   }
   return json(res, 200, result)
@@ -439,7 +440,7 @@ async function deepQualifyLead({ lead, query, enrichCompanyProfile: shouldEnrich
     websiteAuditStatus: hasWebsite ? 'not_run' : 'skipped_no_website',
     outputDir,
   })
-  const finalLead = attachOsintToLead(enrichedLead, sellerIntent)
+  const finalLead = attachSourceFusionToLeads([attachOsintToLead(enrichedLead, sellerIntent)])[0]
 
   const jsonPath = path.join(leadPackOutputPath, 'lead-packs.json')
   const csvPath = path.join(leadPackOutputPath, 'lead-packs.csv')
@@ -766,7 +767,7 @@ function createDemoFixtureRun({ parsedQuery, maxResults, searchScope, sellerInte
   fs.mkdirSync(leadPackOutputPath, { recursive: true })
 
   const allLeadPacks = Array.isArray(fixture.leadPacks) ? fixture.leadPacks : []
-  const leadPacks = attachSellerFitToLeads(allLeadPacks.slice(0, maxResults).map((lead) => withDemoRunMetadata(lead, parsedQuery, searchScope, enrichCompanyProfile)), sellerIntent)
+  const leadPacks = attachSourceFusionToLeads(attachSellerFitToLeads(allLeadPacks.slice(0, maxResults).map((lead) => withDemoRunMetadata(lead, parsedQuery, searchScope, enrichCompanyProfile)), sellerIntent))
   const summary = buildDemoSummary(fixture.summary || {}, leadPacks, parsedQuery, maxResults, searchScope, sellerIntent, enrichCompanyProfile, outputDir, leadPackOutputPath)
 
   fs.writeFileSync(path.join(leadPackOutputPath, 'lead-packs.json'), JSON.stringify(leadPacks, null, 2))
@@ -875,10 +876,12 @@ function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searc
 }
 
 function toLeadPackCsv(leadPacks) {
-  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'sellerIntent', 'sellerFit', 'sellerRecommendedAction', 'fitReasons', 'riskReasons', 'osintEvidenceCount', 'osintRiskCount', 'osintSourceCount', 'osintTopSignals', 'osintTopRisks', 'workflowQueue', 'workflowStatus', 'owner', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextFollowUpAt', 'lastContactedAt', 'nextAction', 'latestOutcome', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
+  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'sellerIntent', 'sellerFit', 'sellerRecommendedAction', 'leadConfidence', 'identityConfidence', 'contactConfidence', 'locationConfidence', 'recommendedTrustAction', 'sourceCoverage', 'verifiedFieldsSummary', 'proofReasonsSummary', 'riskReasonsSummary', 'sourceFusionWarnings', 'fitReasons', 'riskReasons', 'osintEvidenceCount', 'osintRiskCount', 'osintSourceCount', 'osintTopSignals', 'osintTopRisks', 'workflowQueue', 'workflowStatus', 'owner', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextFollowUpAt', 'lastContactedAt', 'nextAction', 'latestOutcome', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
   const rows = leadPacks.map((lead) => {
     const workflow = normalizeWorkflow(lead.workflow || {})
     const osintSummary = lead.osint && lead.osint.summary ? lead.osint.summary : {}
+    const fusion = lead.sourceFusion || evaluateSourceFusion({ lead, googlePlaces: lead.places, brregCompanyProfile: lead.company, contactProfile: lead.contact, sourceQuality: lead.sourceQuality, sellerFit: lead.sellerFit, workflow })
+    const fusionSummary = sourceFusionSummary(fusion)
     return [
       lead.rank,
       lead.company && lead.company.displayName,
@@ -894,6 +897,16 @@ function toLeadPackCsv(leadPacks) {
       lead.sellerFit && lead.sellerFit.sellerIntent,
       lead.sellerFit && lead.sellerFit.sellerFit,
       lead.sellerFit && lead.sellerFit.recommendedAction,
+      fusion.leadConfidence,
+      fusion.identityConfidence,
+      fusion.contactConfidence,
+      fusion.locationConfidence,
+      fusion.recommendedTrustAction,
+      fusionSummary.sourceCoverage,
+      fusionSummary.verifiedFields,
+      fusionSummary.proofReasons,
+      fusionSummary.riskReasons,
+      fusionSummary.warnings,
       lead.sellerFit && Array.isArray(lead.sellerFit.fitReasons) ? lead.sellerFit.fitReasons.join(' | ') : '',
       lead.sellerFit && Array.isArray(lead.sellerFit.riskReasons) ? lead.sellerFit.riskReasons.join(' | ') : '',
       osintSummary.evidenceCount || '',
@@ -936,7 +949,7 @@ function handleRunFile(url, res, runIndex, workflowPath) {
   if (!run) return json(res, 404, { error: 'Run not found in this server session' })
   if (file === 'lead-packs.csv' || file === 'call-list.csv') {
     const summary = readJsonFile(run.machineSummaryPath, {})
-    const leads = attachWorkflowToLeads(attachSellerFitToLeads(readJsonFile(run.leadPacksPath, []), run.sellerIntent || summary.sellerIntent), readWorkflowStore(workflowPath))
+    const leads = attachSourceFusionToLeads(attachWorkflowToLeads(attachSellerFitToLeads(readJsonFile(run.leadPacksPath, []), run.sellerIntent || summary.sellerIntent), readWorkflowStore(workflowPath)))
     const csvLeads = file === 'call-list.csv' ? filterCallListLeads(leads, url.searchParams.get('view') || 'all') : leads
     res.writeHead(200, { 'content-type': 'text/csv' })
     res.end(toLeadPackCsv(csvLeads))
@@ -944,7 +957,7 @@ function handleRunFile(url, res, runIndex, workflowPath) {
   }
   if (file === 'lead-packs.json') {
     const summary = readJsonFile(run.machineSummaryPath, {})
-    return json(res, 200, attachWorkflowToLeads(attachSellerFitToLeads(readJsonFile(run.leadPacksPath, []), run.sellerIntent || summary.sellerIntent), readWorkflowStore(workflowPath)))
+    return json(res, 200, attachSourceFusionToLeads(attachWorkflowToLeads(attachSellerFitToLeads(readJsonFile(run.leadPacksPath, []), run.sellerIntent || summary.sellerIntent), readWorkflowStore(workflowPath))))
   }
   if (file === 'summary.json') return serveFile(res, run.machineSummaryPath, 'application/json')
   return json(res, 404, { error: 'Run file not found' })
@@ -983,6 +996,22 @@ function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b') {
     const copy = JSON.parse(JSON.stringify(lead || {}))
     copy.sellerFit = evaluateSellerFit(copy, normalizedSellerIntent)
     copy.meta = { ...(copy.meta || {}), sellerIntent: normalizedSellerIntent }
+    return copy
+  })
+}
+
+function attachSourceFusionToLeads(leadPacks) {
+  return (Array.isArray(leadPacks) ? leadPacks : []).map((lead) => {
+    const copy = JSON.parse(JSON.stringify(lead || {}))
+    copy.sourceFusion = evaluateSourceFusion({
+      lead: copy,
+      googlePlaces: copy.places,
+      brregCompanyProfile: copy.company,
+      contactProfile: copy.contact,
+      sourceQuality: copy.sourceQuality,
+      sellerFit: copy.sellerFit,
+      workflow: copy.workflow,
+    })
     return copy
   })
 }

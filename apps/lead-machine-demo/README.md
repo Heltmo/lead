@@ -245,6 +245,14 @@ The selector does not change source truth from Google Places, Brreg, Proff, or w
 Seller-fit fields are added to the lead JSON/CSV exports.
 
 
+## Source Fusion V1 / Proof & Confidence
+
+The demo now attaches `sourceFusion` to each returned lead after seller-fit and workflow state. Source Fusion separates identity confidence, contact confidence, location confidence, and seller fit, then returns a seller-facing trust action: `call`, `review`, `verify_first`, or `skip`. The UI shows this as `Proof & confidence` with human labels such as Trygg å ringe, Bør vurderes, Verifiser først, and Svak/usikker.
+
+CSV exports include lead confidence, identity confidence, contact confidence, location confidence, recommended trust action, source coverage, verified fields, proof reasons, risk reasons, and source-fusion warnings. V1 uses existing Google Places, Brreg, contact/profile, seller-fit, and workflow context only. It does not add 1881, Proff, Gule Sider/Eniro, SSB, scraping, call scripts, email sending, or outreach automation.
+
+See ../../SOURCE_FUSION_V1.md for Source Fusion rules and future provider boundaries.
+
 ## Seller Work Queues V1
 
 The seller desk now separates saved markets from daily work queues. Queue tabs show Ring nå, Ingen svar, Oppfølging i dag, Interessert, Må verifiseres, Ikke relevant, and Arkiv.
