@@ -280,6 +280,8 @@ async function main() {
   assert(!lower.includes('demo-fixture'), 'UI should not expose demo fixture as the seller workflow')
   assert(lower.includes('leadsort'), 'UI should include lead sorting control')
   assert(lower.includes('lead-filter'), 'UI should include lead filters')
+  assert(uiText.includes('href="/styles.css"') && uiText.includes('src="/app.js"'), 'Netlify static deploy should load root CSS and JS assets')
+  assert(!uiText.includes('/assets/styles.css') && !uiText.includes('/assets/app.js'), 'Netlify deploy should not depend on local-only /assets aliases')
   assert(lower.includes('lead-name-line'), 'Selected lead header should align company name and phone')
   assert(lower.includes('instant-lead-view'), 'Selected lead should put critical call info in an instant top view')
   assert(lower.includes('instant-decision-grid'), 'Selected lead should show top decision facts immediately')

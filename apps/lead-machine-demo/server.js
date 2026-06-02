@@ -45,6 +45,7 @@ function createServer(options = {}) {
       const url = new URL(req.url, 'http://127.0.0.1')
       if (req.method === 'GET' && url.pathname === '/') return serveFile(res, path.join(publicDir, 'index.html'), 'text/html')
       if (req.method === 'GET' && url.pathname.startsWith('/assets/')) return serveFile(res, path.join(publicDir, url.pathname.replace('/assets/', '')), contentType(url.pathname))
+      if (req.method === 'GET' && ['/styles.css', '/app.js'].includes(url.pathname)) return serveFile(res, path.join(publicDir, url.pathname.slice(1)), contentType(url.pathname))
       if (req.method === 'POST' && url.pathname === '/api/runs') {
         await handleRun(req, res, { runner, runsDir, runIndex, workflowStore, savedSearchesStore })
         return
