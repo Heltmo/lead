@@ -728,30 +728,40 @@ function renderDetail(lead) {
   const command = sellerCommand(lead)
   const nextStep = command.nextAction
   els.leadDetail.innerHTML = `
-    <div class="detail-title">
-      <div>
-        <p class="eyebrow">Selected lead</p>
-        <div class="lead-name-line">
-          <h2>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h2>
+    <section class="instant-lead-view">
+      <div class="instant-lead-main">
+        <div class="instant-lead-title">
+          <p class="eyebrow">Selected lead</p>
+          <div class="lead-name-line">
+            <h2>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h2>
+          </div>
+          <p class="muted">${escapeHtml(company.legalName || 'Legal name unknown')}</p>
+          <div class="badge-row instant-badges">${badge(callReadiness(lead).key)}${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
         </div>
-        <p class="muted">${escapeHtml(company.legalName || 'Legal name unknown')}</p>
-      </div>
-      <div class="detail-title-actions">
-        <div class="badge-row">${badge(callReadiness(lead).key)}${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
-        <div class="lead-header-actions">
+        <div class="instant-call-box">
+          <span>Best contact</span>
           ${titlePhone(contact.phone || lead.phone)}
-          <button type="button" id="nextLeadButton" class="next-lead-button" ${nextLeadDisabledAttr()}>Next lead</button>
+          <small>${escapeHtml(command.bestContactNote)}</small>
+          <div class="lead-header-actions">
+            ${phoneHref(contact.phone || lead.phone) ? `<a class="call-now primary-call" href="${escapeAttr(phoneHref(contact.phone || lead.phone))}">Call now</a>` : ''}
+            <button type="button" id="nextLeadButton" class="next-lead-button" ${nextLeadDisabledAttr()}>Next lead</button>
+          </div>
         </div>
       </div>
-    </div>
-
-    ${callFocusStrip(lead, command)}
-
-    ${sellerCommandCard(command)}
+      ${sellerDeskCards(lead, command, { includeDetails: false })}
+      <div class="instant-decision-grid">
+        ${commandMetric('Do this now', command.nextAction, command.nextActionNote)}
+        ${commandMetric('Verify before use', command.mainRisk, command.mainRiskNote)}
+        ${commandMetric('Company identity', command.verification, command.verificationNote)}
+        ${commandMetric('Business type', command.businessType, command.businessTypeNote)}
+      </div>
+    </section>
 
     ${workflowPanel(lead)}
 
-    ${sellerDeskCards(lead, command)}
+    ${sellerDeskCards(lead, command, { includeTop: false })}
+
+    ${sellerCommandCard(command)}
 
     ${osintPanel(lead)}
 
@@ -1148,7 +1158,7 @@ function commandMetric(label, value, note) {
   return `<div class="command-metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(note)}</small></div>`
 }
 
-function sellerDeskCards(lead, command) {
+function sellerDeskCards(lead, command, options = {}) {
   const company = lead.company || {}
   const contact = lead.contact || {}
   const places = lead.places || {}
@@ -1213,12 +1223,12 @@ function sellerDeskCards(lead, command) {
     ['Main check', command.mainRisk],
   ]
 
-  return `<section class="seller-desk-v2 lead-brief-grid">
+  const topCards = `<section class="seller-desk-v2 lead-brief-grid">
     ${sellerDeskCard('Contact', contact.phone ? 'phone_available' : 'contact_missing', contactRows, command.bestContactNote)}
     ${sellerDeskCard('Company', orgStatus, identityRows, brregPublicLink(company))}
     ${sellerDeskCard('Proof & checks', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : sourceQuality.locationMatchStatus || command.sellerReadinessKey, proofRiskRows, command.mainRiskNote)}
-  </section>
-  <details class="detail-collapse lead-brief-details">
+  </section>`
+  const details = `<details class="detail-collapse lead-brief-details">
     <summary>Qualification and verification details</summary>
     <div class="seller-desk-v2 secondary-brief-grid">
       ${sellerDeskCard('Company fit', command.sellerReadinessKey, fitRows, 'Seller fit interprets existing data; it does not change source truth.')}
@@ -1228,6 +1238,9 @@ function sellerDeskCards(lead, command) {
       ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Enrichment has not run yet.' : 'Selected enrichment modules included.')}
     </div>
   </details>`
+  const includeTop = options.includeTop !== false
+  const includeDetails = options.includeDetails !== false
+  return [includeTop ? topCards : '', includeDetails ? details : ''].filter(Boolean).join('\n')
 }
 
 function sellerDeskCard(title, status, rows, footer = '') {

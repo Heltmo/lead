@@ -237,7 +237,8 @@ async function main() {
   assert(failResponse.status === 500, 'failed run should return user-friendly error')
   assert(failResponse.body.error.includes('provider unavailable'), 'failed run should expose friendly error')
 
-  const uiText = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8')
+  const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8')
+  const uiText = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + appJs
   const lower = uiText.toLowerCase()
   assert(!lower.includes('call opener'), 'UI must not include call openers')
   assert(!lower.includes('ready-to-send'), 'UI must not include ready-to-send text')
@@ -246,6 +247,10 @@ async function main() {
   assert(lower.includes('leadsort'), 'UI should include lead sorting control')
   assert(lower.includes('lead-filter'), 'UI should include lead filters')
   assert(lower.includes('lead-name-line'), 'Selected lead header should align company name and phone')
+  assert(lower.includes('instant-lead-view'), 'Selected lead should put critical call info in an instant top view')
+  assert(lower.includes('instant-decision-grid'), 'Selected lead should show top decision facts immediately')
+  assert(appJs.indexOf('sellerDeskCards(lead, command, { includeDetails: false })') > appJs.indexOf('instant-lead-main'), 'Contact/company/proof cards should sit directly under the selected lead header')
+  assert(appJs.indexOf('sellerDeskCards(lead, command, { includeDetails: false })') < appJs.indexOf('instant-decision-grid'), 'Contact/company/proof cards should appear before lower-priority decision cards')
   assert(lower.includes('title-phone'), 'Selected lead header should show primary phone near the company name')
   assert(lower.includes('nextleadbutton'), 'Selected lead header should include a next-lead button')
   assert(lower.includes('selectnextvisiblelead'), 'Next lead button should advance through the visible lead list')
