@@ -82,7 +82,7 @@ async function discoverLocalBusinesses(options) {
 function writeDiscoveryOutputs(report, options = {}) {
   const outPath = path.resolve(options.outPath || 'reports/lead-candidates.json')
   const summaryPath = path.resolve(options.summaryPath || 'reports/discovery-summary.json')
-  const handoffPath = path.resolve(options.handoffPath || 'reports/orchestrator-urls.txt')
+  const handoffPath = path.resolve(options.handoffPath || 'reports/lead-machine-handoff.jsonl')
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
   fs.mkdirSync(path.dirname(summaryPath), { recursive: true })
   fs.mkdirSync(path.dirname(handoffPath), { recursive: true })

@@ -2,13 +2,13 @@ const http = require('http')
 const fs = require('fs')
 const path = require('path')
 const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
-const { runAuditQueue } = require('../../core/orchestrator/pipelines/auditQueue')
-const { runLeadPack } = require('../../core/lead-pack-runner/leadPackRunner')
 const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
 const { enrichProffCompany } = require('../../core/company-profile/proffProvider')
 const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-fit/sellerFit')
+const { enrichOsint } = require('../../core/osint/osint')
 const { parseLeadQuery } = require('./queryParser')
+const { createWorkspaceStore } = require('./localStore')
 
 const DEFAULT_PORT = Number(process.env.PORT || 8787)
 const APP_ROOT = __dirname
@@ -18,6 +18,8 @@ const FIXTURE_DIR = path.join(APP_ROOT, 'fixtures')
 const DEMO_FIXTURE_PATH = path.join(FIXTURE_DIR, 'kristiansand-rorlegger-result.json')
 const REPO_ROOT = path.resolve(APP_ROOT, '..', '..')
 const WORKFLOW_PATH = path.join(REPO_ROOT, '.cache', 'lead-machine-demo', 'lead-workflow.json')
+const SAVED_SEARCHES_PATH = path.join(REPO_ROOT, '.cache', 'lead-machine-demo', 'saved-searches.json')
+const WORKSPACE_DB_PATH = path.join(REPO_ROOT, '.cache', 'lead-machine-demo', 'workspace.sqlite')
 loadEnvFiles([path.join(REPO_ROOT, '.env'), path.join(APP_ROOT, '.env')])
 
 function createServer(options = {}) {
@@ -27,32 +29,47 @@ function createServer(options = {}) {
   const publicDir = options.publicDir || PUBLIC_DIR
   const runIndex = new Map()
   const workflowPath = options.workflowPath || WORKFLOW_PATH
+  const savedSearchesPath = options.savedSearchesPath || SAVED_SEARCHES_PATH
+  const workspaceStore = options.workspaceStore || createWorkspaceStore({
+    dbPath: options.workspaceDbPath || WORKSPACE_DB_PATH,
+    workflowPath,
+    savedSearchesPath,
+  })
+  const workflowStore = options.workflowStore || workspaceStore
+  const savedSearchesStore = options.savedSearchesStore || workspaceStore
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url, 'http://127.0.0.1')
       if (req.method === 'GET' && url.pathname === '/') return serveFile(res, path.join(publicDir, 'index.html'), 'text/html')
       if (req.method === 'GET' && url.pathname.startsWith('/assets/')) return serveFile(res, path.join(publicDir, url.pathname.replace('/assets/', '')), contentType(url.pathname))
       if (req.method === 'POST' && url.pathname === '/api/runs') {
-        await handleRun(req, res, { runner, runsDir, runIndex, workflowPath })
+        await handleRun(req, res, { runner, runsDir, runIndex, workflowStore, savedSearchesStore })
         return
       }
       if (req.method === 'GET' && url.pathname === '/api/latest-run') {
-        await handleLatestRun(res, { runsDir, runIndex, workflowPath })
+        await handleLatestRun(res, { runsDir, runIndex, workflowStore, savedSearchesStore })
         return
       }
       if (req.method === 'POST' && url.pathname === '/api/deep-qualify') {
-        await handleDeepQualify(req, res, { deepQualifier, runsDir, workflowPath })
+        await handleDeepQualify(req, res, { deepQualifier, runsDir, workflowStore })
         return
       }
-      if (req.method === 'GET' && url.pathname === '/api/workflow') return handleWorkflowGet(url, res, workflowPath)
-      if (req.method === 'POST' && url.pathname === '/api/workflow') return handleWorkflowPost(req, res, workflowPath)
-      if (req.method === 'GET' && url.pathname.startsWith('/api/runs/')) return handleRunFile(url, res, runIndex, workflowPath)
+      if (req.method === 'GET' && url.pathname === '/api/workflow') return handleWorkflowGet(url, res, workflowStore)
+      if (req.method === 'POST' && url.pathname === '/api/workflow') return handleWorkflowPost(req, res, workflowStore)
+      if (req.method === 'PATCH' && url.pathname === '/api/saved-searches') return handleSavedSearchPatch(req, res, savedSearchesStore)
+      if (req.method === "GET" && url.pathname === "/api/workspace-export") return json(res, 200, workspaceStore.exportSnapshot())
+      if (req.method === "GET" && url.pathname === "/api/health") return json(res, 200, buildBetaHealth({ workspaceStore, savedSearchesStore }))
+      if (req.method === 'GET' && url.pathname.startsWith('/api/runs/')) return handleRunFile(url, res, runIndex, workflowStore)
       return json(res, 404, { error: 'Not found' })
     } catch (error) {
       return json(res, 500, { error: friendlyError(error) })
     }
   })
+  if (!options.workspaceStore && typeof workspaceStore.close === 'function') {
+    server.on('close', () => workspaceStore.close())
+  }
+  return server
 }
 
 async function handleRun(req, res, context) {
@@ -106,6 +123,8 @@ async function handleRun(req, res, context) {
   writeSummarySellerIntent(machineSummaryPath, sellerIntent)
   writeSummarySellerIntent(leadPackSummaryPath, sellerIntent)
   context.runIndex.set(runId, { outputDir, leadPackOutputPath, csvPath, leadPacksPath, machineSummaryPath, sellerIntent })
+  const savedLeadPacks = readJsonFile(leadPacksPath, [])
+  saveSearchMetadata(context.savedSearchesStore, { runId, query: parsedQuery.normalizedQuery, rawQuery: parsedQuery.rawQuery, provider, searchScope, sellerIntent, mode, maxResults, outputDir, leadPackOutputPath, leadCount: savedLeadPacks.length, phoneCount: savedLeadPacks.filter((lead) => lead.contact && lead.contact.phone || lead.phone).length, interestedCount: 0 })
 
   return json(res, 200, buildRunPayload({
     runId,
@@ -115,7 +134,8 @@ async function handleRun(req, res, context) {
     leadPacksPath,
     leadPackSummaryPath,
     machineSummaryPath,
-    workflowPath: context.workflowPath,
+    workflowStore: context.workflowStore,
+    savedSearchesStore: context.savedSearchesStore,
     sellerIntent,
     machineSummaryOverride: result.summary,
   }))
@@ -137,8 +157,195 @@ async function handleLatestRun(res, context) {
     leadPacksPath,
     leadPackSummaryPath,
     machineSummaryPath,
-    workflowPath: context.workflowPath,
+    workflowStore: context.workflowStore,
+    savedSearchesStore: context.savedSearchesStore,
   }))
+}
+
+function saveSearchMetadata(filePath, entry = {}) {
+  if (!filePath) return
+  const searches = readSavedSearches(filePath)
+  const previous = searches.find((item) => savedSearchKey(item) === savedSearchKey(entry)) || {}
+  const normalized = {
+    runId: limitText(entry.runId || '', 140),
+    query: limitText(entry.query || '', 180),
+    rawQuery: limitText(entry.rawQuery || entry.query || '', 180),
+    provider: limitText(entry.provider || 'balanced', 40),
+    searchScope: limitText(entry.searchScope || 'regional', 40),
+    sellerIntent: normalizeSellerIntent(entry.sellerIntent),
+    mode: limitText(entry.mode || 'fast', 40),
+    maxResults: normalizeMaxResults(entry.maxResults, 25),
+    outputDir: limitText(entry.outputDir || '', 300),
+    leadPackOutputPath: limitText(entry.leadPackOutputPath || '', 300),
+    leadCount: normalizeCount(entry.leadCount),
+    phoneCount: normalizeCount(entry.phoneCount),
+    interestedCount: normalizeCount(entry.interestedCount),
+    label: limitText(previous.label || entry.label || '', 80),
+    pinned: previous.pinned === true || previous.pinned === 'true',
+    updatedAt: limitText(previous.updatedAt || '', 40),
+    savedAt: new Date().toISOString(),
+  }
+  const key = savedSearchKey(normalized)
+  const next = sortSavedSearches([normalized, ...searches.filter((item) => savedSearchKey(item) !== key)]).slice(0, 30)
+  writeSavedSearches(filePath, next)
+}
+
+function savedSearchKey(entry = {}) {
+  return [entry.query, entry.sellerIntent, entry.searchScope, entry.provider].map((value) => String(value || '').toLowerCase()).join('::')
+}
+
+function readSavedSearches(target) {
+  if (!target) return []
+  if (target && typeof target.readSavedSearches === 'function') {
+    return target.readSavedSearches().map(normalizeSavedSearch).filter(Boolean)
+  }
+  const parsed = readJsonFile(target, [])
+  return Array.isArray(parsed) ? sortSavedSearches(parsed.map(normalizeSavedSearch).filter(Boolean)).slice(0, 30) : []
+}
+
+function normalizeSavedSearch(entry = {}) {
+  if (!entry || typeof entry !== 'object' || !entry.query) return null
+  return {
+    runId: limitText(entry.runId || '', 140),
+    query: limitText(entry.query || '', 180),
+    rawQuery: limitText(entry.rawQuery || entry.query || '', 180),
+    provider: limitText(entry.provider || 'balanced', 40),
+    searchScope: limitText(entry.searchScope || 'regional', 40),
+    sellerIntent: normalizeSellerIntent(entry.sellerIntent),
+    mode: limitText(entry.mode || 'fast', 40),
+    maxResults: normalizeMaxResults(entry.maxResults, 25),
+    outputDir: limitText(entry.outputDir || '', 300),
+    leadPackOutputPath: limitText(entry.leadPackOutputPath || '', 300),
+    leadCount: normalizeCount(entry.leadCount),
+    phoneCount: normalizeCount(entry.phoneCount),
+    interestedCount: normalizeCount(entry.interestedCount),
+    label: limitText(entry.label || '', 80),
+    pinned: entry.pinned === true || entry.pinned === 'true',
+    updatedAt: limitText(entry.updatedAt || '', 40),
+    key: savedSearchKey(entry),
+    savedAt: limitText(entry.savedAt || '', 40),
+  }
+}
+
+function sortSavedSearches(searches = []) {
+  return (Array.isArray(searches) ? searches : []).slice().sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1
+    return String(b.savedAt || b.updatedAt || '').localeCompare(String(a.savedAt || a.updatedAt || ''))
+  })
+}
+
+async function handleSavedSearchPatch(req, res, savedSearchesStore) {
+  const body = await readJsonBody(req)
+  const targetKey = String(body.key || savedSearchKey(body)).trim()
+  if (!targetKey) return json(res, 400, { error: 'saved search key is required' })
+  const searches = readSavedSearches(savedSearchesStore)
+  let updated = null
+  const next = searches.map((search) => {
+    if (savedSearchKey(search) !== targetKey && search.key !== targetKey) return search
+    updated = normalizeSavedSearch({
+      ...search,
+      label: body.label !== undefined ? limitText(body.label, 80) : search.label,
+      pinned: body.pinned !== undefined ? (body.pinned === true || body.pinned === 'true') : search.pinned,
+      updatedAt: new Date().toISOString(),
+    })
+    return updated
+  })
+  if (!updated) return json(res, 404, { error: 'Saved search not found' })
+  writeSavedSearches(savedSearchesStore, sortSavedSearches(next).slice(0, 30))
+  return json(res, 200, { savedSearch: updated, savedSearches: readSavedSearches(savedSearchesStore) })
+}
+
+function normalizeCount(value) {
+  const number = Number(value)
+  return Number.isFinite(number) && number >= 0 ? Math.floor(number) : 0
+}
+
+function writeSavedSearches(target, searches) {
+  if (target && typeof target.writeSavedSearches === 'function') return target.writeSavedSearches(searches)
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  const tmp = target + '.tmp'
+  fs.writeFileSync(tmp, JSON.stringify(Array.isArray(searches) ? searches : [], null, 2))
+  fs.renameSync(tmp, target)
+}
+
+function buildProductReadiness({ summary = {}, leadPacks = [], workflowStore, savedSearchesStore, workflowPath, savedSearchesPath }) {
+  const googleConfigured = Boolean(process.env.GOOGLE_PLACES_API_KEY)
+  const proffConfigured = Boolean(process.env.PROFF_API_KEY)
+  const included = Number(summary.includedLeadCount ?? summary.totalLeads ?? leadPacks.length ?? 0)
+  const cappedMax = Number(summary.maxResults || 25)
+  const persistenceMode = workflowStore && workflowStore.mode === 'sqlite' ? 'sqlite_local' : 'local_json'
+  return {
+    mode: 'proff_free_ready',
+    sourceGuard: {
+      searchCap: Math.min(cappedMax || 25, 25),
+      includedLeadCount: included,
+      selectedLeadDeepOnly: true,
+      googleStatus: googleConfigured ? 'enabled_metered' : 'not_configured',
+      proffStatus: proffConfigured ? 'available_optional' : 'disabled_optional',
+      brregStatus: 'automatic_identity_base',
+    },
+    providers: [
+      { id: 'brreg', label: 'Brreg', status: 'automatic', note: 'Free company identity base: org.nr, legal name, NACE, status and employees when available.' },
+      { id: 'google_places', label: 'Google Places', status: googleConfigured ? 'metered_enabled' : 'not_configured', note: 'Metered public presence source; searches are capped and Deep runs only on selected leads.' },
+      { id: 'osint', label: 'OSINT public evidence', status: 'selected_lead_only', note: 'Uses source-backed public business evidence already attached to the selected lead.' },
+      { id: 'proff', label: 'Proff economy', status: proffConfigured ? 'optional_enabled' : 'optional_disabled', note: proffConfigured ? 'Available only after confirmed org.nr.' : 'Not required for core seller workflow; keep as later paid add-on.' },
+    ],
+    persistence: {
+      status: persistenceMode,
+      workspaceDbPath: workflowStore && workflowStore.dbPath || WORKSPACE_DB_PATH,
+      workflowPath: workflowPath || workflowStore && workflowStore.workflowPath || WORKFLOW_PATH,
+      savedSearchesPath: savedSearchesPath || savedSearchesStore && savedSearchesStore.savedSearchesPath || SAVED_SEARCHES_PATH,
+      note: persistenceMode === 'sqlite_local' ? 'SQLite-backed local workspace keeps workflow, activity and recent searches durable without SaaS auth or billing.' : 'Local workflow and recent searches survive reloads without SaaS auth or billing.',
+    },
+    workspace: buildWorkspaceSummary(workflowStore, savedSearchesStore),
+    guardrails: [
+      'Proff is optional and never required for lead quality.',
+      'Google usage stays capped at 25 leads per run in this demo.',
+      'Deep enrichment runs on one selected lead, not the whole market.',
+      'No outreach automation, email sending, or telephony is added.',
+    ],
+  }
+}
+
+function buildBetaHealth({ workspaceStore, savedSearchesStore }) {
+  const readiness = buildProductReadiness({ workflowStore: workspaceStore, savedSearchesStore })
+  return {
+    status: "ok",
+    product: "lead-machine-local-seller-desk",
+    version: "friend-beta-v1",
+    beta: true,
+    localOnly: true,
+    sourceGuard: readiness.sourceGuard,
+    workspace: readiness.workspace,
+    guardrails: readiness.guardrails,
+    limits: [
+      "No auth or hosted workspace yet.",
+      "No email sending, telephony, CRM sync, or outreach automation.",
+      "Do not expose this local server on the open internet.",
+      "Use workspace export before and after friend testing.",
+    ],
+  }
+}
+
+function buildWorkspaceSummary(workflowStore, savedSearchesStore) {
+  const workflow = readWorkflowStore(workflowStore)
+  const savedSearches = readSavedSearches(savedSearchesStore)
+  let activityCount = 0
+  try {
+    const snapshot = workflowStore && typeof workflowStore.exportSnapshot === 'function' ? workflowStore.exportSnapshot() : null
+    activityCount = Array.isArray(snapshot && snapshot.activityLog) ? snapshot.activityLog.length : 0
+  } catch (_) {}
+  const mode = workflowStore && workflowStore.mode === 'sqlite' ? 'sqlite_local' : 'local_json'
+  return {
+    status: mode,
+    storageMode: mode === 'sqlite_local' ? 'SQLite local workspace' : 'Local JSON fallback',
+    workspaceDbPath: workflowStore && workflowStore.dbPath || WORKSPACE_DB_PATH,
+    workflowLeadCount: Object.keys(workflow.leads || {}).length,
+    savedSearchCount: savedSearches.length,
+    activityCount,
+    canExport: workflowStore && typeof workflowStore.exportSnapshot === 'function',
+    exportPath: '/api/workspace-export',
+  }
 }
 
 function writeSummarySellerIntent(filePath, sellerIntent) {
@@ -147,11 +354,11 @@ function writeSummarySellerIntent(filePath, sellerIntent) {
   fs.writeFileSync(filePath, JSON.stringify({ ...summary, sellerIntent: normalizeSellerIntent(sellerIntent) }, null, 2))
 }
 
-function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, leadPacksPath, leadPackSummaryPath, machineSummaryPath, workflowPath, sellerIntent, machineSummaryOverride }) {
+function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, leadPacksPath, leadPackSummaryPath, machineSummaryPath, workflowStore, savedSearchesStore, sellerIntent, machineSummaryOverride }) {
   const leadPackSummary = readJsonFile(leadPackSummaryPath, {})
   const machineSummary = machineSummaryOverride || readJsonFile(machineSummaryPath, {})
   const normalizedSellerIntent = normalizeSellerIntent(sellerIntent || machineSummary.sellerIntent || leadPackSummary.sellerIntent)
-  const leadPacks = attachSellerFitToLeads(attachWorkflowToLeads(readJsonFile(leadPacksPath, []), readWorkflowStore(workflowPath)), normalizedSellerIntent)
+  const leadPacks = attachSellerFitToLeads(attachWorkflowToLeads(readJsonFile(leadPacksPath, []), readWorkflowStore(workflowStore)), normalizedSellerIntent)
   const normalizedQuery = parsedQuery?.normalizedQuery || machineSummary.query || leadPacks[0]?.meta?.sourceQuery || ''
   return {
     runId,
@@ -169,6 +376,8 @@ function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, le
       callListInterested: `/api/runs/${runId}/call-list.csv?view=interested`,
     },
     summary: { ...leadPackSummary, ...machineSummary, sellerIntent: normalizedSellerIntent },
+    readiness: buildProductReadiness({ summary: { ...leadPackSummary, ...machineSummary, sellerIntent: normalizedSellerIntent }, leadPacks, workflowStore, savedSearchesStore }),
+    savedSearches: readSavedSearches(savedSearchesStore),
     leadPacks,
   }
 }
@@ -199,128 +408,93 @@ async function handleDeepQualify(req, res, context) {
   const query = String(body.query || lead.meta?.sourceQuery || '').trim() || 'selected lead'
   const sellerIntent = normalizeSellerIntent(body.sellerIntent || lead.sellerFit?.sellerIntent)
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
-  const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir })
-  if (result && result.leadPack) result.leadPack = attachSellerFitToLeads(attachWorkflowToLeads([result.leadPack], readWorkflowStore(context.workflowPath)), sellerIntent)[0]
+  const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir, sellerIntent })
+  if (result && result.leadPack) {
+    const fittedLead = attachSellerFitToLeads(attachWorkflowToLeads([result.leadPack], readWorkflowStore(context.workflowStore)), sellerIntent)[0]
+    result.leadPack = attachOsintToLead(fittedLead, sellerIntent)
+  }
   return json(res, 200, result)
 }
 
-async function deepQualifyLead({ lead, query, enrichCompanyProfile: shouldEnrichCompanyProfile, runsDir }) {
+async function deepQualifyLead({ lead, query, enrichCompanyProfile: shouldEnrichCompanyProfile, runsDir, sellerIntent }) {
   const originalLead = JSON.parse(JSON.stringify(lead))
   const company = lead.company || {}
-  const contact = lead.contact || {}
-  const places = lead.places || {}
   const sourceQuality = lead.sourceQuality || {}
   const runId = createSafeRunId(`${company.displayName || 'selected-lead'} deep`)
   const outputDir = path.join(runsDir, runId)
-  const orchestratorRootDir = path.join(outputDir, 'orchestrator')
   const leadPackOutputPath = path.join(outputDir, 'lead-packs')
-  fs.mkdirSync(outputDir, { recursive: true })
+  fs.mkdirSync(leadPackOutputPath, { recursive: true })
 
   const refreshedCompanyProfile = shouldEnrichCompanyProfile ? await safeSelectedCompanyProfile(lead) : null
   const proffProfile = await safeSelectedProffProfile(lead, refreshedCompanyProfile)
-  const websiteUrl = selectedWebsiteUrl(lead)
-  const hasWebsite = Boolean(websiteUrl)
-  if (!hasWebsite) {
-    const deepLead = applyDeepEnrichmentV1(mergeProffProfile(mergeSelectedCompanyProfile(originalLead, refreshedCompanyProfile), proffProfile), originalLead, {
-      companyProfile: refreshedCompanyProfile,
-      proffProfile,
-      websiteAuditStatus: 'skipped_no_website',
-      outputDir,
-    })
-    return {
-      outputDir,
-      leadPackOutputPath,
-      leadPack: deepLead,
-      downloads: { csvPath: null, jsonPath: null, summaryPath: null },
-    }
-  }
+  const hasWebsite = Boolean(selectedWebsiteUrl(lead))
+  const selectedLead = mergeProffProfile(mergeSelectedCompanyProfile(originalLead, refreshedCompanyProfile), proffProfile)
+  selectedLead.rank = lead.rank || selectedLead.rank || 1
 
-  const auditInput = {
-    url: websiteUrl,
-    businessName: company.displayName || lead.companyName || '',
-    source: places.provider || 'selected-lead',
-    location: contact.city || '',
-    industry: lead.leadClass || '',
-    sourceType: 'directBusiness',
-    auditEligible: true,
-    provenance: { provider: places.provider || 'selected-lead', selectedLeadDeepQualification: true },
-    phone: contact.phone || lead.phone || '',
-    address: contact.address || lead.address || '',
-    placeId: places.placeId || '',
-    rating: places.rating ?? '',
-    reviewCount: places.reviewCount ?? '',
-    searchScope: sourceQuality.searchScope || 'strict',
-    requestedMaxResults: sourceQuality.requestedMaxResults ?? '',
-    includedLeadCount: sourceQuality.includedLeadCount ?? '',
-    lowSupply: Boolean(sourceQuality.lowSupply),
-    fallbackAvailable: Boolean(sourceQuality.fallbackAvailable),
-    recommendedExpansion: sourceQuality.recommendedExpansion || '',
-    requestedLocation: sourceQuality.requestedLocation || '',
-    candidateLocation: sourceQuality.candidateLocation || contact.address || '',
-    candidateCity: contact.city || '',
-    locationMatchStatus: sourceQuality.locationMatchStatus || 'unknown',
-    locationConfidence: sourceQuality.locationConfidence ?? '',
-    distanceKm: sourceQuality.distanceKm ?? '',
-    locationWarnings: sourceQuality.locationWarnings || [],
-    fallbackUsed: Boolean(sourceQuality.fallbackUsed),
-    locationQuality: sourceQuality.locationQuality || null,
-    discoveryQuality: sourceQuality.discoveryQuality || null,
-    discoveryConfidence: sourceQuality.discoveryConfidence || sourceQuality.discoveryQuality?.level || '',
-    identitySource: sourceQuality.identitySource || company.source || '',
-    presenceSource: sourceQuality.presenceSource || places.provider || '',
-    organizationNumber: company.organizationNumber || '',
-    candidateOrganizationNumber: company.candidateOrganizationNumber || '',
-    legalName: company.legalName || '',
-    candidateLegalName: company.candidateLegalName || '',
-    organizationForm: company.organizationForm || '',
-    registeredAddress: company.registeredAddress || '',
-    municipality: company.municipality || '',
-    unitType: company.unitType || '',
-    naceCode: company.naceCode || '',
-    naceDescription: company.naceDescription || '',
-    employees: company.employees ?? '',
-    registrationDate: company.registrationDate || '',
-    activeStatus: company.activeStatus || '',
-    sourceUrl: company.sourceUrl || '',
-    selectedLeadEnrichment: true,
-  }
-
-  const auditResult = await runAuditQueue({
-    urls: [auditInput],
-    runId: `${runId}-audit`,
-    rootDir: orchestratorRootDir,
-    maxRetries: 1,
-  })
-  const discoveredEmail = await discoverEmailFromAuditRun(auditResult, websiteUrl)
-  const leadPackResult = await runLeadPack({
-    query,
-    runDir: path.dirname(auditResult.summaryPath),
-    outputDir: leadPackOutputPath,
-    enrichCompanyProfile: shouldEnrichCompanyProfile,
-  })
-  const leadPacks = readJsonFile(leadPackResult.leadPacksPath, [])
-  const deepLead = leadPacks[0]
-  if (!deepLead) throw new Error('Deep qualification did not produce a lead pack')
-  deepLead.rank = lead.rank || deepLead.rank
-  const mergedLead = applyDeepEnrichmentV1(mergeDiscoveredEmail(mergeProffProfile(mergeSelectedCompanyProfile(deepLead, refreshedCompanyProfile), proffProfile), discoveredEmail), originalLead, {
+  const enrichedLead = applyDeepEnrichmentV1(selectedLead, originalLead, {
     companyProfile: refreshedCompanyProfile,
     proffProfile,
-    discoveredEmail,
-    websiteAuditStatus: deepLead.website?.auditStatus || 'completed',
+    websiteAuditStatus: hasWebsite ? 'not_run' : 'skipped_no_website',
     outputDir,
   })
+  const finalLead = attachOsintToLead(enrichedLead, sellerIntent)
+
+  const jsonPath = path.join(leadPackOutputPath, 'lead-packs.json')
+  const csvPath = path.join(leadPackOutputPath, 'lead-packs.csv')
+  const summaryPath = path.join(leadPackOutputPath, 'summary.json')
+  const summary = {
+    runId,
+    sourceRun: originalLead.meta?.sourceRun || null,
+    outputDir: leadPackOutputPath,
+    sourceQuery: query,
+    generatedAt: new Date().toISOString(),
+    mode: 'selected_lead_enrichment',
+    totalLeads: 1,
+    priorityCounts: { [String(finalLead.callPriority || 'verify').toLowerCase()]: 1 },
+    enrichCompanyProfile: Boolean(shouldEnrichCompanyProfile),
+    searchScope: sourceQuality.searchScope || 'strict',
+    websiteStatus: finalLead.website?.auditStatus || 'not_run',
+    companyIdentityStatus: finalLead.company?.matchStatus || 'not_run',
+    economyStatus: finalLead.economy?.status || 'not_enabled',
+    productBoundary: 'selected_lead_enrichment_without_website_audit',
+  }
+
+  fs.writeFileSync(jsonPath, `${JSON.stringify([finalLead], null, 2)}\n`)
+  fs.writeFileSync(csvPath, toLeadPackCsv([finalLead]))
+  fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`)
+
   return {
     outputDir,
     leadPackOutputPath,
-    leadPack: mergedLead,
-    downloads: {
-      csvPath: leadPackResult.csvPath,
-      jsonPath: leadPackResult.leadPacksPath,
-      summaryPath: leadPackResult.summaryPath,
-    },
+    leadPack: finalLead,
+    downloads: { csvPath, jsonPath, summaryPath },
   }
 }
 
+function attachOsintToLead(lead = {}, sellerIntent = 'general_b2b') {
+  const copy = JSON.parse(JSON.stringify(lead || {}))
+  const { osint } = enrichOsint(copy, { sellerIntent })
+  copy.osint = osint
+  const modules = Array.isArray(copy.enrichmentModules)
+    ? copy.enrichmentModules.filter((module) => module && module.id !== 'osint_public_evidence')
+    : []
+  modules.push(moduleStatus('osint_public_evidence', 'OSINT public evidence', 'completed', osintModuleSummary(osint)))
+  copy.enrichmentModules = modules
+  copy.enrichment = {
+    ...(copy.enrichment || {}),
+    modules,
+    summary: {
+      ...(copy.enrichment && copy.enrichment.summary ? copy.enrichment.summary : {}),
+      osint: osint.summary,
+    },
+  }
+  return copy
+}
+
+function osintModuleSummary(osint = {}) {
+  const summary = osint.summary || {}
+  return String(summary.evidenceCount || 0) + " public evidence signals, " + String(summary.riskCount || 0) + " verification checks, " + String(summary.sourceCount || 0) + " sources."
+}
 
 
 function selectedWebsiteUrl(lead = {}) {
@@ -427,88 +601,6 @@ function mergeProffProfile(lead = {}, proffProfile) {
     rawAvailableFields: Array.isArray(proffProfile.rawAvailableFields) ? proffProfile.rawAvailableFields : [],
   }
   return copy
-}
-
-function mergeDiscoveredEmail(lead = {}, email) {
-  const cleanEmail = String(email || '').trim().toLowerCase()
-  if (!cleanEmail) return lead
-  const copy = JSON.parse(JSON.stringify(lead || {}))
-  copy.contact = { ...(copy.contact || {}), email: copy.contact?.email || cleanEmail }
-  copy.website = {
-    ...(copy.website || {}),
-    topEvidence: Array.from(new Set([...(copy.website?.topEvidence || []), `Email found during Deep enrichment: ${cleanEmail}`].filter(Boolean))),
-  }
-  copy.ranking = {
-    ...(copy.ranking || {}),
-    whyRanked: Array.from(new Set([...(copy.ranking?.whyRanked || []), 'Email contact path found during Deep enrichment.'].filter(Boolean))),
-  }
-  return copy
-}
-
-async function discoverEmailFromAuditRun(auditResult, websiteUrl) {
-  const reportPath = auditResult?.run?.queue?.[0]?.reportPath
-  const report = reportPath ? readJsonFile(reportPath, null) : null
-  const directEmail = firstUsableEmail(report?.signals?.emails)
-  if (directEmail) return directEmail
-  const links = Array.isArray(report?.signals?.links) ? report.signals.links : []
-  return await discoverEmailFromContactPages(websiteUrl, links)
-}
-
-async function discoverEmailFromContactPages(websiteUrl, links = []) {
-  if (typeof fetch !== 'function') return null
-  const urls = candidateContactUrls(websiteUrl, links).slice(0, 4)
-  for (const url of urls) {
-    try {
-      const response = await withTimeout(fetch(url, { headers: { accept: 'text/html,text/plain' } }), 8000)
-      if (!response || !response.ok) continue
-      const text = await response.text()
-      const email = firstUsableEmail(extractEmails(text))
-      if (email) return email
-    } catch (_) {}
-  }
-  return null
-}
-
-function candidateContactUrls(websiteUrl, links = []) {
-  const base = normalizeWebsiteBase(websiteUrl)
-  if (!base) return []
-  const contactWords = /(kontakt|contact|om-oss|om oss|about|ansatte|team|medarbeidere)/i
-  const fromLinks = links
-    .filter((link) => contactWords.test(`${link.text || ''} ${link.href || ''}`))
-    .map((link) => absoluteUrl(link.href, base))
-    .filter(Boolean)
-  return Array.from(new Set([...fromLinks, absoluteUrl('/kontakt', base), absoluteUrl('/contact', base), absoluteUrl('/om-oss', base)]))
-}
-
-function normalizeWebsiteBase(value) {
-  try {
-    const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`)
-    return `${url.protocol}//${url.host}`
-  } catch (_) {
-    return null
-  }
-}
-
-function absoluteUrl(value, base) {
-  try { return new URL(value || '/', base).toString() } catch (_) { return null }
-}
-
-function extractEmails(text) {
-  return String(text || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || []
-}
-
-function firstUsableEmail(values) {
-  return (Array.isArray(values) ? values : [])
-    .map((value) => String(value || '').trim().toLowerCase())
-    .find((email) => email && !/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(email) && !email.includes('example.')) || null
-}
-
-function withTimeout(promise, timeoutMs) {
-  let timeout
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('timeout')), timeoutMs) }),
-  ]).finally(() => clearTimeout(timeout))
 }
 
 function mergeSelectedCompanyProfile(lead = {}, profile) {
@@ -781,9 +873,10 @@ function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searc
 }
 
 function toLeadPackCsv(leadPacks) {
-  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'sellerIntent', 'sellerFit', 'sellerRecommendedAction', 'fitReasons', 'riskReasons', 'workflowStatus', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextAction', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
+  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'sellerIntent', 'sellerFit', 'sellerRecommendedAction', 'fitReasons', 'riskReasons', 'osintEvidenceCount', 'osintRiskCount', 'osintSourceCount', 'osintTopSignals', 'osintTopRisks', 'workflowStatus', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextAction', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
   const rows = leadPacks.map((lead) => {
     const workflow = normalizeWorkflow(lead.workflow || {})
+    const osintSummary = lead.osint && lead.osint.summary ? lead.osint.summary : {}
     return [
       lead.rank,
       lead.company && lead.company.displayName,
@@ -801,6 +894,11 @@ function toLeadPackCsv(leadPacks) {
       lead.sellerFit && lead.sellerFit.recommendedAction,
       lead.sellerFit && Array.isArray(lead.sellerFit.fitReasons) ? lead.sellerFit.fitReasons.join(' | ') : '',
       lead.sellerFit && Array.isArray(lead.sellerFit.riskReasons) ? lead.sellerFit.riskReasons.join(' | ') : '',
+      osintSummary.evidenceCount || '',
+      osintSummary.riskCount || '',
+      osintSummary.sourceCount || '',
+      Array.isArray(osintSummary.topSignals) ? osintSummary.topSignals.join(' | ') : '',
+      Array.isArray(osintSummary.topRisks) ? osintSummary.topRisks.join(' | ') : '',
       workflow.status,
       workflow.contacted ? 'yes' : 'no',
       workflow.channel,
@@ -1025,20 +1123,22 @@ function serverIsFollowUpDue(lead = {}) {
   return date <= today && lead.workflow.status !== 'rejected'
 }
 
-function readWorkflowStore(workflowPath) {
+function readWorkflowStore(target) {
+  if (target && typeof target.readWorkflowStore === 'function') return target.readWorkflowStore()
   try {
-    const parsed = JSON.parse(fs.readFileSync(workflowPath, 'utf8'))
+    const parsed = JSON.parse(fs.readFileSync(target, 'utf8'))
     return parsed && typeof parsed === 'object' && parsed.leads ? parsed : { leads: {} }
   } catch (_) {
     return { leads: {} }
   }
 }
 
-function writeWorkflowStore(workflowPath, store) {
-  fs.mkdirSync(path.dirname(workflowPath), { recursive: true })
-  const tmp = `${workflowPath}.tmp`
+function writeWorkflowStore(target, store) {
+  if (target && typeof target.writeWorkflowStore === 'function') return target.writeWorkflowStore(store)
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  const tmp = target + '.tmp'
   fs.writeFileSync(tmp, JSON.stringify({ leads: store.leads || {} }, null, 2))
-  fs.renameSync(tmp, workflowPath)
+  fs.renameSync(tmp, target)
 }
 
 function limitText(value, max) {

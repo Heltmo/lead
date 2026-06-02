@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "node apps/lead-machine-demo/tests/smoke.test.js",
+    "netlify:check": "node --check netlify/functions/api.js && node --check apps/lead-machine-demo/public/app.js && node apps/lead-machine-demo/tests/smoke.test.js"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^10.0.10"
+  }
+}

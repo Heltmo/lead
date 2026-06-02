@@ -23,6 +23,33 @@ const LOCATIONS = [
 
 const state = { result: null, selectedIndex: 0, selectedLeadId: null }
 
+initBetaAccess()
+
+function initBetaAccess() {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('beta') || params.get('token')
+    if (token) window.localStorage.setItem('leadMachineBetaAccessToken', token)
+  } catch (_) {}
+}
+
+function betaAccessToken() {
+  try { return window.localStorage.getItem('leadMachineBetaAccessToken') || '' } catch (_) { return '' }
+}
+
+function apiFetch(url, options = {}) {
+  const headers = new Headers(options.headers || {})
+  const token = betaAccessToken()
+  if (token) headers.set('x-beta-token', token)
+  return fetch(url, { ...options, headers })
+}
+
+function withBetaToken(url) {
+  const token = betaAccessToken()
+  if (!token || !String(url || '').startsWith('/api/')) return url
+  return String(url).includes('?') ? String(url) + '&token=' + encodeURIComponent(token) : String(url) + '?token=' + encodeURIComponent(token)
+}
+
 const QUICK_WORKFLOW_ACTIONS = [
   { id: 'mark_called', label: 'Mark called', tone: 'neutral' },
   { id: 'no_answer', label: 'No answer', tone: 'warning' },
@@ -47,6 +74,7 @@ const els = {
   runButton: document.getElementById('runButton'),
   status: document.getElementById('statusPanel'),
   summary: document.getElementById('summaryPanel'),
+  readiness: document.getElementById('readinessPanel'),
   workflowBoard: document.getElementById('workflowBoard'),
   leadCards: document.getElementById('leadCards'),
   leadDetail: document.getElementById('leadDetail'),
@@ -71,7 +99,20 @@ els.leadSort.addEventListener('change', () => { state.selectedLeadId = null; ren
 els.queuePresets.forEach((button) => button.addEventListener('click', () => applyQueuePreset(button.dataset.queuePreset)))
 els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { state.selectedLeadId = null; renderAll() }))
 els.clearLeadFilters.addEventListener('click', () => { els.leadFilters.forEach((filter) => { filter.checked = false }); state.selectedLeadId = null; renderAll() })
+document.addEventListener('click', (event) => {
+  const workspaceExport = event.target.closest('[data-workspace-export]')
+  if (workspaceExport) { exportWorkspaceSnapshot(); return }
+  const pinSearch = event.target.closest('[data-saved-search-pin]')
+  if (pinSearch) { updateSavedSearch(pinSearch, { pinned: pinSearch.dataset.pinned !== 'true' }); return }
+  const labelSearch = event.target.closest('[data-saved-search-label]')
+  if (labelSearch) { renameSavedSearch(labelSearch); return }
+  const rerunSearch = event.target.closest('[data-rerun-search]')
+  if (rerunSearch) { applySavedSearch(rerunSearch); runSearch(); return }
+  const savedSearch = event.target.closest('[data-saved-search]')
+  if (savedSearch) applySavedSearch(savedSearch)
+})
 renderSummary(null)
+renderReadiness(null)
 renderExport(null)
 clearStatus()
 loadLatestRun()
@@ -90,7 +131,7 @@ function syncQueryFromStructuredSearch() {
 
 async function loadLatestRun() {
   try {
-    const response = await fetch('/api/latest-run')
+    const response = await apiFetch('/api/latest-run')
     if (response.status === 404) return
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || 'Latest run failed')
@@ -98,6 +139,8 @@ async function loadLatestRun() {
     state.selectedIndex = 0
     state.selectedLeadId = null
     if (payload.parsedQuery?.normalizedQuery) els.query.value = payload.parsedQuery.normalizedQuery
+    if (payload.summary?.sellerIntent && els.sellerIntent) els.sellerIntent.value = payload.summary.sellerIntent
+    if (payload.summary?.searchScope && els.searchScope) els.searchScope.value = payload.summary.searchScope
     clearStatus()
     renderAll()
   } catch (error) {
@@ -123,7 +166,7 @@ async function runSearch() {
       ? 'running: fast discovery and lead-pack build'
       : 'running: selected lead enrichment; digital presence is one module'
     setStatus(statusText, 'running')
-    const response = await fetch('/api/runs', {
+    const response = await apiFetch('/api/runs', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -159,6 +202,7 @@ function renderAll() {
     state.selectedIndex = 0
   }
   renderSummary(state.result)
+  renderReadiness(state.result)
   renderWorkflowBoard(state.result)
   renderLeads(visibleLeads)
   renderDetail(leads[state.selectedIndex] || null)
@@ -169,13 +213,116 @@ function renderSummary(result) {
   const summary = result?.summary || {}
   const leads = result?.leadPacks || []
   const counts = workflowCounts(leads)
+  const readyCount = leads.filter((lead) => callReadiness(lead).key === 'ready_to_call').length
   els.summary.innerHTML = `
     ${metric('Leads', summary.includedLeadCount ?? summary.totalLeads ?? 0)}
+    ${metric('Ready', readyCount)}
     ${metric('Call today', todayCallQueue(leads).length)}
     ${metric('Follow-up', counts.followUpDue)}
     ${metric('Interested', counts.interested)}
     ${metric('Status', compactRunStatus(summary))}
   `
+}
+
+function renderReadiness(result) {
+  if (!els.readiness) return
+  const readiness = result?.readiness || defaultReadiness()
+  const savedSearches = Array.isArray(result?.savedSearches) ? result.savedSearches : []
+  const workspace = readiness.workspace || defaultWorkspace(readiness, savedSearches)
+  const savedCount = workspace.savedSearchCount || savedSearches.length || 0
+  const noteCount = workspace.workflowLeadCount || 0
+  els.readiness.innerHTML = '<section class="saved-market-panel">' +
+    '<div class="saved-market-head"><div><p class="eyebrow">Saved markets</p><h2>Return to useful searches</h2><small>' + escapeHtml(String(savedCount) + ' saved searches · ' + String(noteCount) + ' leads with notes') + '</small></div><button type="button" class="quiet-export" data-workspace-export>Download test data</button></div>' +
+    (savedSearches.length ? '<div class="saved-searches saved-search-management">' + savedSearches.map(savedSearchButton).join('') + '</div>' : '<p class="readiness-note">Saved searches appear here after the first run.</p>') +
+  '</section>'
+}
+
+function defaultReadiness() {
+  return {
+    sourceGuard: { proffStatus: 'disabled_optional', googleStatus: 'cost_guarded', searchCap: 25 },
+    persistence: { status: 'sqlite_local', note: 'Local workspace keeps workflow and recent searches between reloads without SaaS auth or billing.' },
+  }
+}
+
+function defaultWorkspace(readiness, savedSearches) {
+  const persistence = readiness && readiness.persistence ? readiness.persistence : {}
+  return {
+    status: persistence.status || 'sqlite_local',
+    storageMode: persistence.status === 'local_json' ? 'Local JSON fallback' : 'SQLite local workspace',
+    workspaceDbPath: persistence.workspaceDbPath || '',
+    workflowLeadCount: 0,
+    savedSearchCount: Array.isArray(savedSearches) ? savedSearches.length : 0,
+    activityCount: 0,
+    canExport: false,
+    exportPath: '/api/workspace-export',
+  }
+}
+
+async function exportWorkspaceSnapshot() {
+  try {
+    setStatus('exporting workspace snapshot...', 'running')
+    const response = await apiFetch('/api/workspace-export')
+    if (!response.ok) throw new Error('Workspace export failed')
+    const snapshot = await response.json()
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'lead-machine-workspace-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.json'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    setStatus('workspace snapshot exported', '')
+  } catch (error) {
+    setStatus(error.message || 'workspace export failed', 'failed')
+  }
+}
+
+function savedSearchButton(search) {
+  const key = search.key || [search.query, search.sellerIntent, search.searchScope, search.provider].map((value) => String(value || '').toLowerCase()).join('::')
+  const attrs = 'data-saved-search="' + escapeAttr(search.query || '') + '" data-saved-search-key="' + escapeAttr(key) + '" data-provider="' + escapeAttr(search.provider || 'balanced') + '" data-seller-intent="' + escapeAttr(search.sellerIntent || 'general_b2b') + '" data-search-scope="' + escapeAttr(search.searchScope || 'regional') + '"'
+  const counts = String(search.leadCount || 0) + ' leads · ' + String(search.phoneCount || 0) + ' phone-ready'
+  const title = search.label || search.query || 'saved search'
+  const pinLabel = search.pinned ? 'Pinned' : 'Pin'
+  return '<section class="saved-search-item ' + (search.pinned ? 'pinned' : '') + '">' +
+    '<button type="button" class="saved-search-button" ' + attrs + '><strong>' + escapeHtml(title) + '</strong><small>' + escapeHtml(search.query || '') + ' · ' + escapeHtml(sellerIntentLabel(search.sellerIntent)) + ' · ' + escapeHtml(readable(search.searchScope || 'regional')) + ' · ' + escapeHtml(counts) + '</small></button>' +
+    '<div class="saved-search-actions"><button type="button" data-saved-search-pin data-saved-search-key="' + escapeAttr(key) + '" data-pinned="' + String(Boolean(search.pinned)) + '">' + escapeHtml(pinLabel) + '</button><button type="button" data-saved-search-label data-saved-search-key="' + escapeAttr(key) + '" data-current-label="' + escapeAttr(search.label || '') + '">Rename</button><button type="button" class="saved-search-rerun" data-rerun-search="' + escapeAttr(search.query || '') + '" data-provider="' + escapeAttr(search.provider || 'balanced') + '" data-seller-intent="' + escapeAttr(search.sellerIntent || 'general_b2b') + '" data-search-scope="' + escapeAttr(search.searchScope || 'regional') + '">Rerun</button></div>' +
+  '</section>'
+}
+
+function applySavedSearch(button) {
+  els.query.value = button.dataset.savedSearch || button.dataset.rerunSearch || ''
+  if (els.sellerIntent) els.sellerIntent.value = button.dataset.sellerIntent || 'general_b2b'
+  if (els.searchScope) els.searchScope.value = button.dataset.searchScope || 'regional'
+  if (els.provider && button.dataset.provider) els.provider.value = button.dataset.provider
+  els.query.focus()
+  setStatus('saved search loaded - click Kjør søk to refresh it', '')
+}
+
+async function renameSavedSearch(button) {
+  const current = button.dataset.currentLabel || ''
+  const label = window.prompt('Saved search label', current)
+  if (label === null) return
+  await updateSavedSearch(button, { label })
+}
+
+async function updateSavedSearch(button, patch) {
+  try {
+    setStatus('saving search...', 'running')
+    const response = await apiFetch('/api/saved-searches', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ key: button.dataset.savedSearchKey || '', ...patch }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Saved search update failed')
+    if (state.result) state.result.savedSearches = payload.savedSearches || state.result.savedSearches || []
+    renderReadiness(state.result)
+    setStatus('saved search updated', '')
+  } catch (error) {
+    setStatus(error.message || 'saved search update failed', 'failed')
+  }
 }
 
 function compactRunStatus(summary = {}) {
@@ -213,12 +360,13 @@ function currentCallCard(lead, index, reason, queueCount) {
   const phone = lead.contact?.phone || lead.phone || ''
   const city = lead.contact?.city || lead.city || 'unknown'
   const followUpClass = followUpTiming(lead.workflow?.followUpDate)
+  const readiness = callReadiness(lead)
   return `<article class="current-call-card queue-row ${followUpClass !== 'none' ? `follow-up-${followUpClass}` : ''}">
     <div class="current-call-head">
       <div>
         <span>Next call</span>
         <strong>${escapeHtml(name)}</strong>
-        <small>${escapeHtml(city)} · ${escapeHtml(reason)}</small>
+        <small>${escapeHtml(city)} · ${escapeHtml(reason)}</small><div class="current-readiness">${badge(readiness.key)}<span>${escapeHtml(readiness.note)}</span></div>
       </div>
       <div class="queue-count"><span>In queue</span><strong>${queueCount}</strong></div>
     </div>
@@ -255,7 +403,7 @@ function renderLeads(visibleLeads) {
     const queueAction = leadQueueActionLabel(lead)
     return `
       <button class="lead-card ${id === state.selectedLeadId ? 'active' : ''}" type="button" data-index="${index}" data-id="${escapeAttr(id)}">
-        <div class="badge-row">${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
+        <div class="badge-row">${badge(callReadiness(lead).key)}${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
         <p class="queue-action"><strong>Next:</strong> ${escapeHtml(queueAction)}</p>
@@ -356,6 +504,7 @@ function callQueueSortScore(lead) {
   const contact = lead.contact || {}
   const sourceQuality = lead.sourceQuality || {}
   let score = bestLeadScore(lead)
+  score += callReadiness(lead).rank
   if (workflow.status === 'rejected') score -= 10000
   if (isFollowUpDue(lead)) score += 1000
   if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') score += 700
@@ -416,6 +565,33 @@ function sellerRecommendedAction(lead) {
   return String(lead.sellerFit?.recommendedAction || '').toLowerCase()
 }
 
+function callReadiness(lead) {
+  const workflow = lead.workflow || {}
+  const company = lead.company || {}
+  const hasPhone = Boolean(lead.contact?.phone || lead.phone)
+  const sellerAction = sellerRecommendedAction(lead)
+  const brreg = brregStatusLabel(company)
+  if (workflow.status === 'rejected') return { key: 'skip', label: 'Skip', note: 'Rejected or not relevant.', rank: -2000 }
+  if (isFollowUpDue(lead)) return { key: 'follow_up_due', label: 'Follow-up due', note: workflow.followUpDate ? 'Due ' + workflow.followUpDate : 'Follow-up is due.', rank: 1800 }
+  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return { key: 'follow_up_due', label: 'Follow-up', note: 'Interested lead needs follow-up.', rank: 1500 }
+  if (!hasPhone) return { key: 'needs_contact', label: 'Needs contact', note: 'No direct phone yet.', rank: -300 }
+  if (sellerAction === 'skip') return { key: 'skip', label: 'Skip', note: 'Seller-fit engine says deprioritize.', rank: -1200 }
+  if (sellerAction === 'verify' || ['candidate_org', 'no_match', 'brreg_unavailable', 'not_run', 'manual_verify', 'weak_match'].includes(brreg)) return { key: 'verify_first', label: 'Verify first', note: 'Check identity/source before using.', rank: 550 }
+  if (sellerAction === 'contact' || !workflow.contacted) return { key: 'ready_to_call', label: 'Ready to call', note: 'Phone-ready and not contacted.', rank: 1200 }
+  return { key: 'later', label: 'Later', note: 'Review when current queue is clear.', rank: 50 }
+}
+
+function callFocusStrip(lead, command) {
+  const readiness = callReadiness(lead)
+  const workflow = lead.workflow || {}
+  return '<section class="call-focus-strip">' +
+    commandMetric('Call readiness', readiness.label, readiness.note) +
+    commandMetric('Best contact', command.bestContact, command.bestContactNote) +
+    commandMetric('Next action', command.nextAction, command.nextActionNote) +
+    commandMetric('Last log', workflow.activities && workflow.activities[0] ? formatActivityTime(workflow.activities[0].at) : 'No log yet', workflow.activities && workflow.activities[0] ? activitySummary(workflow.activities[0]) : 'Save the first note.') +
+  '</section>'
+}
+
 function sellerRecommendedActionScore(lead) {
   return { contact: 90, verify: 35, review: 10, skip: -200 }[sellerRecommendedAction(lead)] || 0
 }
@@ -462,6 +638,7 @@ function todayCallReason(lead) {
 function todayCallScore(lead) {
   const workflow = lead.workflow || {}
   let score = bestLeadScore(lead)
+  score += callReadiness(lead).rank
   if (isFollowUpDue(lead)) score += 1000
   if (!workflow.contacted && !['contacted', 'follow_up', 'interested'].includes(workflow.status)) score += 500
   if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') score += 300
@@ -560,7 +737,7 @@ function renderDetail(lead) {
         <p class="muted">${escapeHtml(company.legalName || 'Legal name unknown')}</p>
       </div>
       <div class="detail-title-actions">
-        <div class="badge-row">${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
+        <div class="badge-row">${badge(callReadiness(lead).key)}${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
         <div class="lead-header-actions">
           ${titlePhone(contact.phone || lead.phone)}
           <button type="button" id="nextLeadButton" class="next-lead-button" ${nextLeadDisabledAttr()}>Next lead</button>
@@ -568,11 +745,15 @@ function renderDetail(lead) {
       </div>
     </div>
 
+    ${callFocusStrip(lead, command)}
+
     ${sellerCommandCard(command)}
 
     ${workflowPanel(lead)}
 
     ${sellerDeskCards(lead, command)}
+
+    ${osintPanel(lead)}
 
     <section class="detail-tools">
       <details class="detail-tool">
@@ -691,8 +872,9 @@ function workflowPanel(lead) {
   return `<section class="workflow-panel compact-workflow-panel">
     <div class="workflow-head compact-workflow-head">
       <div>
-        <p class="eyebrow">Seller workflow</p>
-        <h3>Logg kontakt</h3>
+        <p class="eyebrow">Lead notes</p>
+        <h3>Call notes and follow-up</h3>
+        <p class="note-procedure">Choose outcome, write a short note, set follow-up, then save.</p>
       </div>
       <div class="workflow-head-actions">
         ${badge(workflow.contacted ? 'contacted' : 'new')}
@@ -704,13 +886,13 @@ function workflowPanel(lead) {
       <label><span>Status</span><select name="status">${workflowOptions(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'], workflow.status)}</select></label>
       <label><span>Response</span><select name="response">${workflowOptions(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'], workflow.response)}</select></label>
       <label><span>Follow-up date</span><input type="date" name="followUpDate" value="${escapeAttr(workflow.followUpDate || '')}"></label>
-      <label class="workflow-notes compact-notes"><span>Note</span><textarea name="notes" rows="3" placeholder="Skriv hva som skjedde, hvem du snakket med, eller hva som må følges opp.">${escapeHtml(formatWorkflowNotes(workflow.notes || ''))}</textarea></label>
+      <label class="workflow-notes compact-notes"><span>Note</span><textarea name="notes" rows="3" placeholder="What happened? Who did you speak with? What should happen next?">${escapeHtml(formatWorkflowNotes(workflow.notes || ''))}</textarea></label>
       <input type="hidden" name="contacted" value="${escapeAttr(String(Boolean(workflow.contacted)))}">
       <input type="hidden" name="channel" value="${escapeAttr(workflow.channel || '')}">
       <input type="hidden" name="personReached" value="${escapeAttr(workflow.personReached || '')}">
       <input type="hidden" name="nextAction" value="${escapeAttr(workflow.nextAction || '')}">
       <input type="hidden" name="outcome" value="${escapeAttr(workflow.outcome || '')}">
-      <div class="workflow-actions compact-save"><small>${savedText}</small><button type="submit">Save workflow</button></div>
+      <div class="workflow-actions compact-save"><small>${savedText}</small><button type="submit" data-save-note>Save note</button></div>
       <details class="workflow-more">
         <summary>More logging fields</summary>
         <div class="workflow-form workflow-form-more">
@@ -727,9 +909,9 @@ function workflowPanel(lead) {
 }
 
 function workflowTimeline(workflow = {}) {
-  const activities = Array.isArray(workflow.activities) ? workflow.activities.slice(0, 3) : []
+  const activities = Array.isArray(workflow.activities) ? workflow.activities.slice(0, 8) : []
   return `<section class="activity-timeline"><div class="activity-timeline-head"><h4>Logged activity</h4><span>${activities.length ? (activities.length + ' latest') : 'No saved log yet'}</span></div>${activities.length ? `<ol>${activities.map((activity) => `
-    <li><div><strong>${escapeHtml(readable(activity.status || 'new'))}</strong><span>${escapeHtml(formatActivityTime(activity.at))}</span></div><p>${escapeHtml(activitySummary(activity))}</p></li>`).join('')}</ol>` : '<p class="muted">Save a workflow update or use a quick action to create the first log entry.</p>'}</section>`
+    <li><div><strong>${escapeHtml(readable(activity.status || 'new'))}</strong><span>${escapeHtml(formatActivityTime(activity.at))}</span></div><p>${escapeHtml(activitySummary(activity))}</p></li>`).join('')}</ol>` : '<p class="muted">Save a note or use a quick action to create the first log entry.</p>'}</section>`
 }
 
 function formatActivityTime(value) {
@@ -746,7 +928,7 @@ function activitySummary(activity = {}) {
     activity.followUpDate ? `Follow-up: ${activity.followUpDate}` : '',
     activity.nextAction ? `Next: ${activity.nextAction}` : '',
     cleanWorkflowNote(activity.notes) ? `Note: ${cleanWorkflowNote(activity.notes)}` : '',
-  ].filter(Boolean).join(' · ') || 'Workflow updated.'
+  ].filter(Boolean).join(' · ') || 'Lead note saved.'
 }
 
 function workflowOptions(values, selected) {
@@ -766,28 +948,39 @@ function workflowCardNote(lead) {
 
 async function saveWorkflow(event) {
   event.preventDefault()
-  event.currentTarget.querySelectorAll('[data-workflow-sync]').forEach((field) => {
-    const target = event.currentTarget.elements[field.dataset.workflowSync]
+  const formElement = event.currentTarget
+  if (!formElement || formElement.dataset.saving === 'true') return
+  formElement.dataset.saving = 'true'
+  const saveButton = formElement.querySelector('[data-save-note]')
+  const saveText = formElement.querySelector('.workflow-actions small')
+  const originalButtonText = saveButton ? saveButton.textContent : ''
+  if (saveButton) {
+    saveButton.disabled = true
+    saveButton.textContent = 'Saving...'
+  }
+  if (saveText) saveText.textContent = 'Saving note...'
+  formElement.querySelectorAll('[data-workflow-sync]').forEach((field) => {
+    const target = formElement.elements[field.dataset.workflowSync]
     if (target) target.value = field.value
   })
-  const lead = state.result?.leadPacks?.[state.selectedIndex]
-  if (!lead) return setStatus('failed: no selected lead for workflow save', 'failed')
-  const form = new FormData(event.currentTarget)
-  const status = form.get('status')
-  const workflow = {
-    status,
-    contacted: form.get('contacted') === 'true' || ['contacted', 'follow_up', 'interested', 'rejected'].includes(status),
-    channel: form.get('channel'),
-    response: form.get('response'),
-    personReached: form.get('personReached'),
-    followUpDate: form.get('followUpDate'),
-    nextAction: form.get('nextAction'),
-    outcome: form.get('outcome'),
-    notes: form.get('notes'),
-  }
-  setStatus('saving workflow...', 'running')
   try {
-    const response = await fetch('/api/workflow', {
+    const lead = state.result?.leadPacks?.[state.selectedIndex]
+    if (!lead) throw new Error('No selected lead to save')
+    const form = new FormData(formElement)
+    const status = form.get('status')
+    const workflow = {
+      status,
+      contacted: form.get('contacted') === 'true' || ['contacted', 'follow_up', 'interested', 'rejected'].includes(status),
+      channel: form.get('channel'),
+      response: form.get('response'),
+      personReached: form.get('personReached'),
+      followUpDate: form.get('followUpDate'),
+      nextAction: form.get('nextAction'),
+      outcome: form.get('outcome'),
+      notes: form.get('notes'),
+    }
+    setStatus('saving note...', 'running')
+    const response = await apiFetch('/api/workflow', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -798,13 +991,28 @@ async function saveWorkflow(event) {
       }),
     })
     const payload = await response.json()
-    if (!response.ok) throw new Error(payload.error || 'Workflow save failed')
+    if (!response.ok) throw new Error(payload.error || 'Note save failed')
     lead.workflow = payload.workflow
-    setStatus('workflow saved', '')
+    if (saveText) saveText.textContent = 'Saved now'
+    setStatus('note saved', '')
     renderAll()
   } catch (error) {
-    setStatus(`failed: ${error.message || 'Workflow save failed'}`, 'failed')
+    const message = noteSaveErrorMessage(error)
+    if (saveText) saveText.textContent = message
+    setStatus('failed: ' + message, 'failed')
+  } finally {
+    formElement.dataset.saving = ''
+    if (saveButton) {
+      saveButton.disabled = false
+      saveButton.textContent = originalButtonText || 'Save note'
+    }
   }
+}
+
+function noteSaveErrorMessage(error) {
+  const detail = error && error.message ? String(error.message) : 'Note save failed'
+  if (/fetch|network|load failed/i.test(detail)) return 'Could not save - local server is not running. Restart it and try again.'
+  return 'Could not save - ' + detail
 }
 
 function modeGuidance(summary) {
@@ -849,6 +1057,7 @@ function deepEnrichmentModules(lead, command) {
     { name: 'Decision makers', status: 'not_enabled', summary: 'Later module: public role/contact hints when available.' },
     { name: 'Recent activity', status: 'not_enabled', summary: 'Later module: hiring, news, website updates and public activity.' },
     { name: 'Seller fit summary', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Uses seller intent plus contact, company, location and source signals.' },
+    { name: 'OSINT public evidence', status: lead.osint ? 'completed' : 'not_run', summary: lead.osint ? osintSummaryText(lead.osint) : 'Runs on selected-lead enrichment from public business evidence.' },
   ]
   return `<details class="detail-tool enrichment-modules">
     <summary>Enrichment modules</summary>
@@ -856,6 +1065,57 @@ function deepEnrichmentModules(lead, command) {
       ${modules.map((module) => `<div class="module-card"><div>${badge(module.status)}<strong>${escapeHtml(module.name)}</strong></div><small>${escapeHtml(module.summary || module.note || '')}</small></div>`).join('')}
     </div>
   </details>`
+}
+
+function osintPanel(lead) {
+  const osint = lead.osint || null
+  if (!osint) return ''
+  const summary = osint.summary || {}
+  const groups = [
+    ['Company identity', osint.companyIdentity],
+    ['Contactability', osint.contactability],
+    ['Digital presence', osint.digitalPresence],
+    ['Market proof', osint.marketProof],
+    ['Recent activity', osint.recentActivity],
+    ['Risk / verify', osint.riskVerify],
+  ]
+  return '<details class="detail-collapse osint-panel" open>' +
+    '<summary>OSINT public evidence</summary>' +
+    '<section class="osint-summary">' +
+      commandMetric('Evidence', String(summary.evidenceCount || 0), 'Public business signals found') +
+      commandMetric('Risks', String(summary.riskCount || 0), 'Checks before seller use') +
+      commandMetric('Sources', String(summary.sourceCount || 0), 'Public source references') +
+    '</section>' +
+    '<div class="source-grid osint-grid">' +
+      groups.map(([title, items]) => osintGroupCard(title, items)).join('') +
+      sourceCard('OSINT sources', osint.status || 'completed', [
+        ['Mode', readable(osint.mode || 'selected_lead')],
+        ['Observed', osint.observedAt || 'unknown'],
+        ['Top signal', (summary.topSignals || [])[0] || 'none'],
+        ['Top risk', (summary.topRisks || [])[0] || 'none'],
+      ]) +
+    '</div>' +
+  '</details>'
+}
+
+function osintGroupCard(title, items) {
+  const list = Array.isArray(items) ? items.slice(0, 4) : []
+  const rows = list.length
+    ? list.map((item) => [item.label || 'Signal', osintSignalText(item)])
+    : [['Status', 'No public evidence recorded yet']]
+  const status = title.toLowerCase().includes('risk') && list.length ? 'verify' : list.length ? 'completed' : 'not_run'
+  return sourceCard(title, status, rows)
+}
+
+function osintSignalText(item = {}) {
+  const value = item.value || 'unknown'
+  const source = item.source && item.source.name ? item.source.name : 'public source'
+  return value + ' (' + (item.confidence || 'medium') + ' confidence, ' + source + ')'
+}
+
+function osintSummaryText(osint = {}) {
+  const summary = osint.summary || {}
+  return String(summary.evidenceCount || 0) + ' evidence signals, ' + String(summary.riskCount || 0) + ' checks, ' + String(summary.sourceCount || 0) + ' sources.'
 }
 
 function economyModuleSummary(economy = {}) {
@@ -1355,11 +1615,11 @@ function renderExport(result) {
   els.exportPanel.innerHTML = `
     <p class="eyebrow">Export</p>
     <p class="muted">Run path: <code>${escapeHtml(result.outputDir)}</code></p>
-    <p><a href="${escapeAttr(result.downloads.csv)}">Download CSV</a> · <a href="${escapeAttr(result.downloads.json)}">Download JSON</a> · <button type="button" id="copyPath">Copy run path</button></p>
+    <p><a href="${escapeAttr(withBetaToken(result.downloads.csv))}">Download CSV</a> · <a href="${escapeAttr(withBetaToken(result.downloads.json))}">Download JSON</a> · <button type="button" id="copyPath">Copy run path</button></p>
     ${callListLinks(result.downloads || {})}
     <table>
-      <thead><tr><th>rank</th><th>company</th><th>phone</th><th>city</th><th>priority</th><th>workflow</th><th>response</th><th>follow-up</th><th>next action</th></tr></thead>
-      <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${phoneLink(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
+      <thead><tr><th>rank</th><th>company</th><th>phone</th><th>city</th><th>priority</th><th>osint</th><th>workflow</th><th>response</th><th>follow-up</th><th>next action</th></tr></thead>
+      <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${phoneLink(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(osintExportCell(lead))}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
     </table>
   `
   const copy = document.getElementById('copyPath')
@@ -1371,6 +1631,15 @@ document.addEventListener('submit', (event) => {
 })
 
 document.addEventListener('click', (event) => {
+  const saveNoteButton = event.target.closest('[data-save-note]')
+  if (saveNoteButton) {
+    const form = saveNoteButton.closest('#workflowForm')
+    if (form) {
+      event.preventDefault()
+      saveWorkflow({ preventDefault() {}, currentTarget: form })
+    }
+    return
+  }
   const quickActionButton = event.target.closest('[data-workflow-action]')
   if (quickActionButton) {
     if (!quickActionButton.closest('.queue-row')) {
@@ -1398,9 +1667,9 @@ async function runWorkflowQuickAction(button) {
   const originalText = button.textContent
   button.disabled = true
   button.textContent = 'Saving...'
-  setStatus(`saving workflow: ${originalText}`, 'running')
+  setStatus(`saving note: ${originalText}`, 'running')
   try {
-    const response = await fetch('/api/workflow', {
+    const response = await apiFetch('/api/workflow', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -1429,13 +1698,13 @@ function applyWorkflowQuickActionDraft(button) {
   const form = document.getElementById('workflowForm')
   const index = Number(button.dataset.index ?? state.selectedIndex)
   const lead = state.result?.leadPacks?.[index]
-  if (!form || !lead) return setStatus('failed: no selected lead for workflow draft', 'failed')
+  if (!form || !lead) return setStatus('failed: no selected lead for note draft', 'failed')
   const workflow = buildQuickWorkflow(button.dataset.workflowAction, readWorkflowDraft(form, lead.workflow || {}))
   if (!workflow) return setStatus('failed: unknown quick action', 'failed')
   setWorkflowFormValues(form, workflow)
   const saveText = form.querySelector('.workflow-actions small')
-  if (saveText) saveText.textContent = 'Draft only - click Save workflow to log it'
-  setStatus('workflow draft updated - click Save workflow to log it', 'running')
+  if (saveText) saveText.textContent = 'Draft only - click Save note to log it'
+  setStatus('note draft updated - click Save note to log it', 'running')
 }
 
 function readWorkflowDraft(form, current = {}) {
@@ -1517,13 +1786,12 @@ function isoDateOffset(days) {
 async function runSelectedDeepQualification(button) {
   const lead = state.result?.leadPacks?.[state.selectedIndex]
   if (!lead) return setStatus('failed: no selected lead to qualify', 'failed')
-  if (!(lead.contact?.website || lead.website)) return setStatus('failed: selected lead has no website to audit', 'failed')
   const originalText = button.textContent
   button.disabled = true
   button.textContent = 'Enriching...'
   setStatus(`running: enrichment for ${lead.company?.displayName || 'selected lead'}`, 'running')
   try {
-    const response = await fetch('/api/deep-qualify', {
+    const response = await apiFetch('/api/deep-qualify', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -1568,9 +1836,15 @@ function updateSummaryAfterLeadReplacement(summary, leads) {
   }
 }
 
+function osintExportCell(lead) {
+  const summary = lead.osint?.summary
+  if (!summary) return ''
+  return String(summary.evidenceCount || 0) + ' evidence / ' + String(summary.riskCount || 0) + ' checks'
+}
+
 function callListLinks(downloads) {
   if (!downloads.callList) return ''
-  return `<p class="export-actions">call-list.csv includes lastActivityAt. <a href="${escapeAttr(downloads.callList)}">All</a> · <a href="${escapeAttr(downloads.callListToday)}">Today call queue</a> · <a href="${escapeAttr(downloads.callListNotContacted)}">Not contacted</a> · <a href="${escapeAttr(downloads.callListFollowUps)}">Follow-ups due</a> · <a href="${escapeAttr(downloads.callListInterested)}">Interested</a></p>`
+  return `<p class="export-actions">call-list.csv includes lastActivityAt. <a href="${escapeAttr(withBetaToken(downloads.callList))}">All</a> · <a href="${escapeAttr(withBetaToken(downloads.callListToday))}">Today call queue</a> · <a href="${escapeAttr(withBetaToken(downloads.callListNotContacted))}">Not contacted</a> · <a href="${escapeAttr(withBetaToken(downloads.callListFollowUps))}">Follow-ups due</a> · <a href="${escapeAttr(withBetaToken(downloads.callListInterested))}">Interested</a></p>`
 }
 
 function phoneHref(value) {
@@ -1609,7 +1883,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed', ready_to_call: 'Ready to call', verify_first: 'Verify first', needs_contact: 'Needs contact', follow_up_due: 'Follow-up due', later: 'Later', skip: 'Skip' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {

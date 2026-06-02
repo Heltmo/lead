@@ -1,7 +1,7 @@
 {
   "name": "lead-machine-demo",
   "version": "1.0.0",
-  "description": "Local interactive Lead Machine demo app",
+  "description": "Local interactive Lead Machine seller desk prototype",
   "main": "server.js",
   "scripts": {
     "dev": "node server.js",

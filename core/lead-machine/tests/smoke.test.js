@@ -64,7 +64,6 @@ async function main() {
     enrichCompanyProfile: false,
     outputDir,
     runId: 'fixture-lead-machine',
-    orchestratorRootDir: path.join(root, 'orchestrator-runs'),
     validate: false,
   })
   const summary = JSON.parse(fs.readFileSync(result.summaryPath, 'utf8'))
@@ -107,14 +106,13 @@ async function main() {
     enrichCompanyProfile: false,
     outputDir: fastOutputDir,
     runId: 'fixture-fast-lead-machine',
-    orchestratorRootDir: path.join(root, 'fast-orchestrator-runs'),
     validate: false,
   })
   const fastSummary = JSON.parse(fs.readFileSync(fastResult.summaryPath, 'utf8'))
   const fastPacks = JSON.parse(fs.readFileSync(path.join(fastResult.leadPackOutputPath, 'lead-packs.json'), 'utf8'))
   const fastCsv = fs.readFileSync(path.join(fastResult.leadPackOutputPath, 'lead-packs.csv'), 'utf8')
   assert(fastSummary.mode === 'fast', 'fast mode summary should preserve mode')
-  assert(fastSummary.auditStatus === 'skipped_fast_mode', 'fast mode should skip full website audit')
+  assert(fastSummary.auditStatus === 'skipped_fast_mode', 'fast scan should keep browser audit out of the main product')
   assert(fastPacks.length === 1, 'fast strict mode should package exact-location discovery candidates')
   assert(fastPacks[0].website.auditStatus === 'skipped_fast_mode', 'fast lead pack should mark audit skipped')
   assert(fastPacks[0].callPriority === 'verify', 'fast lead pack should require verification instead of call-first priority')

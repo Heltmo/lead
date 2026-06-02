@@ -1,10 +1,7 @@
 const fs = require('fs')
 const path = require('path')
-const { discoverLocalBusinesses, writeDiscoveryOutputs, shouldIncludeInHandoff, shouldIncludeInFastLeadPack, formatHandoffCandidate } = require('../lead-discovery-agent/discoverLocalBusinesses')
-const { runAuditQueue } = require('../orchestrator/pipelines/auditQueue')
-const { runLeadPack } = require('../lead-pack-runner/leadPackRunner')
+const { discoverLocalBusinesses, writeDiscoveryOutputs, shouldIncludeInFastLeadPack } = require('../lead-discovery-agent/discoverLocalBusinesses')
 const { enrichCompanyProfile } = require('../company-profile/companyProfile')
-const { renderCsv } = require('../lead-review-workspace/readers/csv')
 const { normalizeSearchScope } = require('../lead-discovery-agent/normalizers/locationQuality')
 
 async function runLeadMachine(options = {}) {
@@ -19,7 +16,6 @@ async function runLeadMachine(options = {}) {
   const outputDir = path.resolve(options.outputDir || path.join(__dirname, 'runs', runId))
   const discoveryDir = path.join(outputDir, 'discovery')
   const leadPackOutputDir = path.join(outputDir, 'lead-packs')
-  const orchestratorRootDir = path.resolve(options.orchestratorRootDir || path.join(__dirname, '..', 'orchestrator', 'runs'))
   fs.mkdirSync(discoveryDir, { recursive: true })
   fs.mkdirSync(leadPackOutputDir, { recursive: true })
 
@@ -43,51 +39,16 @@ async function runLeadMachine(options = {}) {
     handoffPath: path.join(discoveryDir, 'handoff.jsonl'),
   })
 
-  const handoffItems = discovery.candidates
-    .filter((candidate) => shouldIncludeInHandoff(candidate))
-    .map((candidate) => JSON.parse(formatHandoffCandidate(candidate, discovery)))
-
-  let auditResult = null
-  let leadPackResult = null
-  let leadPackSummary = null
-  let leadPacks = []
-  if (runMode === 'fast') {
-    leadPackResult = await writeFastLeadPackOutputs({
-      outputDir: leadPackOutputDir,
-      query,
-      runId,
-      discovery,
-      candidates: discovery.candidates.filter((candidate) => shouldIncludeInFastLeadPack(candidate)),
-      enrichCompanyProfile: enrichCompanyProfileEnabled,
-    })
-    leadPackSummary = readJson(leadPackResult.summaryPath)
-    leadPacks = readJson(leadPackResult.leadPacksPath)
-  } else if (handoffItems.length > 0) {
-    auditResult = await runAuditQueue({
-      urls: handoffItems,
-      runId: `${runId}-orchestrator`,
-      rootDir: orchestratorRootDir,
-      maxRetries: 1,
-    })
-    leadPackResult = await runLeadPack({
-      query,
-      runDir: path.dirname(auditResult.summaryPath),
-      outputDir: leadPackOutputDir,
-      enrichCompanyProfile: enrichCompanyProfileEnabled,
-    })
-    leadPackSummary = readJson(leadPackResult.summaryPath)
-    leadPacks = readJson(leadPackResult.leadPacksPath)
-  } else {
-    writeEmptyLeadPackOutputs({ outputDir: leadPackOutputDir, query, runId, discovery })
-    leadPackResult = {
-      outputDir: leadPackOutputDir,
-      leadPacksPath: path.join(leadPackOutputDir, 'lead-packs.json'),
-      csvPath: path.join(leadPackOutputDir, 'lead-packs.csv'),
-      summaryPath: path.join(leadPackOutputDir, 'summary.json'),
-      totalLeads: 0,
-    }
-    leadPackSummary = readJson(leadPackResult.summaryPath)
-  }
+  const leadPackResult = await writeFastLeadPackOutputs({
+    outputDir: leadPackOutputDir,
+    query,
+    runId,
+    discovery,
+    candidates: discovery.candidates.filter((candidate) => shouldIncludeInFastLeadPack(candidate)),
+    enrichCompanyProfile: enrichCompanyProfileEnabled,
+  })
+  const leadPackSummary = readJson(leadPackResult.summaryPath)
+  const leadPacks = readJson(leadPackResult.leadPacksPath)
 
   const summary = buildLeadMachineSummary({
     runId,
@@ -100,7 +61,6 @@ async function runLeadMachine(options = {}) {
     runMode,
     discovery,
     discoveryOutputs,
-    auditResult,
     leadPackResult,
     leadPackSummary,
     leadPacks,
@@ -110,7 +70,7 @@ async function runLeadMachine(options = {}) {
   return { outputDir, summaryPath, leadPackOutputPath: leadPackOutputDir, sourceRunPath: summary.sourceRunPath, totalLeads: summary.totalIncluded, summary }
 }
 
-function buildLeadMachineSummary({ runId, query, provider, maxResults, searchScope, enrichCompanyProfile, outputDir, runMode = 'deep', discovery, discoveryOutputs, auditResult, leadPackResult, leadPackSummary, leadPacks }) {
+function buildLeadMachineSummary({ runId, query, provider, maxResults, searchScope, enrichCompanyProfile, outputDir, runMode = 'fast', discovery, discoveryOutputs, leadPackResult, leadPackSummary, leadPacks }) {
   const locationQualityCounts = leadPackSummary.locationQualityCounts || discovery.locationQuality?.counts || {}
   const callPriorityCounts = leadPackSummary.priorityCounts || {}
   const includedLeadCount = leadPackSummary.totalLeads || 0
@@ -139,7 +99,7 @@ function buildLeadMachineSummary({ runId, query, provider, maxResults, searchSco
     outputDir,
     createdAt: new Date().toISOString(),
     discoveryOutputs,
-    sourceRunPath: auditResult ? path.dirname(auditResult.summaryPath) : (runMode === 'fast' ? discoveryOutputs.handoffPath : null),
+    sourceRunPath: discoveryOutputs.candidatesPath || discoveryOutputs.handoffPath || null,
     leadPackOutputPath: leadPackResult.outputDir,
     totalDiscovered: discovery.totalCandidates,
     totalIncluded: includedLeadCount,
@@ -155,7 +115,7 @@ function buildLeadMachineSummary({ runId, query, provider, maxResults, searchSco
     companyProfileEnabled: Boolean(enrichCompanyProfile),
     companyProfileCounts: countCompanyProfileStatuses(leadPacks),
     economyStatus: 'not_enabled',
-    auditStatus: runMode === 'fast' ? 'skipped_fast_mode' : (auditResult ? 'completed' : 'not_run'),
+    auditStatus: 'skipped_fast_mode',
     nextRecommendedAction,
     productBoundary: 'machine_generates_ranked_lead_packs_seller_owns_angle_wording_outreach_timing_relationship_close',
   }
@@ -184,7 +144,7 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
   const company = companyFromFastProfile(candidate, companyProfile)
   const contactability = candidate.phone || candidate.website ? 'basic_contact_available' : 'limited_contact_data'
   const whyRanked = [
-    'Fast mode lead: local discovery and contact data only.',
+    'Discovery scan lead: local source and contact data only.',
     candidate.phone ? 'Phone available from discovery source.' : null,
     candidate.website ? 'Website URL is unverified until enrichment confirms it.' : null,
     candidate.rating ? `Google rating ${candidate.rating}${candidate.reviewCount ? ` from ${candidate.reviewCount} reviews` : ''}.` : null,
@@ -192,8 +152,8 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
     companyProfile?.matchStatus ? `companyProfile:${companyProfile.matchStatus}` : null,
   ].filter(Boolean)
   const caution = [
-    'Fast mode skips full website audit and commercial scoring.',
-    'Run Deep mode before treating this as call-first.',
+    'Scan mode has not verified digital presence or deep company context.',
+    'Use selected-lead enrichment when you need more context before calling.',
     candidate.website ? 'Website is unverified in Fast mode and may be parked, stale, or unrelated.' : null,
     companyProfile?.matchStatus && !['exact_match', 'strong_match'].includes(companyProfile.matchStatus) ? 'Company identity requires manual verification before using org.nr.' : null,
     ...(companyProfile?.warnings || []).map((warning) => `Company profile warning: ${warning}`),
@@ -203,7 +163,7 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
     rank: 0,
     callPriority: 'verify',
     leadClass: 'fast_discovery',
-    opportunityType: 'needs_deep_review',
+    opportunityType: 'seller_review',
     company,
     contact: {
       website: candidate.website || null,
@@ -449,6 +409,17 @@ function buildFastLeadPacksCsv(leadPacks) {
   return renderCsv(rows, ['rank', 'callPriority', 'leadClass', 'opportunityType', 'companyDisplayName', 'legalName', 'candidateLegalName', 'organizationNumber', 'candidateOrganizationNumber', 'organizationForm', 'registeredAddress', 'municipality', 'unitType', 'naceCode', 'naceDescription', 'employees', 'registrationDate', 'activeStatus', 'sourceUrl', 'matchStatus', 'matchConfidence', 'website', 'phone', 'email', 'address', 'city', 'placeId', 'rating', 'reviewCount', 'auditStatus', 'contactability', 'whyRanked', 'caution', 'economyStatus', 'identitySource', 'presenceSource', 'searchScope', 'locationMatchStatus', 'sourceQuery', 'mode'])
 }
 
+function renderCsv(rows, columns) {
+  return [columns, ...rows.map((row) => columns.map((column) => row[column]))]
+    .map((row) => row.map(csvEscape).join(','))
+    .join('\n') + '\n'
+}
+
+function csvEscape(value) {
+  const text = value === null || value === undefined ? '' : String(value)
+  return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text
+}
+
 function countPriority(leadPacks) {
   return (leadPacks || []).reduce((acc, lead) => {
     const key = lead.callPriority || 'unknown'
@@ -580,7 +551,7 @@ function normalizePositiveInteger(value, fallback) {
 }
 
 function normalizeRunMode(value) {
-  return String(value || 'deep').toLowerCase() === 'fast' ? 'fast' : 'deep'
+  return String(value || 'fast').toLowerCase() === 'deep' ? 'deep' : 'fast'
 }
 
 function parseBoolean(value) {

@@ -1,45 +1,41 @@
-# Webconsult Autonomous Infrastructure
+# Webconsult Lead Machine
 
-Reusable infrastructure for Webconsult autonomous software production workflows.
+Lead Machine is the seller desk product: sellers search for a market, review ranked leads, call from the browser, save notes, and manage follow-ups.
 
-This repository tracks the platform layer, not individual application projects.
+## Current Product
 
-## Tracked Layers
+- `apps/lead-machine-demo`: browser seller desk for search, lead list, call queue, notes, follow-ups, saved markets, and exports.
+- `core/lead-machine`: product runner that turns discovery into seller-ready lead packs.
+- `core/lead-discovery-agent`: Brreg, Google Places, mock, and manual-source discovery.
+- `core/company-profile`: conservative Brreg/company identity enrichment.
+- `core/seller-fit`: interprets each lead based on what the seller sells.
+- `core/osint`: narrow public-evidence summary for one selected lead.
+- `netlify/functions/api.js`: hosted friend-beta API for shared notes/follow-ups.
 
-- core: reusable architecture notes, components, sections, and patterns
-- prompts: reusable execution, refinement, review, and verification prompts
-- templates: reusable project, goal, and test templates
-- verifications: reusable quality gates and verification scripts
-- goals: reusable or active goal contracts that are not private project code
+Removed from the main repo path: browser-audit tooling, old orchestration queues, static demo generation, campaign/demo runners, website-redesign opportunity modules, and landing-page test scaffolding.
+
+## Local Run
+
+```bash
+cd /home/xman/webconsult/apps/lead-machine-demo
+npm run dev
+```
+
+Open `http://127.0.0.1:8787`.
+
+## Friend Beta
+
+Before sharing with testers:
+
+```bash
+cd /home/xman/webconsult
+npm run netlify:check
+./verifications/verify-friend-beta-readiness.sh
+./verifications/verify-netlify-hosted-beta.sh
+```
+
+Use `FRIEND_BETA_READINESS.md` for the test script and `NETLIFY_BETA.md` for Netlify deployment.
 
 ## Boundary
 
-The `projects/` directory is intentionally ignored. Each project should keep its own Git history.
-
-## Current Verification Primitive
-
-```bash
-~/webconsult/verifications/verify-frontend.sh /path/to/project
-```
-
-The frontend verifier runs lint, production build, and project-provided visual/accessibility tests when available.
-
-## Campaign Runner
-
-The single-command product workflow is:
-
-~~~bash
-node ~/webconsult/core/campaign-runner/cli/run-campaign.js --query "tannleger i Halden" --provider brave --max-leads 10 --demo-count 1
-~~~
-
-Campaign outputs are written under `~/webconsult/generated/campaigns/<campaign-id>/`.
-
-
-## Lead Machine Demo
-
-A static showcase lives in `demo/lead-machine-showcase/`. It can be opened directly or served locally and demonstrates location-aware lead discovery, controlled fallback, ranked seller-ready lead packs, caution notes, and export preview without live API calls.
-
-
-## Lead Machine Live Demo
-
-A local interactive demo app lives in `apps/lead-machine-demo/`. It lets a user enter queries like `Kristiansand rørlegger`, runs the existing Lead Machine backend locally, and displays ranked lead packs with summary, evidence, caution, CSV and JSON links.
+The product does not send email, place calls, generate pitch scripts, sync CRM, bill users, or scrape private/login-gated sources. Sellers own the conversation and relationship; Lead Machine owns discovery, evidence, workflow state, and exports.

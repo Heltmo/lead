@@ -63,7 +63,7 @@ Lead Machine owns discovery truth:
 
 - Google Places data
 - location quality
-- website audit eligibility
+- lead-machine inclusion readiness
 - Brreg/company profile later
 - lead pack schema
 

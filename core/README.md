@@ -1,40 +1,17 @@
 # Webconsult Core
 
-Reusable production assets for Webconsult autonomous software workflows.
+Reusable modules that support the Lead Machine seller desk.
 
-This folder is intentionally lightweight. It is a place for reusable patterns to accumulate as projects reveal what should be shared.
+## Active Product Core
 
-## Current Scope
-
-- components: reusable UI primitives and component notes
-- sections: reusable page section patterns
-- patterns: architecture, workflow, and design-system notes
+- `lead-machine`: runs discovery and writes seller-ready lead packs.
+- `lead-discovery-agent`: normalizes local business discovery from Brreg, Google Places, mock fixtures, and manual source files.
+- `company-profile`: Brreg identity enrichment for legal name, org.nr, NACE, status, employees, and match confidence.
+- `seller-fit`: interprets a lead for the selected seller intent.
+- `osint`: narrow selected-lead public evidence summary from already collected business data.
+- `cache`: local file cache helpers.
+- `components`, `sections`, `patterns`: shared UI/product notes.
 
 ## Rule
 
-Only promote something into core after it has proven useful in a real project.
-
-## Browser Intelligence
-
-- website-audit-agent: deterministic URL audit primitive for screenshots, structured signal extraction, accessibility checks, and lead-quality reporting.
-
-## Lead Intelligence
-
-- company-profile: conservative Brreg/Enhetsregisteret enrichment for legal company identity, org.nr, official metadata, and match confidence.
-
-## Lead Pack Packaging
-
-- lead-pack-runner: V1 packaging layer that converts existing orchestrator run outputs into seller-ready lead-packs JSON/CSV/summary without running new discovery, outreach automation, or sales scripts.
-
-## Location Quality
-
-Location quality is now part of lead discovery and lead-pack output. User query location is treated as a first-class constraint, out-of-area candidates are excluded from handoff by default, and lead packs expose `sourceQuality` fields for seller trust.
-
-## Lead Machine Runner
-
-`core/lead-machine/` provides the first single-command product flow: discovery, orchestrator audit, and seller-ready lead-pack packaging. It preserves search scope/location quality metadata and keeps Proff/outreach/frontend out of V1.
-
-
-## Seller Fit
-
-`core/seller-fit/` interprets existing lead-pack data through a seller intent. It keeps Lead Machine general-purpose: website audit is a digital-presence signal, while seller fit decides whether a lead is useful for a given B2B sales motion.
+Only keep modules that move the seller workflow forward: search, verify, call, note, follow up, export, and eventually login/team workspace. Legacy non-seller tooling has been removed from the main product path.

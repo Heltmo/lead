@@ -1,356 +1,44 @@
-# LEAD_MACHINE_SAAS_PLAN
+# Lead Machine SaaS Plan
 
-## Product Vision
+## Vision
 
-Webconsult should become a lead intelligence SaaS engine, not an outreach script tool.
+Lead Machine should become the go-to seller desk for many seller types. A seller logs in, chooses what they sell, searches or selects a market, and the system finds leads plus the right context for that sales motion.
 
-A user should eventually be able to search:
+## Core Loop
 
-```text
-advokater i Gol
-```
+1. Login/team workspace.
+2. Seller setup: what they sell, geography, ideal customer, disqualifiers.
+3. Lead discovery: Brreg identity plus public presence/contact data.
+4. Lead desk: call queue, lead cards, notes, outcomes, follow-ups.
+5. Selected-lead enrichment when more context is worth it.
+6. Email/calendar/CRM connections after the manual workflow is proven.
 
-and receive ranked seller-ready lead packs containing discovered businesses, contact info, Google Places data, website intelligence, Brreg/company identity data, later Proff/economy data, ranking, evidence, and caution notes.
+## Keep Out Of Main App For Now
 
-The product should answer:
+- Demo generator.
+- Landing-page test project.
+- Website-redesign-specific language.
+- AI outreach/call scripts.
+- Proff as a dependency.
+- SSB market panels.
+- Complex multi-agent orchestration.
+- Dashboard polish before workflow quality.
+- Broad scraping.
+- Historical monitoring.
+- Parallel workers.
 
-- Which businesses exist in this niche and city?
-- Which leads are most interesting?
-- What do we know about each company?
-- How can the seller contact them?
-- What evidence supports the ranking?
-- What official identity data is known or uncertain?
-- What should the seller verify before acting?
+## Current Beta
 
-## Product Boundary
+The local app and Netlify friend beta prove the seller desk loop: find leads, call manually, log notes, set follow-ups, and export. This is the correct base before adding login, email, CRM, or richer background agents.
 
-The machine owns:
+## Background Agent Direction
 
-- discovery
-- enrichment
-- ranking
-- evidence
-- caution
-- export
+A background agent should help with narrow product jobs:
 
-The seller owns:
+- refresh saved market searches,
+- detect stale/changed lead data,
+- suggest which leads need verification,
+- prepare follow-up queues,
+- summarize workspace health.
 
-- angle
-- wording
-- outreach
-- timing
-- relationship
-- qualification
-- closing
-
-Default product behavior must not generate sales scripts, email copy, call openers, or automated outreach.
-
-## User Flow
-
-```text
-User query
-  -> Fast scan discovery
-  -> location and identity checks
-  -> ranked candidate lead packs
-  -> selected-lead Deep enrichment when needed
-  -> JSON/CSV/UI export
-```
-
-V1 starts one level lower:
-
-```text
-existing orchestrator run output
-  -> lead-pack-runner
-  -> lead-packs.json
-  -> lead-packs.csv
-  -> summary.json
-```
-
-This proves the seller-ready lead pack format before building a new end-to-end runner.
-
-## Data Sources
-
-### Balanced Discovery
-
-Role: default source strategy. Use Brreg as the official company universe, then attach Google Places as public presence. This prevents the product from being only a Google wrapper and gives sellers org.nr, legal identity, NACE, employees and warnings before they decide what to qualify.
-
-### Google Places
-
-Role: local presence and business metadata.
-
-Use for:
-
-- business name
-- placeId
-- address
-- phone
-- website
-- rating
-- review count
-- business status
-- location
-
-### Brave
-
-Role: fallback / web discovery.
-
-Use for:
-
-- websites missing from Google Places
-- organic web presence
-- alternative sources
-- directory/source discovery
-
-### Brreg / Enhetsregisteret
-
-Role: official identity layer.
-
-Use for:
-
-- org.nr
-- legal name
-- organization form
-- registered address
-- municipality
-- NACE code / description
-- employees if available
-- active status
-- enhet / underenhet context
-- match confidence and warnings
-
-### SSB / Market Context
-
-Role: market and area context, not company identity. SSB should make the product stronger by explaining the market around the lead, not by deciding which org.nr is true.
-
-Use for later:
-
-- municipality population and growth
-- business density by region/industry where available
-- employment and establishment trends
-- local purchasing-power/context indicators
-- market-size notes on a search result, for example `small local supply`, `dense service market`, or `growth area`
-
-SSB should appear as a market context panel and summary signal. It should not replace Brreg, Google Places, Proff, or website evidence.
-
-### Proff Later
-
-Role: optional premium economy/commercial enrichment.
-
-Use only after confirmed Brreg identity.
-
-Use for later:
-
-- revenue
-- result/profit
-- equity
-- roles
-- owners
-- credit/compliance fields if licensed
-
-Proff data should not affect scoring in V1.
-
-### Website Audit
-
-Role: one Deep enrichment module for web intelligence. It should not define whether a company is generally sellable by itself.
-
-Use for:
-
-- audit status
-- top evidence
-- contactability
-- CTA/contact profile
-- technical trust findings
-- accessibility/SEO/performance evidence
-
-## Module Architecture
-
-```text
-core/lead-pack-runner/
-  leadPackRunner.js
-  cli/lead-pack.js
-  tests/smoke.test.js
-```
-
-V1 wraps existing outputs. It does not replace discovery, orchestrator, review workspace, opportunity-compressor, or commercial-pressure.
-
-Future architecture:
-
-```text
-User Query
-  -> Lead Run Controller
-  -> Fast Scan Discovery (Balanced / Brreg / Google Places)
-  -> Location Quality + Company Identity
-  -> Lead Pack Runner
-  -> UI / CSV / API
-  -> Selected-Lead Deep Enrichment Modules
-     -> Website Audit
-     -> Brreg Verification
-     -> Contactability Refresh
-     -> Evidence + Caution Update
-     -> Later: SSB market context, Proff, social/source signals, decision makers, recent activity
-```
-
-## Lead Pack Object Shape
-
-```json
-{
-  "rank": 1,
-  "callPriority": "high",
-  "leadClass": "technical_redesign",
-  "opportunityType": "technical_trust_risk",
-  "company": {
-    "displayName": "Example AS",
-    "legalName": null,
-    "organizationNumber": null,
-    "candidateOrganizationNumber": null,
-    "organizationForm": null,
-    "matchStatus": null,
-    "matchConfidence": null,
-    "warnings": []
-  },
-  "contact": {
-    "website": "https://example.no",
-    "phone": "69 00 00 00",
-    "email": "post@example.no",
-    "address": "Examplegata 1, 0000 Oslo",
-    "city": "Oslo"
-  },
-  "places": {
-    "provider": "google-places",
-    "placeId": "...",
-    "rating": 4.5,
-    "reviewCount": 50
-  },
-  "website": {
-    "auditStatus": "completed",
-    "topEvidence": [],
-    "contactability": "strong",
-    "ctaProfile": null
-  },
-  "ranking": {
-    "whyRanked": [],
-    "caution": [],
-    "painScore": 0.84,
-    "buyingLikelihood": 0.72,
-    "salesEase": "medium"
-  },
-  "economy": {
-    "status": "not_enabled",
-    "source": null,
-    "revenue": null,
-    "profit": null,
-    "employees": null
-  },
-  "meta": {
-    "sourceQuery": "advokater i Gol",
-    "sourceRun": "core/orchestrator/runs/example",
-    "lastCheckedAt": "2026-05-27T00:00:00.000Z"
-  }
-}
-```
-
-
-## Fast Scan and Deep Enrichment
-
-The core product workflow is two-stage:
-
-```text
-Fast scan -> candidate lead packs -> enrich selected lead only
-```
-
-Fast scan is the daily seller workflow. It should be quick, broad, and honest about uncertainty. It uses discovery, Brreg/company identity, Google Places presence, location quality, contact basics, and source warnings. Fast candidates can be useful leads, but they are not final website/opportunity verdicts.
-
-Deep enrichment is selected-lead intelligence. It should run on one chosen lead, update only that lead card, and append deeper context without rerunning the whole market search. Website audit is the first active module, not the full definition of Deep.
-
-Deep enrichment modules should evolve toward:
-
-- company identity verification with Brreg/company-profile
-- website audit and source evidence
-- contactability refresh
-- SSB market context for area/industry signals
-- Proff/economy after confirmed org.nr
-- social/source signals
-- decision-maker hints from public records/sources
-- recent activity and company-size/fit signals
-- seller fit summary based on evidence and caution
-
-Deep must not generate sales scripts, call openers, or outreach automation.
-
-## Self-Running Agent Concept
-
-A self-running agent should mean controlled operational automation, not free-form autonomous selling.
-
-Future capabilities:
-
-- saved searches
-- scheduled runs
-- refresh cadence
-- retries
-- logs
-- run history
-- stale lead detection
-- new top lead alerts
-
-Example:
-
-```text
-Every Monday 08:00:
-  run saved searches
-  refresh company profile data
-  package new top leads
-  notify user that lead packs are ready
-```
-
-## Phased Roadmap
-
-1. Lead pack runner from existing run outputs.
-2. Conservative Brreg/company-profile attachment.
-3. Saved searches / scheduled runs.
-4. Proff enrichment only after confirmed org.nr.
-5. Economy-aware lead packs.
-6. SaaS UI / API.
-
-## Current V1 Decision
-
-Build `core/lead-pack-runner/` as a packaging layer first.
-
-Do not build:
-
-- Proff integration
-- outreach automation
-- email sending
-- sales scripts
-- dashboard
-- saved searches
-- new scoring
-
-## Lead Machine Runner V1 Status
-
-`core/lead-machine/` is now the internal single-command runner for the product flow:
-
-```text
-discovery -> orchestrator audit -> lead-pack-runner
-```
-
-It wraps existing modules and writes one run folder with discovery artifacts, lead-pack outputs, and `lead-machine-summary.json`. The summary now includes operator-facing counts, location exclusion counts, fallback status, and `nextRecommendedAction` so low-supply and fallback runs are easier to interpret. It does not add Proff, frontend, saved searches, outreach automation, sales scripts, or new scoring logic.
-
-
-## Demo V1 Status
-
-`demo/lead-machine-showcase/` is a static non-technical showcase for the Lead Machine core. It uses deterministic local JSON fixtures to demonstrate strict location trust, explicit regional fallback, ranked lead cards, company-profile uncertainty, caution notes, and CSV/export preview.
-
-It is not a production SaaS frontend and does not add Proff, backend services, auth, database, saved searches, outreach automation, or scoring changes.
-
-
-## Interactive Local Demo
-
-`apps/lead-machine-demo/` is the first browser-driven local app where a user can type a query such as `Kristiansand rørlegger` and run the existing Lead Machine flow. The local backend calls `core/lead-machine` directly instead of shelling out, then returns run summary, lead packs, CSV/JSON download links, and output paths to the browser.
-
-This is not full SaaS. It does not add auth, database, Proff, saved searches, CRM, scoring changes, or outreach automation. Its purpose is to demonstrate the live product loop: user query -> lead-machine run -> ranked lead packs.
-
-
-### Seller Intent / Seller Fit V1
-
-Lead Machine is being reframed as a general B2B seller workflow tool. Website audit is one digital-presence enrichment module, not the product core.
-
-`core/seller-fit/` interprets each lead through a seller intent such as `general_b2b`, `web_it`, `ads_marketing`, `telecom`, `accounting`, `insurance`, `finance`, or `recruiting`. It returns seller fit, fit reasons, risk reasons, important signals, and recommended action without changing raw truth data or generating outreach scripts.
+It should not sell for the user, scrape private profiles, generate pitch scripts, call, email, or override seller judgment.

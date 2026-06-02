@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-workspace_dir="$repo_root/core/lead-review-workspace"
-
-cd "$workspace_dir"
-npm test

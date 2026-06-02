@@ -121,6 +121,6 @@ The separate `Seller fit first` sort lets a seller inspect fit ranking directly 
 
 ## Next Steps
 
-- Persist seller intent per user/workspace once storage exists.
+- Keep seller intent in the local workspace state and later migrate it to user/workspace scope when SaaS auth exists.
 - Add market context later for territory intelligence.
 - Add Proff/economy only behind confirmed org.nr.

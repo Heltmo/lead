@@ -1,0 +1,13 @@
+[build]
+  publish = "apps/lead-machine-demo/public"
+  command = "node --check netlify/functions/api.js && node --check apps/lead-machine-demo/public/app.js"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  included_files = ["apps/lead-machine-demo/runs/**", "apps/lead-machine-demo/fixtures/**"]
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200

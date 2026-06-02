@@ -1,10 +1,10 @@
-# Lead Machine Live Demo
+# Lead Machine Local Seller Desk
 
-Local interactive demo app for the Webconsult Lead Machine.
+Local interactive seller-desk prototype for the Webconsult Lead Machine.
 
 ## Purpose
 
-This app lets a user type a query like:
+This app lets a seller type a query like:
 
 ```text
 Kristiansand rørlegger
@@ -12,8 +12,18 @@ Kristiansand rørlegger
 
 and run the existing Lead Machine flow from a browser.
 
-It is not a full SaaS app. It has no auth, database, saved searches, CRM integration, or outreach automation.
+It is not a full SaaS app yet. It has no auth, hosted database, CRM integration, billing, email connection, or telephony backend. It keeps recent searches, workflow state, notes, and activity history in a local SQLite workspace so the seller can continue work after reloads.
 
+## Friend Beta Preflight
+
+Before giving the product to friends, run:
+
+```bash
+cd /home/xman/webconsult
+./verifications/verify-friend-beta-readiness.sh
+```
+
+Use [FRIEND_BETA_READINESS.md](../../FRIEND_BETA_READINESS.md) as the testing script. The app has no auth yet, so do not expose it on the open internet.
 ## Run Locally
 
 ```bash
@@ -49,7 +59,7 @@ http://127.0.0.1:8787
 
 ## Search UX
 
-The demo supports structured search:
+The seller desk supports structured search:
 
 ```text
 Bransje: Fysioterapeut
@@ -79,7 +89,7 @@ The profession selector is a controlled list of supported verticals. The locatio
 ## Fast Scan vs Deep Enrich
 
 - `Fast scan` is the default for daily use. It runs broad discovery, location quality, Brreg identity enrichment, Google Places presence, and basic contact context without a full digital presence check.
-- `Deep enrich` upgrades one selected lead with enrichment modules. V1 refreshes Brreg/company identity, contactability, seller fit summary, digital presence status when a website exists, and tries to find email from available website/contact pages. Proff/economy is optional and only runs when a confirmed org.nr exists. Social/source signals, decision-maker hints, and recent activity remain planned modules.
+- `Deep enrich` upgrades one selected lead with enrichment modules. V1 refreshes Brreg/company identity, contactability, seller fit summary, digital presence status when a website exists, optional Proff/economy when a confirmed org.nr exists, and OSINT-lite public evidence from already collected business data. It does not run browser audits or contact-page scraping.
 - Use Fast scan for 10-25 candidate scans, then enrich only the leads where extra context is worth the wait.
 
 Recommended workflow:
@@ -118,9 +128,29 @@ The frontend displays:
 - evidence and caution
 - export links
 
+## OSINT Public Evidence V1
+
+Selected-lead Deep enrichment now attaches an OSINT public evidence snapshot. V1 does not run broad scraping across every search result; it normalizes public business evidence already available from Brreg/company identity, Google Places, digital presence checks, ranking evidence, and source-quality fields for the one lead the seller chose to enrich.
+
+The lead detail shows OSINT as evidence groups: company identity, contactability, digital presence, market proof, recent activity, and risk / verify. Each signal carries source context, timestamp, confidence, and either a source URL or a reason the source URL is unavailable. CSV exports include summary counts and top signal/risk fields, while JSON keeps the structured OSINT object.
+
+OSINT is decision support only. It does not generate prepared phone pitches, outreach copy, email sending, calling, private-person dossiers, login-gated scraping, or CAPTCHA/paywall bypassing.
+
+## Product Readiness Without Proff
+
+The demo is designed to be useful before buying Proff. Brreg remains the free identity base, Google/public presence is capped by the 25-lead run limit, OSINT runs on selected-lead enrichment, and Proff stays an optional economy provider rather than a core dependency.
+
+The main seller screen no longer shows a technical readiness panel. Readiness details stay in the run payload and `/api/health` for verification, while the UI shows only seller-facing continuity: saved markets, notes/follow-ups, and a `Download test data` backup button.
+
+This is local continuity, not SaaS saved searches. It stores data in `.cache/lead-machine-demo/workspace.sqlite`, imports older JSON state when present, and does not add auth, shared workspaces, CRM sync, email sending, telephony, or outreach automation. V1 intentionally does not include a clear/delete action.
+
+## Saved Search Management V1
+
+Saved searches now behave like a small local market list. The `Saved markets` panel shows saved searches from the workspace, with lead count, phone-ready count, seller intent, geography scope, and actions to `Pin`, `Rename`, or `Rerun`. Pinned searches sort first, then newest searches. Labels and pinned state are stored in the local SQLite workspace. There is still no delete/clear action in V1.
+
 ## Call-Ready Workflow V1
 
-The demo now includes local seller workflow state for each lead. This is the first step toward a call-ready sales desk without adding telephony, email automation, auth, or a database.
+The demo now includes local seller workflow state for each lead. This is the first step toward a call-ready sales desk without adding telephony, email automation, auth, or an external database.
 
 For each lead, a seller can save:
 
@@ -134,11 +164,17 @@ For each lead, a seller can save:
 - next action
 - outcome
 
-Workflow state is stored locally in `.cache/lead-machine-demo/lead-workflow.json` and is appended to JSON/CSV downloads. It is manual tracking only: the app does not call, send email, schedule calendar events, or generate outreach wording.
+Workflow state is stored locally in `.cache/lead-machine-demo/workspace.sqlite` and is appended to JSON/CSV downloads. Existing `.cache/lead-machine-demo/lead-workflow.json` state is imported when a workspace is created. It is manual tracking only: the app does not call, send email, schedule calendar events, or generate outreach wording.
 
 The left rail now shows one `Current call` at a time instead of a dense board of many action rows. Sort/filter controls and queue presets live behind a collapsed `Filter / sort lead list` control so the seller can focus on the active call first. Queue presets for Call now, Needs verification, Follow-ups, and Interested leads still work with not-contacted, due follow-up, interested, and contacted/not-contacted filters. The default list sort is Call queue first. It prioritizes due follow-ups, interested leads, new phone-ready leads, seller fit, recommended action, exact-location leads, and useful org.nr context before lower-action items. A separate Seller fit first sort is available when the seller wants to inspect pure fit ranking. Phone numbers render as `tel:` links so a seller can click from the browser when their device supports it, but no call is placed by the app itself. Each lead card also shows a short `Next:` queue action so the seller can scan the list without opening every card. Each workflow save appends a small local activity timeline, and exports include full call-list CSV views for all leads, today call queue, not-contacted leads, due follow-ups, and interested leads.
 
-The lead detail and Current call panel include workflow actions for common manual outcomes: `Mark called`, `No answer`, `Interested`, `Not relevant`, `Follow up tomorrow`, and `Follow up next week`. In the lead detail form, these buttons only prepare a draft; the seller must click `Save workflow` before an activity log entry is created. In the Current call panel, follow-up shortcuts appear as compact `Tomorrow` and `Next week` actions and act as one-click queue actions for the active call. Follow-up rows are labelled as overdue, due today, or future follow-up so the seller knows what must be handled first. These buttons update local workflow state and the activity timeline without writing system-generated text into the seller note field. They do not call, send email, create calendar events, or automate outreach. Current-call actions advance the selected lead toward the next call-ready item after saving, and `Inspect`/lead-card selection scrolls the lead detail into view. This keeps the demo close to a call-ready sales desk while still avoiding CRM/telephony/email integration.
+The lead detail and Current call panel include workflow actions for common manual outcomes: `Mark called`, `No answer`, `Interested`, `Not relevant`, `Follow up tomorrow`, and `Follow up next week`. In the lead detail form, these buttons only prepare a draft; the seller must click `Save note` before an activity log entry is created. In the Current call panel, follow-up shortcuts appear as compact `Tomorrow` and `Next week` actions and act as one-click queue actions for the active call. Follow-up rows are labelled as overdue, due today, or future follow-up so the seller knows what must be handled first. These buttons update local workflow state and the activity timeline without writing system-generated text into the seller note field. They do not call, send email, create calendar events, or automate outreach. Current-call actions advance the selected lead toward the next call-ready item after saving, and `Inspect`/lead-card selection scrolls the lead detail into view. This keeps the demo close to a call-ready sales desk while still avoiding CRM/telephony/email integration.
+
+## Call Desk Polish V1
+
+The call desk now makes call readiness the primary daily signal. Lead cards, the current-call panel, and the selected lead detail use the same readiness model: Ready to call, Verify first, Needs contact, Follow-up due, Later, or Skip.
+
+The selected lead view includes a compact call focus strip for call readiness, best contact, next action, and last logged activity. Activity history shows up to eight recent entries so the seller can understand what happened without opening raw data. Recent searches show lead counts and phone-ready counts, and each saved search can be rerun directly.
 
 ## Product Boundary
 
@@ -168,10 +204,8 @@ No prepared pitch text, email templates, or automated outreach are included. The
 - Balanced runs can return Brreg identity rows without a Google key, but Google Places presence enrichment requires `GOOGLE_PLACES_API_KEY`.
 - Brreg firmaprofil uses `core/company-profile` automatically to enrich org.nr/legal identity conservatively because company identity is core seller context.
 - Fast mode treats website URLs as unverified until Deep confirms they are real and relevant. If no website exists, Deep still refreshes identity/contactability and marks digital presence check as skipped.
-- Deep enrichment can attach a discovered email when it is found in the digital presence report or on likely contact pages such as `/kontakt`, `/contact`, or `/om-oss`.
 - The Brreg panel shows confirmed org.nr only for strong matches. Uncertain results stay as candidate org.nr/manual verify with legal name, organization form, address, municipality, NACE, employees, status, match confidence, warnings, and candidate records when available.
 - Economy/Proff is optional. It remains `disabled` until `PROFF_API_KEY` exists, runs only for confirmed org.nr, and does not affect lead scoring.
-- SSB market context is not wired into the UI yet. It should be added as area/market context, not as company identity.
 - Run folders are local and ignored by git.
 
 ## Speed Notes
@@ -192,12 +226,11 @@ Repeated Brreg/company-profile lookups use the local `.cache/company-profile/` f
 
 Deep is now the selected-lead intelligence layer, not just a digital check button. V1 attaches module statuses for identity, contactability, digital presence, seller summary, and disabled future modules. The intended module stack is:
 
-- digital presence and technical/source evidence
+- digital presence status and source evidence
 - deeper Brreg verification and candidate handling
 - Proff/economy enrichment after confirmed org.nr
-- social/source signals such as Facebook, LinkedIn, news, and public links
-- decision-maker hints from public firm/source data
-- company size/fit and recent activity
+- optional source links after the workflow is stable
+- company size/fit and recent activity after the workflow is stable
 - seller fit summary based on evidence and caution
 
 Lead Machine remains the source of truth. Planned modules should append context and warnings, not replace confirmed data or generate outreach scripts.

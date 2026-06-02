@@ -39,7 +39,7 @@ async function main() {
   const taxonomyFixture = path.join(root, 'taxonomy.sample.json')
   const out = path.join(root, 'lead-candidates.json')
   const summary = path.join(root, 'discovery-summary.json')
-  const handoff = path.join(root, 'orchestrator-urls.txt')
+  const handoff = path.join(root, 'lead-machine-handoff.jsonl')
   fs.rmSync(root, { recursive: true, force: true })
   fs.mkdirSync(root, { recursive: true })
   fs.writeFileSync(jsonFixture, JSON.stringify({

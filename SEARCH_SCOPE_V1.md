@@ -163,6 +163,6 @@ Do not solve low supply by making discovery loose by default.
 
 Do not add Proff to compensate for wrong geography.
 
-Do not let fallback affect commercial-pressure scoring yet.
+Do not let fallback silently affect seller ranking without visible location warnings.
 
 Search scope is a source-quality/product-control layer, not a sales scoring layer.

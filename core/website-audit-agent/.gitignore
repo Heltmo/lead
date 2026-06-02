@@ -1,7 +1,0 @@
-node_modules/
-reports/*.json
-screenshots/
-*.log
-report-surfaces/
-tests/report-surfaces-smoke/
-reports/surfaces*/

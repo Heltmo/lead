@@ -5,7 +5,7 @@ const path = require('path')
 function main() {
   const args = parseArgs(process.argv.slice(2))
   const input = args.input || args._[0]
-  if (!input) throw new Error('Usage: node cli/handoff-candidates.js <lead-candidates.json> [--out reports/orchestrator-urls.txt] [--include-unreachable true] [--include-non-audit-targets true]')
+  if (!input) throw new Error('Usage: node cli/handoff-candidates.js <lead-candidates.json> [--out reports/lead-machine-handoff.jsonl] [--include-unreachable true] [--include-non-audit-targets true]')
   const report = JSON.parse(fs.readFileSync(input, 'utf8'))
   const includeUnreachable = args['include-unreachable'] === 'true'
   const includeNonAuditTargets = args['include-non-audit-targets'] === 'true'
@@ -14,7 +14,7 @@ function main() {
     .filter((candidate) => includeNonAuditTargets || candidate.auditEligible !== false)
     .map((candidate) => formatHandoffCandidate(candidate, report))
     .filter(Boolean)
-  const outPath = path.resolve(args.out || 'reports/orchestrator-urls.txt')
+  const outPath = path.resolve(args.out || 'reports/lead-machine-handoff.jsonl')
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
   fs.writeFileSync(outPath, `${lines.join('\n')}\n`)
   console.log(JSON.stringify({ handoffPath: outPath, totalUrls: lines.length }, null, 2))

@@ -1,355 +1,49 @@
-# LEAD_PACK_V1
+# Lead Pack V1
 
 ## Purpose
 
-The goal is to produce seller-ready lead packs, not automated outreach.
-
-A lead pack should help a seller answer:
+A lead pack is a seller-ready decision artifact. It helps answer:
 
 - Who is this business?
-- Is it worth my time?
-- Why was it ranked?
-- How can I contact them?
+- Is it in the right market?
+- Can I contact it?
 - What official company data do we know?
-- What evidence supports the ranking?
-- What should I be careful not to overstate?
-
-The lead pack is an operator decision artifact. It should make the seller faster and better informed without taking over the seller's judgment, wording, timing, or relationship work.
+- Why is it worth reviewing?
+- What must be verified before use?
+- What notes/follow-ups has the seller logged?
 
 ## Product Boundary
 
-The machine owns:
+Lead Machine owns discovery, identity, contact data, source quality, evidence, caution notes, seller-fit interpretation, workflow state, and exports.
 
-- discovery
-- deduplication
-- digital presence check
-- business signals
-- commercial pressure
-- ranking
-- company enrichment
-- org.nr / firm metadata
-- contact info
-- evidence
-- caution notes
-- export
+The seller owns wording, timing, relationship, qualification, and close.
 
-The seller owns:
+No fixed sales scripts, call openers, ready-to-send email copy, or automated sending belong in the lead pack contract.
 
-- angle
-- wording
-- call/email decision
-- relationship
-- timing
-- qualification
-- close
+## Lead States
 
-Default product behavior should not generate fixed sales scripts. Scripts, call openers, and ready-to-send outreach copy are not part of the lead pack contract.
+- Fast scan candidate: enough identity/contact/source context for quick seller review.
+- Selected enriched lead: one lead upgraded with additional identity/contactability/seller-fit/digital-status/economy/OSINT-lite modules.
 
-
-## Fast vs Deep Lead Packs
-
-Lead packs support two practical states:
-
-- Fast scan candidate: enough identity/contact/source context for a seller to shortlist quickly, with digital presence check skipped and uncertainty exposed.
-- Deep enriched lead: one selected lead upgraded with additional modules such as digital presence checks, deeper Brreg verification, contactability refresh, evidence, caution, and later Proff/social/recent activity.
-
-Deep enrichment should update the selected lead pack only. It should not reclassify the whole run by default, and it should not make website pain the only definition of lead quality. A company can be a strong generic B2B sales lead even if digital presence is not the main opportunity.
-
-## Lead Pack Fields
-
-Target lead object:
+## Key Fields
 
 - rank
 - callPriority
 - leadClass
 - opportunityType
-- recommendedOfferCategory
-- companyName
-- legalName
-- organizationNumber
-- candidateOrganizationNumber
-- organizationForm
-- website
-- phone
-- email
-- address
-- city
-- municipality
-- industry
-- NACE code
-- NACE description
-- employees
-- registrationDate
-- activeStatus
-- source provider
-- source confidence
-- company match confidence
-- company match status
-- company match warnings
-- company candidate matches[] for manual verification
-- unitType: enhet / underenhet / unknown
-- rating
-- review count
-- contactability summary
-- CTA/contact profile
-- why ranked
-- evidence bullets
-- caution notes
-- verify notes
-- seller notes
-- enrichmentStatus
-- enrichmentModules[]
-- sellerReadiness
-- digitalPresenceSignal
-- last checked at
-
-## Example Lead Pack
-
-Example based on Glomma Tannklinikk. Unknown fields are intentionally marked `unknown`; org.nr should not be invented before company enrichment exists.
-
-```yaml
-rank: 1
-callPriority: HIGH
-leadClass: technical_redesign
-opportunityType: technical_trust_risk
-recommendedOfferCategory: website trust and reliability cleanup
-companyName: Glomma Tannklinikk
-legalName: unknown
-organizationNumber: unknown
-candidateOrganizationNumber: unknown
-organizationForm: unknown
-website: http://glommatannklinikk.no
-phone: 69 16 90 90
-email: post@glommatannklinikk.no
-address: Glemmengata 8, 1608 Fredrikstad
-city: Fredrikstad
-municipality: unknown
-industry: dentist
-NACE code: unknown
-NACE description: unknown
-employees: unknown
-registrationDate: unknown
-activeStatus: OPERATIONAL
-source provider: google-places
-source confidence: high
-company match confidence: unknown
-rating: 4.8
-review count: 55
-contactability summary: phone and email found; visible contact/booking path detected
-CTA/contact profile: phone | email | contact_link | booking_link | emergency_call
-why ranked: Contactable local clinic with usable company/contact context and digital presence evidence.
-evidence bullets:
-  - Failed network requests detected
-  - Serious accessibility/usability findings detected
-  - Local clinic is contactable and operational
-caution notes:
-  - Seller should verify technical findings before overstating them
-  - Do not frame this as generic redesign without confirming buyer pain
-verify notes:
-  - Official legal entity and organization number not enriched in this example until company-profile is run
-seller notes: empty
-last checked at: unknown
-```
-
-## Company Enrichment Direction
-
-Module status: standalone V1 implemented in `core/company-profile/`. It can enrich lead-pack data from Brreg/Enhetsregisteret, but it is not yet wired into discovery, review workspace, CRM export, or ranking.
-
-Implemented module:
-
-```text
-core/company-profile/
-```
-
-Purpose:
-
-Match discovered leads to official Norwegian company records.
-
-First enrichment source:
-
-```text
-Brønnøysundregistrene / Enhetsregisteret
-```
-
-Fields to enrich:
-
-- organizationNumber
-- legalName
-- organizationForm
-- registeredAddress
-- municipality
-- NACE code
-- NACE description
-- employees if available
-- registration date if available
-- active status
-- source URL / source id
-- match confidence
-
-## Matching Rules
-
-Company matching must be confidence-based.
-
-Use these match levels:
-
-- exact match
-- strong match
-- weak match
-- manual verify
-
-Never silently attach an organization number if confidence is weak.
-
-Important matching risks:
-
-- Google Places name may differ from legal entity name.
-- Chain, branch, and location pages may map to a parent entity.
-- Franchises and clinic groups require caution.
-- A website brand can represent multiple legal entities.
-- A legal entity can operate under a trading name that differs from public discovery data.
-
-Company-profile V2 policy:
-
-- `organizationNumber` means confirmed only.
-- `candidateOrganizationNumber` means plausible but not confirmed.
-- `candidates[]` should be visible when `matchStatus` is `manual_verify` or `weak_match`.
-- `unitType` should show whether the match is `enhet`, `underenhet`, or `unknown`.
-- Chain, branch, franchise, clinic group, and network ambiguity should produce visible warnings instead of silent attachment.
-- Proff/economy enrichment should only run after Brreg identity is confirmed.
-
-The output should expose uncertainty instead of hiding it.
-
-## UI Direction
-
-The review workspace should eventually prioritize:
-
-- ranked lead list
-- company facts
-- official org data
-- contactability
-- why ranked
-- evidence
-- caution
-- export
-
-Downplay:
-
-- long AI-generated text
-- suggested scripts
-- call openers
-- generic opportunity paragraphs
-
-The seller should see the facts, ranking reason, evidence, and caution quickly. Supporting audit detail can remain available behind links or expandable sections.
-
-## CSV/CRM Export Direction
-
-Future exports should include:
-
-- rank
-- callPriority
-- companyName
-- legalName
-- organizationNumber
-- website
-- phone
-- email
-- address
-- city
-- industry
-- leadClass
-- opportunityType
-- evidenceSummary
-- cautionSummary
-- contactability
-- sourceConfidence
-- matchConfidence
-- sellerNotes
-
-## Location Quality
-
-Lead packs now expose source/location quality so local SaaS searches do not silently drift into the wrong city.
-
-Target field group:
-
-- sourceQuality.requestedLocation
-- sourceQuality.candidateLocation
-- sourceQuality.locationMatchStatus
-- sourceQuality.locationConfidence
-- sourceQuality.distanceKm
-- sourceQuality.locationWarnings
-- sourceQuality.fallbackUsed
-
-Product rule:
-
-```text
-Correct local leads first. Explicit fallback later. No silent location drift.
-```
-
-See `LOCATION_QUALITY_V1.md` for the discovery/location policy.
-
-## Lead Pack Runner V1 Status
-
-`core/lead-pack-runner/` is the first packaging layer for this format.
-
-Current behavior:
-
-- reads existing orchestrator run outputs
-- regenerates existing business signal, opportunity, and commercial pressure views from source artifacts
-- writes `lead-packs.json`, `lead-packs.csv`, and `summary.json`
-- optionally attaches conservative `company-profile` data
-- leaves economy data as `not_enabled`
-- does not run live discovery or audits
-- does not generate outreach scripts
-
-Live end-to-end query execution, saved searches, Proff enrichment, and SaaS UI come later.
-
-## Future Proff Enrichment
-
-Brreg is the official identity source for V1. Proff is a future optional premium enrichment layer.
-
-Proff should only enrich records with confirmed identity:
-
-- `matchStatus`: `exact_match` or `strong_match`
-- `matchConfidence`: above configured threshold
-- `organizationNumber`: confirmed, not only candidate
-
-Proff configuration should use environment variables only:
-
-```text
-PROFF_API_KEY
-```
-
-Proff API requests require an API key and should use the documented token authorization style:
-
-```text
-Authorization: Token <API_KEY>
-```
-
-V1 rule: Proff data should not affect scoring, `callPriority`, commercial-pressure, or opportunity-compressor. It should be displayed as seller context only after Brreg identity matching is safe.
-
-## Relationship To OUTREACH_PILOT_001
-
-`OUTREACH_PILOT_001.md` is an internal market-test worksheet.
-
-`LEAD_PACK_V1.md` is the target product format.
-
-The pilot tests whether ranked leads produce response. The lead pack defines what the machine should produce for sellers.
-
-The pilot should remain small, manual, and honest. The lead pack should become the repeatable seller-facing artifact once company enrichment, evidence summaries, caution notes, and exports are formalized.
-
-## Search Scope
-
-See `SEARCH_SCOPE_V1.md` for strict/nearby/regional fallback behavior and low-supply metadata.
-
-
-## Seller Fit V1
-
-Lead packs can now carry seller-fit context:
-
-- sellerIntent
+- company display/legal name
+- organizationNumber / candidateOrganizationNumber
+- organization form, NACE, employees, status
+- phone, email, website, address, city
+- source provider and confidence
+- location quality
+- Google rating/review count when available
+- whyRanked[]
+- caution[]
 - sellerFit
-- recommendedAction
-- fitReasons
-- riskReasons
-- importantSignals
+- enrichmentStatus / enrichmentModules[]
+- workflow status, response, notes, follow-up date, activity history
 
-This makes Lead Machine more general than the original website-audit direction. Digital presence remains one enrichment signal. The lead pack should answer whether this company is worth the seller's time for their sales motion, not only whether the website looks weak.
+## Rule
+
+A lead pack should make the seller faster and more accurate. It should not pretend uncertain data is confirmed, and it should not turn into automated outreach.

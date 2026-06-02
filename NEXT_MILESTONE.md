@@ -1,29 +1,34 @@
 # Next Milestone
 
-The system now has working discovery, Google Places/Brave/manual source support, auditing, opportunity compression, commercial pressure scoring, review workspaces, and CRM export. The next phase is calibration realism, not more architecture.
+Lead Machine is now aimed at becoming the daily seller desk for all seller types.
 
-## Priority 1: Human-Aligned Commercial Pressure Calibration
+The next phase is product focus: make the seller workflow real, persistent, and ready for email-connected work.
 
-The initial cross-industry calibration batch produced:
+## Priority 1: Seller Desk Foundation
 
-```text
-Total:  23
-High:   15
-Medium: 6
-Low:    1
-Verify: 1
-```
-
-First pressure tuning reduced the same batch to:
+Build the durable product loop:
 
 ```text
-High:   7
-Medium: 9
-Low:    6
-Verify: 1
+login
+-> saved searches / imports
+-> verified and ranked leads
+-> call queue
+-> notes
+-> follow-up date
+-> activity history
+-> export / email-connected activity
 ```
 
-This is much healthier, but calibration should continue against manual YES/MAYBE/NO/VERIFY labels. The system may still be slightly high-priority biased.
+Success target:
+
+- a seller can log in and return to the same workspace
+- leads, notes, statuses, owners, and follow-ups persist in a real database
+- the call queue clearly shows who to call now, who to verify, and who to follow up
+- the product does not depend on website redesign pain, Proff, SSB, generated demos, or AI outreach scripts
+
+## Priority 2: General Seller Fit Calibration
+
+Continue manual YES/MAYBE/NO/VERIFY calibration, but judge leads by seller intent, not website weakness alone.
 
 Target distribution:
 
@@ -35,69 +40,47 @@ Low/Verify: remainder
 
 Success target:
 
-- top 20% of leads feel clearly stronger than the rest
-- `technical_trust_risk` leads remain high when pain is obvious
-- polished or already mature sites are penalized unless pain is strong
-- lawyers and restaurants receive stricter pressure thresholds
-- no clear CTA does not create equal pressure across every vertical
-- outreach wording uses correct vertical language
+- top 20% of leads feel clearly stronger than the rest for the selected seller type
+- polished companies are not over-prioritized unless seller fit is strong
+- contactability, identity confidence, company size, geography, source confidence, and seller intent carry more weight than generic website issues
+- vertical-specific wording does not leak across seller types
 
-## Priority 2: Add Pressure Penalty Rules
+## Priority 3: Email Connection Plan
 
-Tune `core/commercial-pressure` with deterministic penalties for:
+Design before implementation:
 
-- polished modern site
-- strong conversion structure
-- mature branding
-- likely vendor-built site
-- enterprise, chain, or public-sector patterns
-- weak Webconsult offer fit
-- indirect or weak contact path
+- Gmail/Outlook OAuth scope boundary
+- manual email logging first
+- later email sync for replies and activity history
+- no mass sending or ready-to-send outreach in the default product
+- every email event attaches to a lead/contact/workspace record
 
-These should reduce:
+## Priority 4: Background Agent Boundary
 
-- `painScore`
-- `buyingLikelihood`
-- `salesEase`
-- `callPriority`
+Hermes/OpenClaw or any background agent should work quietly behind the seller desk. Its job should be narrow:
 
-## Priority 3: Vertical-Aware Pressure Weighting
+- enrich one selected lead
+- detect missing contact data
+- summarize changed evidence
+- flag identity/contact/source risk
+- suggest workflow state changes such as verify first or follow up due
+- update lead context from email replies only after the email connection exists
 
-The same issue should not have the same commercial pressure in every industry.
+It should not sell, scrape private profiles, generate ready-to-send outreach, call, email, or override seller judgment.
 
-Example:
+## Archived / Paused From Main Path
 
-- no clear CTA is high pressure for dentists, plumbers, electricians, HVAC, and clinics
-- no clear CTA is medium pressure for lawyers and accountants
-- no clear CTA is lower pressure for restaurants, cafes, and bars unless combined with stronger pain
-
-## Priority 4: Manual Ranking Loop
-
-For each calibration batch, manually label leads:
-
-```text
-YES = would call today
-MAYBE = possible later
-NO = not worth operator time now
-VERIFY = needs manual validation
-```
-
-Then compare human ranking against system ranking and tune false positives first.
-
-## Paused Work
-
-- Brreg enrichment
-- multi-provider merge
-- more ontology expansion
-- more AI agents
-- dashboard UI
-- database
-- AI outreach
-- historical comparison
+- demo generator
+- landing-page test project beyond frontend sandbox use
+- website redesign-specific product framing
+- AI outreach/call scripts
+- Proff dependency
+- SSB market context
+- broad OSINT scraping
+- complex multi-agent orchestration
+- historical monitoring
 - Lighthouse
 - parallel workers
-- monitoring
-- multi-agent orchestration
 
 ## Operating Principle
 
@@ -106,5 +89,5 @@ The current question is not whether Webconsult can find opportunities. It can.
 The current question is:
 
 ```text
-Can Webconsult reliably identify the few leads worth operator attention today?
+Can Lead Machine become the seller desk a salesperson opens every morning to know who to call, what happened last, and what to do next?
 ```
