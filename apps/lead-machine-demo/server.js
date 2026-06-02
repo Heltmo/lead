@@ -9,6 +9,7 @@ const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-
 const { enrichOsint } = require('../../core/osint/osint')
 const { parseLeadQuery } = require('./queryParser')
 const { createWorkspaceStore } = require('./localStore')
+const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowActivity, workflowForLead, inferLeadQueue, leadMatchesQueue, normalizeQueue } = require('./workQueues')
 
 const DEFAULT_PORT = Number(process.env.PORT || 8787)
 const APP_ROOT = __dirname
@@ -358,7 +359,8 @@ function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, le
   const leadPackSummary = readJsonFile(leadPackSummaryPath, {})
   const machineSummary = machineSummaryOverride || readJsonFile(machineSummaryPath, {})
   const normalizedSellerIntent = normalizeSellerIntent(sellerIntent || machineSummary.sellerIntent || leadPackSummary.sellerIntent)
-  const leadPacks = attachSellerFitToLeads(attachWorkflowToLeads(readJsonFile(leadPacksPath, []), readWorkflowStore(workflowStore)), normalizedSellerIntent)
+  const fittedLeadPacks = attachSellerFitToLeads(readJsonFile(leadPacksPath, []), normalizedSellerIntent)
+  const leadPacks = attachWorkflowToLeads(fittedLeadPacks, readWorkflowStore(workflowStore))
   const normalizedQuery = parsedQuery?.normalizedQuery || machineSummary.query || leadPacks[0]?.meta?.sourceQuery || ''
   return {
     runId,
@@ -410,7 +412,7 @@ async function handleDeepQualify(req, res, context) {
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
   const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir, sellerIntent })
   if (result && result.leadPack) {
-    const fittedLead = attachSellerFitToLeads(attachWorkflowToLeads([result.leadPack], readWorkflowStore(context.workflowStore)), sellerIntent)[0]
+    const fittedLead = attachWorkflowToLeads(attachSellerFitToLeads([result.leadPack], sellerIntent), readWorkflowStore(context.workflowStore))[0]
     result.leadPack = attachOsintToLead(fittedLead, sellerIntent)
   }
   return json(res, 200, result)
@@ -873,7 +875,7 @@ function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searc
 }
 
 function toLeadPackCsv(leadPacks) {
-  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'sellerIntent', 'sellerFit', 'sellerRecommendedAction', 'fitReasons', 'riskReasons', 'osintEvidenceCount', 'osintRiskCount', 'osintSourceCount', 'osintTopSignals', 'osintTopRisks', 'workflowStatus', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextAction', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
+  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'sellerIntent', 'sellerFit', 'sellerRecommendedAction', 'fitReasons', 'riskReasons', 'osintEvidenceCount', 'osintRiskCount', 'osintSourceCount', 'osintTopSignals', 'osintTopRisks', 'workflowQueue', 'workflowStatus', 'owner', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextFollowUpAt', 'lastContactedAt', 'nextAction', 'latestOutcome', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
   const rows = leadPacks.map((lead) => {
     const workflow = normalizeWorkflow(lead.workflow || {})
     const osintSummary = lead.osint && lead.osint.summary ? lead.osint.summary : {}
@@ -899,13 +901,18 @@ function toLeadPackCsv(leadPacks) {
       osintSummary.sourceCount || '',
       Array.isArray(osintSummary.topSignals) ? osintSummary.topSignals.join(' | ') : '',
       Array.isArray(osintSummary.topRisks) ? osintSummary.topRisks.join(' | ') : '',
+      workflow.queue,
       workflow.status,
+      workflow.owner,
       workflow.contacted ? 'yes' : 'no',
       workflow.channel,
       workflow.personReached,
       workflow.response,
       workflow.followUpDate,
+      workflow.nextFollowUpAt,
+      workflow.lastContactedAt,
       workflow.nextAction,
+      workflow.response || workflow.outcome,
       workflow.notes,
       workflow.outcome,
       workflow.activities && workflow.activities[0] ? workflow.activities[0].at : '',
@@ -929,7 +936,7 @@ function handleRunFile(url, res, runIndex, workflowPath) {
   if (!run) return json(res, 404, { error: 'Run not found in this server session' })
   if (file === 'lead-packs.csv' || file === 'call-list.csv') {
     const summary = readJsonFile(run.machineSummaryPath, {})
-    const leads = attachSellerFitToLeads(attachWorkflowToLeads(readJsonFile(run.leadPacksPath, []), readWorkflowStore(workflowPath)), run.sellerIntent || summary.sellerIntent)
+    const leads = attachWorkflowToLeads(attachSellerFitToLeads(readJsonFile(run.leadPacksPath, []), run.sellerIntent || summary.sellerIntent), readWorkflowStore(workflowPath))
     const csvLeads = file === 'call-list.csv' ? filterCallListLeads(leads, url.searchParams.get('view') || 'all') : leads
     res.writeHead(200, { 'content-type': 'text/csv' })
     res.end(toLeadPackCsv(csvLeads))
@@ -937,7 +944,7 @@ function handleRunFile(url, res, runIndex, workflowPath) {
   }
   if (file === 'lead-packs.json') {
     const summary = readJsonFile(run.machineSummaryPath, {})
-    return json(res, 200, attachSellerFitToLeads(attachWorkflowToLeads(readJsonFile(run.leadPacksPath, []), readWorkflowStore(workflowPath)), run.sellerIntent || summary.sellerIntent))
+    return json(res, 200, attachWorkflowToLeads(attachSellerFitToLeads(readJsonFile(run.leadPacksPath, []), run.sellerIntent || summary.sellerIntent), readWorkflowStore(workflowPath)))
   }
   if (file === 'summary.json') return serveFile(res, run.machineSummaryPath, 'application/json')
   return json(res, 404, { error: 'Run file not found' })
@@ -963,7 +970,8 @@ async function handleWorkflowPost(req, res, workflowPath) {
   workflow.leadName = limitText(body.leadName || workflow.leadName || '', 180)
   workflow.updatedAt = new Date().toISOString()
   const activity = createWorkflowActivity(previous, workflow)
-  workflow.activities = [activity, ...normalizeActivities(previous.activities)].filter(Boolean).slice(0, 25)
+  workflow.activities = [activity, ...normalizeActivities(previous.activities || previous.activityLog)].filter(Boolean).slice(0, 25)
+  workflow.activityLog = workflow.activities
   store.leads[leadId] = workflow
   writeWorkflowStore(workflowPath, store)
   return json(res, 200, { workflow })
@@ -984,7 +992,7 @@ function attachWorkflowToLeads(leadPacks, store) {
   return (Array.isArray(leadPacks) ? leadPacks : []).map((lead, index) => {
     const copy = JSON.parse(JSON.stringify(lead || {}))
     const leadId = leadWorkflowId(copy, index)
-    copy.workflow = { ...defaultWorkflow(), ...(workflowStore.leads[leadId] || {}), leadId }
+    copy.workflow = workflowForLead(copy, workflowStore.leads[leadId] || {}, leadId)
     return copy
   })
 }
@@ -1000,98 +1008,24 @@ function leadWorkflowId(lead = {}, index = 0) {
   return parts.join('::') || `lead::${index}`
 }
 
-function defaultWorkflow() {
-  return {
-    status: 'new',
-    contacted: false,
-    channel: '',
-    personReached: '',
-    response: '',
-    notes: '',
-    followUpDate: '',
-    nextAction: 'review',
-    outcome: '',
-    owner: '',
-    updatedAt: null,
-    activities: [],
-  }
-}
-
-function normalizeWorkflow(input = {}) {
-  const statuses = new Set(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'])
-  const channels = new Set(['', 'phone', 'email', 'contact_form', 'linkedin', 'other'])
-  const responses = new Set(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'])
-  const status = statuses.has(String(input.status || '').toLowerCase()) ? String(input.status).toLowerCase() : 'new'
-  const channel = channels.has(String(input.channel || '').toLowerCase()) ? String(input.channel || '').toLowerCase() : ''
-  const response = responses.has(String(input.response || '').toLowerCase()) ? String(input.response || '').toLowerCase() : ''
-  const followUpDate = /^\d{4}-\d{2}-\d{2}$/.test(String(input.followUpDate || '')) ? String(input.followUpDate) : ''
-  return {
-    status,
-    contacted: input.contacted === true || input.contacted === 'true' || status === 'contacted' || status === 'follow_up' || status === 'interested',
-    channel,
-    personReached: limitText(input.personReached || '', 120),
-    response,
-    notes: limitText(input.notes || '', 2000),
-    followUpDate,
-    nextAction: limitText(input.nextAction || 'review', 180),
-    outcome: limitText(input.outcome || '', 500),
-    owner: limitText(input.owner || '', 120),
-    updatedAt: input.updatedAt || null,
-    activities: normalizeActivities(input.activities),
-  }
-}
-
-function normalizeActivities(activities) {
-  if (!Array.isArray(activities)) return []
-  return activities.slice(0, 25).map((activity) => ({
-    at: limitText(activity && activity.at || '', 40),
-    status: limitText(activity && activity.status || '', 40),
-    channel: limitText(activity && activity.channel || '', 40),
-    response: limitText(activity && activity.response || '', 40),
-    personReached: limitText(activity && activity.personReached || '', 120),
-    followUpDate: /^\d{4}-\d{2}-\d{2}$/.test(String(activity && activity.followUpDate || '')) ? String(activity.followUpDate) : '',
-    nextAction: limitText(activity && activity.nextAction || '', 180),
-    outcome: limitText(activity && activity.outcome || '', 500),
-    notes: limitText(activity && activity.notes || '', 600),
-  })).filter((activity) => activity.at || activity.status || activity.response || activity.notes)
-}
-
-function createWorkflowActivity(previous = {}, workflow = {}) {
-  const notesChanged = String(previous.notes || '') !== String(workflow.notes || '')
-  const changed = ['status', 'contacted', 'channel', 'response', 'personReached', 'followUpDate', 'nextAction', 'outcome', 'notes']
-    .some((field) => String(previous[field] || '') !== String(workflow[field] || ''))
-  if (!changed) return null
-  return {
-    at: workflow.updatedAt || new Date().toISOString(),
-    status: workflow.status || 'new',
-    channel: workflow.channel || '',
-    response: workflow.response || '',
-    personReached: workflow.personReached || '',
-    followUpDate: workflow.followUpDate || '',
-    nextAction: workflow.nextAction || '',
-    outcome: workflow.outcome || '',
-    notes: notesChanged ? (workflow.notes || '') : '',
-  }
-}
-
 function filterCallListLeads(leads, view) {
   const normalizedView = String(view || 'all')
   const list = Array.isArray(leads) ? leads : []
-  if (normalizedView === 'today') return list.filter(serverIsTodayCallLead).sort(serverCompareTodayCallLeads)
+  const queueView = normalizeQueue(normalizedView)
+  if (queueView) return list.filter((lead) => leadMatchesQueue(lead, queueView)).sort(serverCompareTodayCallLeads)
+  if (normalizedView === 'today') return list.filter((lead) => leadMatchesQueue(lead, 'call_now') || leadMatchesQueue(lead, 'follow_up_today')).sort(serverCompareTodayCallLeads)
   if (normalizedView === 'notContacted') return list.filter((lead) => !serverWorkflowContacted(lead.workflow || {}))
-  if (normalizedView === 'followUpDue') return list.filter(serverIsFollowUpDue)
-  if (normalizedView === 'interested') return list.filter((lead) => {
-    const workflow = lead.workflow || {}
-    return workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked'
-  })
+  if (normalizedView === 'followUpDue') return list.filter((lead) => leadMatchesQueue(lead, 'follow_up_today'))
+  if (normalizedView === 'interested') return list.filter((lead) => leadMatchesQueue(lead, 'interested'))
   return list
 }
 
 function serverIsTodayCallLead(lead = {}) {
   const workflow = lead.workflow || {}
   const phone = lead.contact && lead.contact.phone || lead.phone
-  if (!phone || workflow.status === 'rejected') return false
-  return serverIsFollowUpDue(lead) || !serverWorkflowContacted(workflow) || workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked'
+  if (!phone || ['rejected'].includes(workflow.status)) return false
+  const queue = inferLeadQueue(lead, workflow)
+  return ['call_now', 'follow_up_today', 'interested'].includes(queue)
 }
 
 function serverCompareTodayCallLeads(a = {}, b = {}) {

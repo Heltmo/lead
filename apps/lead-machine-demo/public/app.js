@@ -21,7 +21,18 @@ const LOCATIONS = [
   'Namsos', 'Steinkjer', 'Levanger', 'Stjørdal', 'Mo i Rana', 'Mosjøen', 'Brønnøysund', 'Sortland', 'Svolvær', 'Hammerfest',
 ]
 
-const state = { result: null, selectedIndex: 0, selectedLeadId: null }
+const WORK_QUEUES = [
+  { id: 'call_now', label: 'Ring nå' },
+  { id: 'no_answer', label: 'Ingen svar' },
+  { id: 'follow_up_today', label: 'Oppfølging i dag' },
+  { id: 'interested', label: 'Interessert' },
+  { id: 'verify_first', label: 'Må verifiseres' },
+  { id: 'not_relevant', label: 'Ikke relevant' },
+  { id: 'archived', label: 'Arkiv' },
+]
+const WORK_QUEUE_IDS = new Set(WORK_QUEUES.map((queue) => queue.id))
+
+const state = { result: null, selectedIndex: 0, selectedLeadId: null, selectedQueue: 'call_now' }
 
 initBetaAccess()
 
@@ -57,6 +68,7 @@ const QUICK_WORKFLOW_ACTIONS = [
   { id: 'not_relevant', label: 'Not relevant', tone: 'negative' },
   { id: 'follow_up_tomorrow', label: 'Follow up tomorrow', shortLabel: 'Tomorrow', tone: 'warning' },
   { id: 'follow_up_next_week', label: 'Follow up next week', shortLabel: 'Next week', tone: 'warning' },
+  { id: 'archive', label: 'Archive', tone: 'neutral' },
 ]
 
 
@@ -76,6 +88,7 @@ const els = {
   summary: document.getElementById('summaryPanel'),
   readiness: document.getElementById('readinessPanel'),
   workflowBoard: document.getElementById('workflowBoard'),
+  workQueueTabs: document.getElementById('workQueueTabs'),
   leadCards: document.getElementById('leadCards'),
   leadDetail: document.getElementById('leadDetail'),
   exportPanel: document.getElementById('exportPanel'),
@@ -100,6 +113,8 @@ els.queuePresets.forEach((button) => button.addEventListener('click', () => appl
 els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { state.selectedLeadId = null; renderAll() }))
 els.clearLeadFilters.addEventListener('click', () => { els.leadFilters.forEach((filter) => { filter.checked = false }); state.selectedLeadId = null; renderAll() })
 document.addEventListener('click', (event) => {
+  const workQueueButton = event.target.closest('[data-work-queue]')
+  if (workQueueButton) { state.selectedQueue = normalizeWorkQueue(workQueueButton.dataset.workQueue) || 'call_now'; state.selectedLeadId = null; renderAll(); return }
   const workspaceExport = event.target.closest('[data-workspace-export]')
   if (workspaceExport) { exportWorkspaceSnapshot(); return }
   const pinSearch = event.target.closest('[data-saved-search-pin]')
@@ -200,26 +215,27 @@ function renderAll() {
     state.selectedIndex = visibleLeads.find(({ id }) => id === state.selectedLeadId)?.index ?? 0
   } else {
     state.selectedIndex = 0
+    state.selectedLeadId = null
   }
   renderSummary(state.result)
   renderReadiness(state.result)
+  renderWorkQueueTabs(leads)
   renderWorkflowBoard(state.result)
   renderLeads(visibleLeads)
-  renderDetail(leads[state.selectedIndex] || null)
+  renderDetail(visibleLeads.length ? leads[state.selectedIndex] : null)
   renderExport(state.result)
 }
 
 function renderSummary(result) {
   const summary = result?.summary || {}
   const leads = result?.leadPacks || []
-  const counts = workflowCounts(leads)
-  const readyCount = leads.filter((lead) => callReadiness(lead).key === 'ready_to_call').length
+  const counts = workQueueCounts(leads)
   els.summary.innerHTML = `
     ${metric('Leads', summary.includedLeadCount ?? summary.totalLeads ?? 0)}
-    ${metric('Ready', readyCount)}
-    ${metric('Call today', todayCallQueue(leads).length)}
-    ${metric('Follow-up', counts.followUpDue)}
-    ${metric('Interested', counts.interested)}
+    ${metric('Ring nå', counts.call_now)}
+    ${metric('Ingen svar', counts.no_answer)}
+    ${metric('Oppfølging', counts.follow_up_today)}
+    ${metric('Interessert', counts.interested)}
     ${metric('Status', compactRunStatus(summary))}
   `
 }
@@ -338,15 +354,15 @@ function renderWorkflowBoard(result) {
   const leads = result?.leadPacks || []
   if (!leads.length) {
     els.workflowBoard.className = 'workflow-board empty'
-    els.workflowBoard.textContent = 'Run a search to build the next call.'
+    els.workflowBoard.textContent = 'Run a search to build the next work queue.'
     return
   }
-  const queue = todayCallQueue(leads)
+  const queue = workQueueLeads(leads, state.selectedQueue)
   const next = queue[0]
   els.workflowBoard.className = 'workflow-board current-call-board'
   els.workflowBoard.innerHTML = next
-    ? currentCallCard(next.lead, next.index, next.reason, queue.length)
-    : '<div class="empty-state compact-empty">No phone-ready lead in the current filters. Clear filters or run a new search.</div>'
+    ? currentCallCard(next.lead, next.index, next.reason, queue.length, state.selectedQueue)
+    : '<div class="empty-state compact-empty">No leads in ' + escapeHtml(workQueueLabel(state.selectedQueue)) + '. Choose another queue or run a new search.</div>'
   els.workflowBoard.querySelectorAll('.queue-select').forEach((button) => button.addEventListener('click', () => {
     state.selectedIndex = Number(button.dataset.index)
     state.selectedLeadId = leadId(leads[state.selectedIndex], state.selectedIndex)
@@ -355,7 +371,7 @@ function renderWorkflowBoard(result) {
   }))
 }
 
-function currentCallCard(lead, index, reason, queueCount) {
+function currentCallCard(lead, index, reason, queueCount, queueId) {
   const name = lead.company?.displayName || lead.companyName || 'Unknown company'
   const phone = lead.contact?.phone || lead.phone || ''
   const city = lead.contact?.city || lead.city || 'unknown'
@@ -364,7 +380,7 @@ function currentCallCard(lead, index, reason, queueCount) {
   return `<article class="current-call-card queue-row ${followUpClass !== 'none' ? `follow-up-${followUpClass}` : ''}">
     <div class="current-call-head">
       <div>
-        <span>Next call</span>
+        <span>${escapeHtml(workQueueLabel(queueId || state.selectedQueue))}</span>
         <strong>${escapeHtml(name)}</strong>
         <small>${escapeHtml(city)} · ${escapeHtml(reason)}</small><div class="current-readiness">${badge(readiness.key)}<span>${escapeHtml(readiness.note)}</span></div>
       </div>
@@ -427,31 +443,96 @@ function focusLeadDetail(options = {}) {
 
 function applyQueuePreset(preset) {
   els.leadFilters.forEach((filter) => { filter.checked = false })
-  const enable = (value) => {
-    const filter = els.leadFilters.find((item) => item.value === value)
-    if (filter) filter.checked = true
-  }
-  if (preset === 'callNow') {
-    enable('phone')
-    enable('notContacted')
-    els.leadSort.value = 'callQueue'
-  } else if (preset === 'verify') {
-    enable('brregIssue')
-    els.leadSort.value = 'callQueue'
-  } else if (preset === 'followUp') {
-    enable('followUpDue')
-    els.leadSort.value = 'followUp'
-  } else if (preset === 'interested') {
-    enable('interested')
-    els.leadSort.value = 'callQueue'
-  }
+  if (preset === 'callNow') state.selectedQueue = 'call_now'
+  else if (preset === 'verify') state.selectedQueue = 'verify_first'
+  else if (preset === 'followUp') state.selectedQueue = 'follow_up_today'
+  else if (preset === 'interested') state.selectedQueue = 'interested'
+  els.leadSort.value = preset === 'followUp' ? 'followUp' : 'callQueue'
   state.selectedLeadId = null
   renderAll()
+}
+
+function renderWorkQueueTabs(leads) {
+  if (!els.workQueueTabs) return
+  const counts = workQueueCounts(leads || [])
+  els.workQueueTabs.innerHTML = WORK_QUEUES.map((queue) => {
+    const active = queue.id === state.selectedQueue
+    return '<button type="button" class="work-queue-tab ' + (active ? 'active' : '') + '" data-work-queue="' + escapeAttr(queue.id) + '"><span>' + escapeHtml(queue.label) + '</span><strong>' + escapeHtml(counts[queue.id] || 0) + '</strong></button>'
+  }).join('')
+}
+
+function workQueueCounts(leads) {
+  return (Array.isArray(leads) ? leads : []).reduce((counts, lead) => {
+    const queue = leadWorkQueue(lead)
+    counts[queue] = (counts[queue] || 0) + 1
+    return counts
+  }, WORK_QUEUES.reduce((counts, queue) => ({ ...counts, [queue.id]: 0 }), {}))
+}
+
+function workQueueLeads(leads, queueId) {
+  return (Array.isArray(leads) ? leads : [])
+    .map((lead, index) => ({ lead, index, reason: workQueueReason(lead, queueId) }))
+    .filter(({ lead }) => leadMatchesWorkQueue(lead, queueId))
+    .sort((a, b) => callQueueSortScore(b.lead) - callQueueSortScore(a.lead))
+}
+
+function leadMatchesWorkQueue(lead, queueId) {
+  const queue = normalizeWorkQueue(queueId) || 'call_now'
+  return leadWorkQueue(lead) === queue
+}
+
+function leadWorkQueue(lead) {
+  const workflow = lead.workflow || {}
+  const explicit = normalizeWorkQueue(workflow.queue)
+  const status = String(workflow.status || '').toLowerCase()
+  const response = String(workflow.response || '').toLowerCase()
+  const outcome = String(workflow.outcome || '').toLowerCase()
+  if (explicit === 'archived' || workflow.archivedAt) return 'archived'
+  if (status === 'rejected' || explicit === 'not_relevant' || outcome.includes('not relevant') || outcome.includes('rejected')) return 'not_relevant'
+  if (isFollowUpDue(lead)) return 'follow_up_today'
+  if (status === 'interested' || response === 'interested' || response === 'meeting_booked' || explicit === 'interested') return 'interested'
+  if (response === 'no_answer' || response === 'no_response' || status === 'follow_up' || explicit === 'no_answer') return 'no_answer'
+  if (explicit === 'call_now' || explicit === 'verify_first') return explicit
+  const company = lead.company || {}
+  const sourceQuality = lead.sourceQuality || {}
+  const hasPhone = Boolean(lead.contact?.phone || lead.phone)
+  const sellerAction = sellerRecommendedAction(lead)
+  const fit = String(lead.sellerFit?.sellerFit || '').toLowerCase()
+  const brregRisk = !company.organizationNumber || company.candidateOrganizationNumber || ['candidate_org', 'no_match', 'brreg_unavailable', 'not_run', 'manual_verify', 'weak_match'].includes(brregStatusLabel(company))
+  const locationRisk = ['regional_fallback', 'unknown', ''].includes(String(sourceQuality.locationMatchStatus || '').toLowerCase())
+  if (sellerAction === 'contact' && hasPhone && ['strong', 'good'].includes(fit)) return 'call_now'
+  if (sellerAction === 'contact' && hasPhone && !brregRisk) return 'call_now'
+  if (sellerAction === 'skip') return 'archived'
+  if (sellerAction === 'verify' || sellerAction === 'review' || brregRisk || locationRisk || !hasPhone) return 'verify_first'
+  return hasPhone ? 'call_now' : 'verify_first'
+}
+
+function normalizeWorkQueue(value) {
+  const queue = String(value || '').toLowerCase().trim()
+  return WORK_QUEUE_IDS.has(queue) ? queue : ''
+}
+
+function workQueueLabel(value) {
+  const queue = WORK_QUEUES.find((item) => item.id === normalizeWorkQueue(value))
+  return queue ? queue.label : 'Ring nå'
+}
+
+function workQueueReason(lead, queueId) {
+  const workflow = lead.workflow || {}
+  const queue = normalizeWorkQueue(queueId) || leadWorkQueue(lead)
+  if (queue === 'follow_up_today') return followUpQueueReason(lead)
+  if (queue === 'no_answer') return workflow.followUpDate ? 'Ingen svar · next ' + workflow.followUpDate : 'Ingen svar · call again later'
+  if (queue === 'interested') return workflow.nextAction || 'Interessert lead needs next action'
+  if (queue === 'verify_first') return callReadiness(lead).note || 'Verify before call'
+  if (queue === 'not_relevant') return 'Removed from active calling'
+  if (queue === 'archived') return 'Hidden from active queues'
+  return leadQueueActionLabel(lead)
 }
 
 function getVisibleLeads(leads) {
   const activeFilters = new Set(els.leadFilters.filter((filter) => filter.checked).map((filter) => filter.value))
   const wrapped = leads.map((lead, index) => ({ lead, index, id: leadId(lead, index) }))
+    .filter(({ lead }) => leadMatchesWorkQueue(lead, state.selectedQueue))
     .filter(({ lead }) => matchesLeadFilters(lead, activeFilters))
   return wrapped.sort((a, b) => compareLeads(a.lead, b.lead, els.leadSort.value))
 }
@@ -875,10 +956,15 @@ function selectNextVisibleLead() {
 }
 
 function workflowPanel(lead) {
-  const workflow = { status: 'new', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextAction: 'review', outcome: '', activities: [], ...(lead.workflow || {}) }
+  const workflow = { status: 'new', queue: leadWorkQueue(lead), owner: '', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextFollowUpAt: '', lastContactedAt: '', nextAction: 'review', outcome: '', archivedAt: '', activities: [], ...(lead.workflow || {}) }
+  const currentQueue = leadWorkQueue({ ...lead, workflow })
+  workflow.queue = currentQueue
+  workflow.nextFollowUpAt = workflow.nextFollowUpAt || workflow.followUpDate || ''
   const phone = lead.contact?.phone || lead.phone || ''
   const callHref = phoneHref(phone)
   const savedText = workflow.updatedAt ? `Saved ${escapeHtml(workflow.updatedAt)}` : 'Not saved yet'
+  const lastContacted = workflow.lastContactedAt ? formatActivityTime(workflow.lastContactedAt) : 'Not contacted yet'
+  const nextFollowUp = workflow.nextFollowUpAt || workflow.followUpDate || 'Not set'
   return `<section class="workflow-panel compact-workflow-panel">
     <div class="workflow-head compact-workflow-head">
       <div>
@@ -887,25 +973,36 @@ function workflowPanel(lead) {
         <p class="note-procedure">Choose outcome, write a short note, set follow-up, then save.</p>
       </div>
       <div class="workflow-head-actions">
-        ${badge(workflow.contacted ? 'contacted' : 'new')}
-        ${callHref ? `<a class="call-now compact-call" href="${escapeAttr(callHref)}">Call now</a>` : ''}
+        ${badge(currentQueue)}
+        ${badge(workflow.status || 'new')}
+        ${callHref ? '<a class="call-now compact-call" href="' + escapeAttr(callHref) + '">Call now</a>' : ''}
       </div>
+    </div>
+    <div class="workflow-state-strip">
+      ${commandMetric('Current queue', workQueueLabel(currentQueue), workQueueReason({ ...lead, workflow }, currentQueue))}
+      ${commandMetric('Last contacted', lastContacted, workflow.response ? readable(workflow.response) : 'No latest outcome yet')}
+      ${commandMetric('Next follow-up', nextFollowUp, followUpTiming(workflow.nextFollowUpAt || workflow.followUpDate) === 'overdue' ? 'Overdue follow-up' : 'Date controls follow-up queue')}
     </div>
     ${quickActionsHtml(state.selectedIndex, 'full')}
     <form id="workflowForm" class="workflow-form compact-workflow-form">
+      <label><span>Queue</span><select name="queue">${workflowQueueOptions(currentQueue)}</select></label>
       <label><span>Status</span><select name="status">${workflowOptions(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'], workflow.status)}</select></label>
       <label><span>Response</span><select name="response">${workflowOptions(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'], workflow.response)}</select></label>
-      <label><span>Follow-up date</span><input type="date" name="followUpDate" value="${escapeAttr(workflow.followUpDate || '')}"></label>
+      <label><span>Follow-up date</span><input type="date" name="followUpDate" value="${escapeAttr(workflow.followUpDate || workflow.nextFollowUpAt || '')}"></label>
       <label class="workflow-notes compact-notes"><span>Note</span><textarea name="notes" rows="3" placeholder="What happened? Who did you speak with? What should happen next?">${escapeHtml(formatWorkflowNotes(workflow.notes || ''))}</textarea></label>
       <input type="hidden" name="contacted" value="${escapeAttr(String(Boolean(workflow.contacted)))}">
       <input type="hidden" name="channel" value="${escapeAttr(workflow.channel || '')}">
       <input type="hidden" name="personReached" value="${escapeAttr(workflow.personReached || '')}">
       <input type="hidden" name="nextAction" value="${escapeAttr(workflow.nextAction || '')}">
       <input type="hidden" name="outcome" value="${escapeAttr(workflow.outcome || '')}">
-      <div class="workflow-actions compact-save"><small>${savedText}</small><button type="submit" data-save-note>Save note</button></div>
+      <input type="hidden" name="owner" value="${escapeAttr(workflow.owner || '')}">
+      <input type="hidden" name="lastContactedAt" value="${escapeAttr(workflow.lastContactedAt || '')}">
+      <input type="hidden" name="archivedAt" value="${escapeAttr(workflow.archivedAt || '')}">
+      <div class="workflow-actions compact-save"><small>${savedText}</small><button type="submit" data-save-note>Save note</button><button type="button" class="secondary-action" data-archive-lead>Archive</button></div>
       <details class="workflow-more">
         <summary>More logging fields</summary>
         <div class="workflow-form workflow-form-more">
+          <label><span>Owner</span><input name="ownerMore" data-workflow-sync="owner" value="${escapeAttr(workflow.owner || '')}" placeholder="Seller / team"></label>
           <label><span>Contacted</span><select name="contactedMore" data-workflow-sync="contacted">${workflowOptions(['false', 'true'], String(Boolean(workflow.contacted)))}</select></label>
           <label><span>Channel</span><select name="channelMore" data-workflow-sync="channel">${workflowOptions(['', 'phone', 'email', 'contact_form', 'linkedin', 'other'], workflow.channel)}</select></label>
           <label><span>Person reached</span><input name="personReachedMore" data-workflow-sync="personReached" value="${escapeAttr(workflow.personReached || '')}" placeholder="Name / role"></label>
@@ -932,6 +1029,8 @@ function formatActivityTime(value) {
 }
 function activitySummary(activity = {}) {
   return [
+    activity.type ? `Type: ${readable(activity.type)}` : '',
+    activity.toQueue ? `Queue: ${workQueueLabel(activity.toQueue)}` : activity.queue ? `Queue: ${workQueueLabel(activity.queue)}` : '',
     activity.channel ? `Channel: ${readable(activity.channel)}` : '',
     activity.response ? `Response: ${readable(activity.response)}` : '',
     activity.personReached ? `Person: ${activity.personReached}` : '',
@@ -943,6 +1042,10 @@ function activitySummary(activity = {}) {
 
 function workflowOptions(values, selected) {
   return values.map((value) => `<option value="${escapeAttr(value)}" ${String(value) === String(selected || '') ? 'selected' : ''}>${escapeHtml(value ? readable(value) : 'Not set')}</option>`).join('')
+}
+
+function workflowQueueOptions(selected) {
+  return WORK_QUEUES.map((queue) => `<option value="${escapeAttr(queue.id)}" ${queue.id === selected ? 'selected' : ''}>${escapeHtml(queue.label)}</option>`).join('')
 }
 
 function workflowStatus(lead) {
@@ -987,6 +1090,11 @@ async function saveWorkflow(event) {
       followUpDate: form.get('followUpDate'),
       nextAction: form.get('nextAction'),
       outcome: form.get('outcome'),
+      queue: form.get('queue'),
+      owner: form.get('owner'),
+      lastContactedAt: form.get('lastContactedAt'),
+      nextFollowUpAt: form.get('followUpDate'),
+      archivedAt: form.get('archivedAt'),
       notes: form.get('notes'),
     }
     setStatus('saving note...', 'running')
@@ -1631,8 +1739,8 @@ function renderExport(result) {
     <p><a href="${escapeAttr(withBetaToken(result.downloads.csv))}">Download CSV</a> · <a href="${escapeAttr(withBetaToken(result.downloads.json))}">Download JSON</a> · <button type="button" id="copyPath">Copy run path</button></p>
     ${callListLinks(result.downloads || {})}
     <table>
-      <thead><tr><th>rank</th><th>company</th><th>phone</th><th>city</th><th>priority</th><th>osint</th><th>workflow</th><th>response</th><th>follow-up</th><th>next action</th></tr></thead>
-      <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${phoneLink(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(osintExportCell(lead))}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
+      <thead><tr><th>rank</th><th>company</th><th>phone</th><th>city</th><th>queue</th><th>priority</th><th>osint</th><th>workflow</th><th>response</th><th>follow-up</th><th>last contacted</th><th>next action</th></tr></thead>
+      <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${phoneLink(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(workQueueLabel(leadWorkQueue(lead)))}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(osintExportCell(lead))}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.nextFollowUpAt || workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.lastContactedAt || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
     </table>
   `
   const copy = document.getElementById('copyPath')
@@ -1649,6 +1757,17 @@ document.addEventListener('click', (event) => {
     const form = saveNoteButton.closest('#workflowForm')
     if (form) {
       event.preventDefault()
+      saveWorkflow({ preventDefault() {}, currentTarget: form })
+    }
+    return
+  }
+  const archiveLeadButton = event.target.closest('[data-archive-lead]')
+  if (archiveLeadButton) {
+    const form = archiveLeadButton.closest('#workflowForm')
+    if (form) {
+      event.preventDefault()
+      const workflow = buildQuickWorkflow('archive', readWorkflowDraft(form, state.result?.leadPacks?.[state.selectedIndex]?.workflow || {}))
+      setWorkflowFormValues(form, workflow)
       saveWorkflow({ preventDefault() {}, currentTarget: form })
     }
     return
@@ -1732,19 +1851,28 @@ function readWorkflowDraft(form, current = {}) {
     followUpDate: data.get('followUpDate') || current.followUpDate || '',
     nextAction: data.get('nextAction') || current.nextAction || 'review',
     outcome: data.get('outcome') || current.outcome || '',
+    queue: data.get('queue') || current.queue || '',
+    owner: data.get('owner') || current.owner || '',
+    nextFollowUpAt: data.get('followUpDate') || current.nextFollowUpAt || current.followUpDate || '',
+    lastContactedAt: data.get('lastContactedAt') || current.lastContactedAt || '',
+    archivedAt: data.get('archivedAt') || current.archivedAt || '',
   }
 }
 
 function setWorkflowFormValues(form, workflow = {}) {
   setFormValue(form, 'status', workflow.status || 'new')
+  setFormValue(form, 'queue', normalizeWorkQueue(workflow.queue) || 'call_now')
   setFormValue(form, 'response', workflow.response || '')
-  setFormValue(form, 'followUpDate', workflow.followUpDate || '')
+  setFormValue(form, 'followUpDate', workflow.followUpDate || workflow.nextFollowUpAt || '')
   setFormValue(form, 'notes', formatWorkflowNotes(workflow.notes || ''))
   setFormValue(form, 'contacted', String(Boolean(workflow.contacted)))
   setFormValue(form, 'channel', workflow.channel || '')
   setFormValue(form, 'personReached', workflow.personReached || '')
   setFormValue(form, 'nextAction', workflow.nextAction || '')
   setFormValue(form, 'outcome', workflow.outcome || '')
+  setFormValue(form, 'owner', workflow.owner || '')
+  setFormValue(form, 'lastContactedAt', workflow.lastContactedAt || '')
+  setFormValue(form, 'archivedAt', workflow.archivedAt || '')
   form.querySelectorAll('[data-workflow-sync]').forEach((field) => {
     const value = workflow[field.dataset.workflowSync]
     if (value !== undefined) field.value = String(value)
@@ -1759,22 +1887,24 @@ function setFormValue(form, name, value) {
 function selectNextQueueLead(previousLead) {
   const leads = state.result?.leadPacks || []
   const previousId = leadId(previousLead, state.selectedIndex)
-  const next = todayCallQueue(leads).find(({ lead, index }) => leadId(lead, index) !== previousId)
+  const next = workQueueLeads(leads, state.selectedQueue).find(({ lead, index }) => leadId(lead, index) !== previousId)
   if (!next) return
   state.selectedIndex = next.index
   state.selectedLeadId = leadId(next.lead, next.index)
 }
 
 function buildQuickWorkflow(action, current = {}) {
-  const base = { status: 'new', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextAction: 'review', outcome: '', ...current }
+  const base = { status: 'new', queue: '', owner: '', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextFollowUpAt: '', lastContactedAt: '', nextAction: 'review', outcome: '', archivedAt: '', ...current }
+  const now = new Date().toISOString()
   const tomorrow = isoDateOffset(1)
   const nextWeek = isoDateOffset(7)
-  if (action === 'mark_called') return { ...base, status: 'contacted', contacted: true, channel: base.channel || 'phone', response: base.response || 'neutral', nextAction: 'review call result' }
-  if (action === 'no_answer') return { ...base, status: 'follow_up', contacted: true, channel: base.channel || 'phone', response: 'no_answer', followUpDate: base.followUpDate || tomorrow, nextAction: 'call again' }
-  if (action === 'interested') return { ...base, status: 'interested', contacted: true, channel: base.channel || 'phone', response: 'interested', nextAction: 'follow up interested lead', outcome: base.outcome || 'interested' }
-  if (action === 'not_relevant') return { ...base, status: 'rejected', contacted: true, channel: base.channel || 'phone', response: 'negative', nextAction: 'do not contact', outcome: 'not relevant' }
-  if (action === 'follow_up_tomorrow') return { ...base, status: 'follow_up', followUpDate: tomorrow, nextAction: 'follow up tomorrow' }
-  if (action === 'follow_up_next_week') return { ...base, status: 'follow_up', followUpDate: nextWeek, nextAction: 'follow up next week' }
+  if (action === 'mark_called') return { ...base, status: 'contacted', queue: 'archived', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: base.response || 'neutral', nextAction: 'review call result' }
+  if (action === 'no_answer') return { ...base, status: 'follow_up', queue: 'no_answer', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'no_answer', followUpDate: base.followUpDate || tomorrow, nextFollowUpAt: base.nextFollowUpAt || base.followUpDate || tomorrow, nextAction: 'call again' }
+  if (action === 'interested') return { ...base, status: 'interested', queue: 'interested', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'interested', nextAction: 'follow up interested lead', outcome: base.outcome || 'interested' }
+  if (action === 'not_relevant') return { ...base, status: 'rejected', queue: 'not_relevant', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'negative', nextAction: 'do not contact', outcome: 'not relevant' }
+  if (action === 'follow_up_tomorrow') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: 'follow up tomorrow' }
+  if (action === 'follow_up_next_week') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: nextWeek, nextFollowUpAt: nextWeek, nextAction: 'follow up next week' }
+  if (action === 'archive') return { ...base, queue: 'archived', archivedAt: base.archivedAt || now, nextAction: 'archived' }
   return null
 }
 
@@ -1857,7 +1987,8 @@ function osintExportCell(lead) {
 
 function callListLinks(downloads) {
   if (!downloads.callList) return ''
-  return `<p class="export-actions">call-list.csv includes lastActivityAt. <a href="${escapeAttr(withBetaToken(downloads.callList))}">All</a> · <a href="${escapeAttr(withBetaToken(downloads.callListToday))}">Today call queue</a> · <a href="${escapeAttr(withBetaToken(downloads.callListNotContacted))}">Not contacted</a> · <a href="${escapeAttr(withBetaToken(downloads.callListFollowUps))}">Follow-ups due</a> · <a href="${escapeAttr(withBetaToken(downloads.callListInterested))}">Interested</a></p>`
+  const queueLinks = WORK_QUEUES.map((queue) => '<a href="' + escapeAttr(withBetaToken(downloads.callList + '?view=' + queue.id)) + '">' + escapeHtml(queue.label) + '</a>').join(' · ')
+  return `<p class="export-actions">call-list.csv includes workflowQueue and lastActivityAt. <a href="${escapeAttr(withBetaToken(downloads.callList))}">All</a> · ${queueLinks}</p>`
 }
 
 function phoneHref(value) {
@@ -1896,7 +2027,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed', ready_to_call: 'Ready to call', verify_first: 'Verify first', needs_contact: 'Needs contact', follow_up_due: 'Follow-up due', later: 'Later', skip: 'Skip' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed', ready_to_call: 'Ready to call', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Needs contact', follow_up_due: 'Follow-up due', later: 'Later', skip: 'Skip', queue_change: 'Queue change', follow_up_set: 'Follow-up set', contact_attempt: 'Contact attempt', status_change: 'Status change', note: 'Note' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {

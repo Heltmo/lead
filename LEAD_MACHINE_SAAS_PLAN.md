@@ -9,7 +9,7 @@ Lead Machine should become the go-to seller desk for many seller types. A seller
 1. Login/team workspace.
 2. Seller setup: what they sell, geography, ideal customer, disqualifiers.
 3. Lead discovery: Brreg identity plus public presence/contact data.
-4. Lead desk: call queue, lead cards, notes, outcomes, follow-ups.
+4. Lead desk: explicit seller work queues, lead cards, notes, outcomes, follow-ups.
 5. Selected-lead enrichment when more context is worth it.
 6. Email/calendar/CRM connections after the manual workflow is proven.
 
@@ -29,7 +29,7 @@ Lead Machine should become the go-to seller desk for many seller types. A seller
 
 ## Current Beta
 
-The local app and Netlify friend beta prove the seller desk loop: find leads, call manually, log notes, set follow-ups, and export. This is the correct base before adding login, email, CRM, or richer background agents.
+The local app and Netlify friend beta prove the seller desk loop: find leads, work explicit queues, call manually, log notes, set follow-ups, and export. This is the correct base before adding login, email, CRM, or richer background agents.
 
 ## Background Agent Direction
 

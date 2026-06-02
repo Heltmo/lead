@@ -6,6 +6,7 @@ const TMP_ROOT = path.join(os.tmpdir(), 'lead-machine-netlify-beta')
 const STATE_PATH = path.join(TMP_ROOT, 'hosted-state.json')
 const BUNDLED_RUNS_DIR = path.join(__dirname, '..', '..', 'apps', 'lead-machine-demo', 'runs')
 const STORE_NAME = 'lead-machine-beta'
+const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowActivity, workflowForLead: buildWorkflowForLead, leadMatchesQueue, normalizeQueue } = require('../../apps/lead-machine-demo/workQueues')
 
 exports.handler = async function handler(event) {
   try {
@@ -35,7 +36,7 @@ exports.handler = async function handler(event) {
       return jsonResponse(200, state.latestRun)
     }
 
-    const runFile = runFileResponse(apiPath, state)
+    const runFile = runFileResponse(apiPath, state, event)
     if (runFile) return runFile
 
     if (event.httpMethod === 'POST' && apiPath === '/api/runs') {
@@ -112,7 +113,7 @@ function buildBundledRun(latest) {
     summary,
     readiness: hostedReadiness(leadPacks, savedSearches),
     savedSearches,
-    leadPacks: leadPacks.map((lead, index) => ({ ...lead, workflow: { ...defaultWorkflow(), ...(lead.workflow || {}), leadId: hostedLeadId(lead, index) } })),
+    leadPacks: leadPacks.map((lead, index) => ({ ...lead, workflow: buildWorkflowForLead(lead, lead.workflow || {}, hostedLeadId(lead, index)) })),
   }
 }
 
@@ -231,7 +232,8 @@ async function saveWorkflowFromEvent(event, state) {
   workflow.leadName = limitText(body.leadName || workflow.leadName || '', 180)
   workflow.updatedAt = new Date().toISOString()
   const activity = createWorkflowActivity(previous, workflow)
-  workflow.activities = [activity, ...normalizeActivities(previous.activities)].filter(Boolean).slice(0, 25)
+  workflow.activities = [activity, ...normalizeActivities(previous.activities || previous.activityLog)].filter(Boolean).slice(0, 25)
+  workflow.activityLog = workflow.activities
   state.workflow.leads[leadId] = workflow
   if (activity) state.activityLog = [{ leadId, activity, createdAt: activity.at }, ...state.activityLog].slice(0, 200)
   if (state.latestRun) state.latestRun = attachHostedStateToRun(state.latestRun, state)
@@ -261,7 +263,7 @@ function attachHostedStateToRun(run, state) {
   copy.leadPacks = (copy.leadPacks || []).map((lead, index) => {
     const next = { ...lead }
     const id = next.workflow && next.workflow.leadId || hostedLeadId(next, index)
-    next.workflow = { ...defaultWorkflow(), ...(next.workflow || {}), ...(state.workflow.leads[id] || {}), leadId: id }
+    next.workflow = buildWorkflowForLead(next, { ...(next.workflow || {}), ...(state.workflow.leads[id] || {}) }, id)
     return next
   })
   if (copy.readiness && copy.readiness.workspace) {
@@ -272,23 +274,38 @@ function attachHostedStateToRun(run, state) {
   return copy
 }
 
-function runFileResponse(apiPath, state) {
+function runFileResponse(apiPath, state, event) {
   const match = apiPath.match(new RegExp('^/api/runs/([^/]+)/([^/]+)$'))
   if (!match || !state.latestRun || state.latestRun.runId !== match[1]) return null
   const file = match[2]
   const run = attachHostedStateToRun(state.latestRun, state)
   if (file === 'lead-packs.json') return jsonResponse(200, run.leadPacks || [])
   if (file === 'summary.json') return jsonResponse(200, run.summary || {})
-  if (file === 'lead-packs.csv' || file === 'call-list.csv') return textResponse(200, hostedCsv(run.leadPacks || []), { 'content-type': 'text/csv' })
+  if (file === 'lead-packs.csv' || file === 'call-list.csv') {
+    const view = event ? queryUrl(event, apiPath).searchParams.get('view') : ''
+    const leads = file === 'call-list.csv' ? filterHostedCallList(run.leadPacks || [], view) : (run.leadPacks || [])
+    return textResponse(200, hostedCsv(leads), { 'content-type': 'text/csv' })
+  }
   return null
 }
 
+function filterHostedCallList(leads, view) {
+  const list = Array.isArray(leads) ? leads : []
+  const queue = normalizeQueue(view)
+  if (queue) return list.filter((lead) => leadMatchesQueue(lead, queue))
+  if (view === 'today') return list.filter((lead) => leadMatchesQueue(lead, 'call_now') || leadMatchesQueue(lead, 'follow_up_today'))
+  if (view === 'followUpDue') return list.filter((lead) => leadMatchesQueue(lead, 'follow_up_today'))
+  if (view === 'interested') return list.filter((lead) => leadMatchesQueue(lead, 'interested'))
+  if (view === 'notContacted') return list.filter((lead) => !lead.workflow || !lead.workflow.contacted)
+  return list
+}
+
 function hostedCsv(leads) {
-  const headers = ['rank', 'company', 'phone', 'city', 'workflowStatus', 'response', 'followUpDate', 'workflowNotes']
+  const headers = ['rank', 'company', 'phone', 'city', 'workflowQueue', 'workflowStatus', 'owner', 'response', 'followUpDate', 'nextFollowUpAt', 'lastContactedAt', 'nextAction', 'latestOutcome', 'workflowNotes']
   const rows = (Array.isArray(leads) ? leads : []).map((lead, index) => {
-    const workflow = lead.workflow || {}
+    const workflow = normalizeWorkflow(lead.workflow || {})
     const contact = lead.contact || {}
-    return [index + 1, lead.company && lead.company.displayName || lead.companyName || '', contact.phone || lead.phone || '', contact.city || lead.city || '', workflow.status || '', workflow.response || '', workflow.followUpDate || '', workflow.notes || '']
+    return [index + 1, lead.company && lead.company.displayName || lead.companyName || '', contact.phone || lead.phone || '', contact.city || lead.city || '', workflow.queue || '', workflow.status || '', workflow.owner || '', workflow.response || '', workflow.followUpDate || '', workflow.nextFollowUpAt || '', workflow.lastContactedAt || '', workflow.nextAction || '', workflow.response || workflow.outcome || '', workflow.notes || '']
   })
   return [headers, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n') + '\n'
 }
@@ -332,56 +349,6 @@ function hostedHealth(state) {
 function parseJsonBody(event) {
   const body = event.body ? Buffer.from(event.body, event.isBase64Encoded ? 'base64' : 'utf8').toString('utf8') : '{}'
   return parseJson(body, {}) || {}
-}
-
-function defaultWorkflow() {
-  return { status: 'new', contacted: false, channel: '', personReached: '', response: '', notes: '', followUpDate: '', nextAction: 'review', outcome: '', owner: '', updatedAt: null, activities: [] }
-}
-
-function normalizeWorkflow(input = {}) {
-  const statuses = new Set(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'])
-  const channels = new Set(['', 'phone', 'email', 'contact_form', 'linkedin', 'other'])
-  const responses = new Set(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'])
-  const status = statuses.has(String(input.status || '').toLowerCase()) ? String(input.status).toLowerCase() : 'new'
-  const channel = channels.has(String(input.channel || '').toLowerCase()) ? String(input.channel || '').toLowerCase() : ''
-  const response = responses.has(String(input.response || '').toLowerCase()) ? String(input.response || '').toLowerCase() : ''
-  const followUpDate = /^\d{4}-\d{2}-\d{2}$/.test(String(input.followUpDate || '')) ? String(input.followUpDate) : ''
-  return {
-    status,
-    contacted: input.contacted === true || input.contacted === 'true' || ['contacted', 'follow_up', 'interested'].includes(status),
-    channel,
-    personReached: limitText(input.personReached || '', 120),
-    response,
-    notes: limitText(input.notes || '', 2000),
-    followUpDate,
-    nextAction: limitText(input.nextAction || 'review', 180),
-    outcome: limitText(input.outcome || '', 500),
-    owner: limitText(input.owner || '', 120),
-    updatedAt: input.updatedAt || null,
-    activities: normalizeActivities(input.activities),
-  }
-}
-
-function normalizeActivities(activities) {
-  if (!Array.isArray(activities)) return []
-  return activities.slice(0, 25).map((activity) => ({
-    at: limitText(activity && activity.at || '', 40),
-    status: limitText(activity && activity.status || '', 40),
-    channel: limitText(activity && activity.channel || '', 40),
-    response: limitText(activity && activity.response || '', 40),
-    personReached: limitText(activity && activity.personReached || '', 120),
-    followUpDate: /^\d{4}-\d{2}-\d{2}$/.test(String(activity && activity.followUpDate || '')) ? String(activity.followUpDate) : '',
-    nextAction: limitText(activity && activity.nextAction || '', 180),
-    outcome: limitText(activity && activity.outcome || '', 500),
-    notes: limitText(activity && activity.notes || '', 600),
-  })).filter((activity) => activity.at || activity.status || activity.response || activity.notes)
-}
-
-function createWorkflowActivity(previous = {}, workflow = {}) {
-  const notesChanged = String(previous.notes || '') !== String(workflow.notes || '')
-  const changed = ['status', 'contacted', 'channel', 'response', 'personReached', 'followUpDate', 'nextAction', 'outcome', 'notes'].some((field) => String(previous[field] || '') !== String(workflow[field] || ''))
-  if (!changed) return null
-  return { at: workflow.updatedAt || new Date().toISOString(), status: workflow.status || 'new', channel: workflow.channel || '', response: workflow.response || '', personReached: workflow.personReached || '', followUpDate: workflow.followUpDate || '', nextAction: workflow.nextAction || '', outcome: workflow.outcome || '', notes: notesChanged ? (workflow.notes || '') : '' }
 }
 
 function hostedLeadId(lead, index) {

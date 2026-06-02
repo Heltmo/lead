@@ -4,7 +4,7 @@ Lead Machine is the seller desk product: sellers search for a market, review ran
 
 ## Current Product
 
-- `apps/lead-machine-demo`: browser seller desk for search, lead list, call queue, notes, follow-ups, saved markets, and exports.
+- `apps/lead-machine-demo`: browser seller desk for search, explicit seller work queues, lead list, notes, follow-ups, saved markets, and exports.
 - `core/lead-machine`: product runner that turns discovery into seller-ready lead packs.
 - `core/lead-discovery-agent`: Brreg, Google Places, mock, and manual-source discovery.
 - `core/company-profile`: conservative Brreg/company identity enrichment.
@@ -34,7 +34,7 @@ npm run netlify:check
 ./verifications/verify-netlify-hosted-beta.sh
 ```
 
-Use `FRIEND_BETA_READINESS.md` for the test script and `NETLIFY_BETA.md` for Netlify deployment.
+Use `FRIEND_BETA_READINESS.md` for the test script, `NETLIFY_BETA.md` for Netlify deployment, and `SELLER_WORK_QUEUES_V1.md` for the current workflow rules.
 
 ## Boundary
 

@@ -243,3 +243,12 @@ The demo includes a `Hva selger du?` selector. It lets the seller choose a conte
 The selector does not change source truth from Google Places, Brreg, Proff, or website data. It changes how the lead is interpreted: phone, org.nr, employees, location, Google proof, digital presence, and risk are weighted differently depending on what the seller sells.
 
 Seller-fit fields are added to the lead JSON/CSV exports.
+
+
+## Seller Work Queues V1
+
+The seller desk now separates saved markets from daily work queues. Queue tabs show Ring nå, Ingen svar, Oppfølging i dag, Interessert, Må verifiseres, Ikke relevant, and Arkiv.
+
+Workflow outcomes move leads automatically: no answer goes to Ingen svar, due follow-ups go to Oppfølging i dag, interested leads go to Interessert, rejected leads go to Ikke relevant, and archive hides leads from active queues. The note form also has a manual queue selector for seller override.
+
+See ../../SELLER_WORK_QUEUES_V1.md for queue definitions, workflow rules, and export fields.

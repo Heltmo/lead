@@ -12,7 +12,7 @@ Build the durable product loop:
 login
 -> saved searches / imports
 -> verified and ranked leads
--> call queue
+-> seller work queues
 -> notes
 -> follow-up date
 -> activity history
@@ -23,7 +23,7 @@ Success target:
 
 - a seller can log in and return to the same workspace
 - leads, notes, statuses, owners, and follow-ups persist in a real database
-- the call queue clearly shows who to call now, who to verify, and who to follow up
+- the seller work queues clearly show who to call now, who did not answer, who to verify, who is interested, and who to follow up
 - the product does not depend on website redesign pain, Proff, SSB, generated demos, or AI outreach scripts
 
 ## Priority 2: General Seller Fit Calibration
