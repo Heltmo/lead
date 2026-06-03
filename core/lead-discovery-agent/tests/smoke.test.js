@@ -227,6 +227,83 @@ async function main() {
   assert(googleRows[0].locationMatchStatus === 'exact_location', 'Google Places handoff should preserve location match status')
 
 
+  const broadNorwayPlacesFixture = path.join(root, 'broad-norway-google-places.mock-results.json')
+  fs.writeFileSync(broadNorwayPlacesFixture, JSON.stringify({
+    places: [
+      {
+        id: 'places/oslo-escape-room',
+        displayName: { text: 'Escape Hunt Oslo' },
+        websiteUri: 'https://escapehuntoslo.example',
+        nationalPhoneNumber: '+47 22 00 00 00',
+        formattedAddress: 'Storgata 10, 0184 Oslo, Norway',
+        businessStatus: 'OPERATIONAL',
+        rating: 4.6,
+        userRatingCount: 51,
+        types: ['escape_room', 'point_of_interest'],
+      },
+      {
+        id: 'places/usa-escape-room',
+        displayName: { text: 'The Escape Room USA' },
+        websiteUri: 'https://escape-room-usa.example',
+        nationalPhoneNumber: '+1 614 522 6692',
+        formattedAddress: '459 N High St, Columbus, OH 43215, USA',
+        businessStatus: 'OPERATIONAL',
+        rating: 4.8,
+        userRatingCount: 200,
+        types: ['escape_room', 'point_of_interest'],
+      },
+    ],
+  }, null, 2))
+  const broadNorwayReport = await discoverLocalBusinesses({
+    query: 'escape room',
+    provider: 'google-places',
+    mockResultsPath: broadNorwayPlacesFixture,
+    maxResults: 4,
+    validate: false,
+    searchScope: 'regional',
+  })
+  assert(broadNorwayReport.candidates.some((candidate) => candidate.businessName === 'Escape Hunt Oslo'), 'broad Norway search should keep Norwegian Google Places leads')
+  assert(!broadNorwayReport.candidates.some((candidate) => /USA|Columbus/i.test([candidate.businessName, candidate.address, candidate.location].join(' '))), 'broad Norway search should drop USA Google Places leads')
+  assert(broadNorwayReport.provider.queries[0] === 'escape room Norge', 'broad Norway search should query Norge context first')
+
+  const escapeBrregFixture = {
+    _embedded: {
+      enheter: [
+        {
+          organisasjonsnummer: '922997527',
+          navn: 'CAMELOT ESCAPE ROOM AS',
+          organisasjonsform: { kode: 'AS', beskrivelse: 'Aksjeselskap' },
+          forretningsadresse: { adresse: ['Askeskogen 77'], postnummer: '3267', poststed: 'LARVIK', kommune: 'LARVIK' },
+          naeringskode1: { kode: '58.210', beskrivelse: 'Utgivelse av programvare for dataspill' },
+          hjemmeside: 'https://camelotescaperoom.no',
+          _links: { self: { href: 'https://data.brreg.no/enhetsregisteret/api/enheter/922997527' } },
+        },
+        {
+          organisasjonsnummer: '999222111',
+          navn: 'ESCAPE HAIRDRESSING AS',
+          organisasjonsform: { kode: 'AS', beskrivelse: 'Aksjeselskap' },
+          forretningsadresse: { adresse: ['Hårgata 1'], postnummer: '0184', poststed: 'OSLO', kommune: 'OSLO' },
+          naeringskode1: { kode: '96.020', beskrivelse: 'Frisering og annen skjønnhetspleie' },
+          hjemmeside: 'https://escapehair.example',
+          _links: { self: { href: 'https://data.brreg.no/enhetsregisteret/api/enheter/999222111' } },
+        },
+      ],
+    },
+  }
+  const escapeBrregReport = await discoverLocalBusinesses({
+    query: 'escape room',
+    provider: 'brreg',
+    mockResults: escapeBrregFixture,
+    maxResults: 5,
+    validate: false,
+    searchScope: 'regional',
+  })
+  const camelotBrreg = escapeBrregReport.candidates.find((candidate) => candidate.businessName === 'CAMELOT ESCAPE ROOM AS')
+  const hairBrreg = escapeBrregReport.candidates.find((candidate) => candidate.businessName === 'ESCAPE HAIRDRESSING AS')
+  assert(camelotBrreg.industryMatchStatus === 'relevant', 'exact escape room Brreg name should stay relevant even without NACE mapping')
+  assert(hairBrreg.industryMatchStatus === 'mismatch', 'Brreg name-only escape false positives should be marked industry mismatch')
+  assert(shouldIncludeInFastLeadPack(hairBrreg) === false, 'industry-mismatch Brreg false positives should not become Fast seller leads')
+
   const lawyerPlacesFixture = path.join(root, 'lawyer-google-places.mock-results.json')
   fs.writeFileSync(lawyerPlacesFixture, JSON.stringify({
     places: [

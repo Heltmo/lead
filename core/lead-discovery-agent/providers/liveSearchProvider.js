@@ -45,12 +45,29 @@ function createSearchQueries(options = {}) {
     .filter(Boolean)
   const result = []
   for (const query of values) {
-    const key = query.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    result.push(query)
+    if (shouldAddNorwayContext(options)) addUniqueQuery(result, seen, withNorwayContext(query))
+    addUniqueQuery(result, seen, query)
   }
   return result
+}
+
+function addUniqueQuery(result, seen, query) {
+  const value = String(query || '').trim()
+  const key = value.toLowerCase()
+  if (!value || seen.has(key)) return
+  seen.add(key)
+  result.push(value)
+}
+
+function shouldAddNorwayContext(options = {}) {
+  if (options.location) return false
+  const region = String(options.regionCode || 'NO').toUpperCase()
+  return region === 'NO'
+}
+
+function withNorwayContext(query = '') {
+  const text = String(query || '').trim()
+  return /\b(norge|norway)\b/i.test(text) ? text : text + ' Norge'
 }
 
 function loadMockRows(options, plan) {
@@ -114,6 +131,7 @@ async function fetchGooglePlacesRows(options, plan) {
         maxResultCount: Math.min(20, plan.maxResults - rows.length),
         languageCode: options.languageCode || 'no',
         regionCode: options.regionCode || 'NO',
+        locationRestriction: norwayLocationRestriction(options),
       }),
     })
     if (!response.ok) throw new Error('Google Places provider failed with HTTP ' + response.status)
@@ -132,6 +150,17 @@ async function fetchGooglePlacesRows(options, plan) {
     }
   }
   return { plan, rows }
+}
+
+function norwayLocationRestriction(options = {}) {
+  const region = String(options.regionCode || 'NO').toUpperCase()
+  if (region !== 'NO') return undefined
+  return {
+    rectangle: {
+      low: { latitude: 57.8, longitude: 4.0 },
+      high: { latitude: 71.5, longitude: 31.5 },
+    },
+  }
 }
 
 function googlePlacesFieldMask() {

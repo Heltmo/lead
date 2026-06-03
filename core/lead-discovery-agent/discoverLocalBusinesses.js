@@ -7,6 +7,7 @@ const { deduplicateCandidates, normalizeLeadCandidate, parseDiscoveryQuery } = r
 const { findNaceForIndustry } = require('./normalizers/naceMapping')
 const { validateWebsiteReachability } = require('./normalizers/websiteReachability')
 const { parseLocationIntent, applyLocationQuality, normalizeSearchScope } = require('./normalizers/locationQuality')
+const { isNorwayFirstCandidate } = require('./normalizers/countryGuard')
 
 async function discoverLocalBusinesses(options) {
   if (!options || (!options.sourceFile && !options.sourceFiles && !options.provider)) throw new Error('sourceFile, sourceFiles, or provider is required for discovery')
@@ -49,6 +50,7 @@ async function discoverLocalBusinesses(options) {
   const normalized = rawResults
     .map((row) => normalizeLeadCandidate(row, { industry, canonicalIndustry, location, searchScope, source: row.source || options.sourceName || 'fixed-sample', sourceFile: row.sourceFile, sourceFormat: row.sourceFormat }))
     .filter(Boolean)
+    .filter((candidate) => isNorwayFirstCandidate(candidate, { country: locationIntent.country, requestedLocation: location || locationIntent.requestedLocation }))
   const candidates = deduplicateCandidates(normalized)
     .map((candidate) => applyLocationQuality(candidate, { searchScope, includeOutOfArea: options.includeOutOfArea === true || options.includeOutOfArea === 'true' }))
     .map((candidate) => applyIndustryQuality(candidate, { canonicalIndustry, industry, industryTerms, query }))
@@ -195,7 +197,7 @@ function buildIndustryRelevance(candidate = {}, context = {}) {
     candidate.website,
   ].filter(Boolean).join(' '))
   if (terms.some((term) => termMatches(haystack, term))) return { matches: true, status: 'relevant', reasons: ['term_match'] }
-  if (candidate.sourceType === 'officialRegistry' && !expectedNace.length) return { matches: true, status: 'unknown', reasons: ['official_registry_no_nace_constraint'] }
+  if (candidate.sourceType === 'officialRegistry' && !expectedNace.length) return { matches: false, status: 'mismatch', reasons: ['official_registry_requires_term_match_when_no_nace_constraint'] }
   return { matches: false, status: 'mismatch', reasons: ['no_industry_signal'] }
 }
 
