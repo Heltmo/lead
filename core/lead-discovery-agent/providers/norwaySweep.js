@@ -21,6 +21,7 @@ function buildNorwaySweepRunOptions({ parsedQuery = {}, searchScope = 'strict', 
   const enabled = shouldUseNorwaySweep({ parsedQuery, searchScope })
   if (!enabled) return {
     marketSweep: false,
+    searchScope: normalizeSearchScope(searchScope),
     maxResults: normalizeMaxResults(requestedMaxResults, 25, 25),
     maxResultsCap: 25,
     maxProviderQueries: 4,
@@ -35,6 +36,8 @@ function buildNorwaySweepRunOptions({ parsedQuery = {}, searchScope = 'strict', 
   const maxProviderQueries = Math.min(NORWAY_SWEEP_CITIES.length, Math.ceil(maxResults / NORWAY_SWEEP_PER_CITY_RESULTS))
   return {
     marketSweep: true,
+    searchScope: 'regional',
+    reason: 'no_location_norway_sweep',
     maxResults,
     maxResultsCap: NORWAY_SWEEP_MAX_RESULTS,
     maxProviderQueries,
@@ -43,9 +46,7 @@ function buildNorwaySweepRunOptions({ parsedQuery = {}, searchScope = 'strict', 
   }
 }
 
-function shouldUseNorwaySweep({ parsedQuery = {}, searchScope = 'strict' } = {}) {
-  const scope = String(searchScope || '').toLowerCase()
-  if (scope !== 'regional') return false
+function shouldUseNorwaySweep({ parsedQuery = {} } = {}) {
   if (parsedQuery.location) return false
   return Boolean(parsedQuery.normalizedQuery || parsedQuery.originalQuery || parsedQuery.rawQuery)
 }
@@ -77,6 +78,11 @@ function termIncludesLocation(term, city) {
   return normalizeText(term).includes(normalizeText(city))
 }
 
+function normalizeSearchScope(value) {
+  const scope = String(value || '').toLowerCase()
+  return ['strict', 'nearby', 'regional'].includes(scope) ? scope : 'strict'
+}
+
 function normalizeMaxResults(value, fallback, cap) {
   const number = Number(value)
   const maximum = Number(cap || fallback || 25)
@@ -106,4 +112,5 @@ module.exports = {
   shouldUseNorwaySweep,
   createNorwaySweepQueries,
   normalizeProviderSweepOptions,
+  normalizeSearchScope,
 }

@@ -85,8 +85,9 @@ async function handleRun(req, res, context) {
   if (!parsedQuery.ok) return json(res, 400, { error: parsedQuery.error })
 
   const provider = ['demo-fixture', 'google-places', 'brreg', 'balanced', 'mock'].includes(body.provider) ? body.provider : 'balanced'
-  const searchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'strict'
-  const sweepPlan = buildNorwaySweepRunOptions({ parsedQuery, searchScope, requestedMaxResults: body.maxResults })
+  const requestedSearchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'strict'
+  const sweepPlan = buildNorwaySweepRunOptions({ parsedQuery, searchScope: requestedSearchScope, requestedMaxResults: body.maxResults })
+  const searchScope = sweepPlan.searchScope || requestedSearchScope
   const maxResults = provider === 'demo-fixture' ? normalizeMaxResults(body.maxResults, 25) : sweepPlan.maxResults
   const mode = ['fast', 'deep'].includes(body.mode) ? body.mode : 'fast'
   const sellerIntent = normalizeSellerIntent(body.sellerIntent)

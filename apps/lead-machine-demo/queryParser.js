@@ -26,6 +26,9 @@ function parseLeadQuery(rawQuery) {
   const exactVertical = matchVertical(query)
   if (exactVertical) return { ok: true, originalQuery: query, vertical: exactVertical.canonical, location: null, normalizedQuery: exactVertical.canonical }
 
+  const phraseMatch = matchVerticalPhraseWithLocation(query)
+  if (phraseMatch) return result(query, phraseMatch.vertical, phraseMatch.location)
+
   const tokens = query.split(' ')
   for (let i = 0; i < tokens.length; i += 1) {
     const before = tokens.slice(0, i).join(' ')
@@ -53,6 +56,25 @@ function result(originalQuery, vertical, location) {
 function matchVertical(value) {
   const normalized = normalize(value)
   return VERTICALS.find((item) => item.terms.some((term) => normalize(term) === normalized)) || null
+}
+
+function matchVerticalPhraseWithLocation(query) {
+  const normalizedQuery = normalize(query)
+  const terms = VERTICALS.flatMap((vertical) => vertical.terms.map((term) => ({ term, vertical })))
+    .sort((a, b) => b.term.length - a.term.length)
+  for (const item of terms) {
+    const normalizedTerm = normalize(item.term)
+    if (!normalizedTerm) continue
+    if (normalizedQuery.startsWith(normalizedTerm + ' ')) {
+      const location = cleanupLocation(String(query || '').slice(item.term.length))
+      if (location) return { vertical: item.vertical, location }
+    }
+    if (normalizedQuery.endsWith(' ' + normalizedTerm)) {
+      const location = cleanupLocation(String(query || '').slice(0, -item.term.length))
+      if (location) return { vertical: item.vertical, location }
+    }
+  }
+  return null
 }
 
 function cleanupLocation(value) {

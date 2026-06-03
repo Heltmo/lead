@@ -1,6 +1,6 @@
 # Norway Sweep V1
 
-Lead Machine is Norway-first in the current MVP. When a seller searches without a place and keeps area as "Hele Norge", the app can run a capped Norway sweep instead of one broad global query.
+Lead Machine is Norway-first in the current MVP. When a seller searches without a place, the app automatically runs a capped Norway sweep instead of one broad global query. This happens even if the geography selector was left on a narrower mode, because no place was provided to narrow by.
 
 ## Purpose
 
@@ -25,7 +25,7 @@ These are treated as broad Norway searches. Searches with a place, like `rørleg
 
 ## How It Works
 
-1. The app detects broad regional searches without a parsed location.
+1. The app detects searches without a parsed location and promotes them to a regional Norway sweep.
 2. The provider creates city queries such as `frisør i Oslo`, `frisør i Bergen`, and `frisør i Trondheim`.
 3. Google Places is restricted to Norway.
 4. Non-Norwegian results are filtered out before lead packs are built.

@@ -6,6 +6,7 @@ const { createServer } = require('../server')
 const { parseLeadQuery } = require('../queryParser')
 const { workflowForLead, normalizeWorkflow } = require('../workQueues')
 const { evaluateSourceFusion } = require('../../../core/source-fusion/sourceFusion')
+const { buildNorwaySweepRunOptions } = require('../../../core/lead-discovery-agent/providers/norwaySweep')
 
 async function main() {
   const strongLead = { sellerFit: { sellerFit: 'strong', recommendedAction: 'contact' }, contact: { phone: '12345678' }, company: { organizationNumber: '999888777' }, sourceQuality: { locationMatchStatus: 'exact_location' } }
@@ -38,7 +39,12 @@ async function main() {
   assert(parseLeadQuery('frisør Tromsø').normalizedQuery === 'frisør i Tromsø', 'frisør should parse')
   assert(parseLeadQuery('eiendomsmeglere i Oslo').normalizedQuery === 'eiendomsmegler i Oslo', 'eiendomsmegler should parse')
   assert(parseLeadQuery('escapreroom').normalizedQuery === 'escape room', 'escape room typo should normalize for broad Norway search')
+  assert(parseLeadQuery('escape room Halden').normalizedQuery === 'escape room i Halden', 'multi-word vertical before location should parse')
+  assert(parseLeadQuery('Halden escape room').normalizedQuery === 'escape room i Halden', 'location before multi-word vertical should parse')
   assert(parseLeadQuery('paintball').normalizedQuery === 'paintball', 'paintball free text should remain a broad Norway search')
+  assert(buildNorwaySweepRunOptions({ parsedQuery: parseLeadQuery('escape room'), searchScope: 'strict' }).marketSweep === true, 'broad no-location strict search should auto-enable Norway sweep')
+  assert(buildNorwaySweepRunOptions({ parsedQuery: parseLeadQuery('escape room'), searchScope: 'strict' }).searchScope === 'regional', 'broad no-location search should use regional scope')
+  assert(buildNorwaySweepRunOptions({ parsedQuery: parseLeadQuery('escape room Halden'), searchScope: 'strict' }).marketSweep === false, 'location-specific multi-word query should not use Norway sweep')
 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lead-machine-demo-'))
   let runnerArgs = null
@@ -176,8 +182,18 @@ async function main() {
   const broadSweepResponse = await post(port, '/api/runs', { query: 'rørlegger', provider: 'google-places', searchScope: 'regional', enrichCompanyProfile: false })
   assert(broadSweepResponse.status === 200, 'broad Norway search should complete through runner')
   assert(runnerArgs.marketSweep === true, 'broad regional search without place should enable Norway sweep')
+  assert(runnerArgs.searchScope === 'regional', 'broad Norway sweep should run with regional scope')
   assert(runnerArgs.maxResults === 60, 'Norway sweep should use the capped 60-lead beta limit')
   assert(runnerArgs.maxProviderQueries > 1, 'Norway sweep should run multiple city queries')
+  const strictNoPlaceSweepResponse = await post(port, '/api/runs', { query: 'escape room', provider: 'google-places', searchScope: 'strict', enrichCompanyProfile: false })
+  assert(strictNoPlaceSweepResponse.status === 200, 'strict no-location search should still complete as broad Norway sweep')
+  assert(runnerArgs.marketSweep === true, 'strict no-location search should auto-enable Norway sweep')
+  assert(runnerArgs.searchScope === 'regional', 'strict no-location search should be promoted to regional scope')
+  assert(runnerArgs.maxResults === 60, 'strict no-location sweep should use the broad capped limit')
+  const strictPlaceResponse = await post(port, '/api/runs', { query: 'escape room Halden', provider: 'google-places', searchScope: 'strict', enrichCompanyProfile: false })
+  assert(strictPlaceResponse.status === 200, 'location-specific multi-word vertical search should complete')
+  assert(runnerArgs.marketSweep === false, 'location-specific multi-word vertical search should not use Norway sweep')
+  assert(runnerArgs.searchScope === 'strict', 'location-specific search should preserve strict scope')
   response = explicitRunResponse
 
   const workflowLeadId = response.body.leadPacks[0].workflow.leadId

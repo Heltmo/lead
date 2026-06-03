@@ -206,8 +206,9 @@ async function hostedRunFromEvent(event, state) {
 
 async function hostedLiveRun({ body, parsedQuery, state }) {
   const sellerIntent = normalizeSellerIntent(body.sellerIntent)
-  const searchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'regional'
-  const sweepPlan = buildNorwaySweepRunOptions({ parsedQuery, searchScope, requestedMaxResults: body.maxResults })
+  const requestedSearchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'regional'
+  const sweepPlan = buildNorwaySweepRunOptions({ parsedQuery, searchScope: requestedSearchScope, requestedMaxResults: body.maxResults })
+  const searchScope = sweepPlan.searchScope || requestedSearchScope
   const maxResults = sweepPlan.maxResults
   const runId = createHostedRunId(parsedQuery.normalizedQuery)
   const outputDir = path.join(TMP_ROOT, 'runs', runId)

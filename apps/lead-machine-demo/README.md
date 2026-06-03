@@ -218,7 +218,7 @@ Live runs are slower than the fixture because each included lead can trigger:
 4. lead-pack generation
 5. automatic Brreg company-profile lookup for non-Brreg-first candidates
 
-Searches now run as Fast scan by default from the top search bar. The seller should not choose a global Fast/Deep mode before searching; selected-lead enrichment is available on the lead card when one company needs more context. Focused searches use an internal cap of 25 leads so the seller does not need to choose a technical max-results value. Broad `Hele Norge` searches without a place use Norway Sweep V1: capped at 60 leads across prioritized Norwegian city queries, grouped by city. Brreg runs by default for seller-ready identity context.
+Searches now run as Fast scan by default from the top search bar. The seller should not choose a global Fast/Deep mode before searching; selected-lead enrichment is available on the lead card when one company needs more context. Focused searches use an internal cap of 25 leads so the seller does not need to choose a technical max-results value. Searches without a parsed place automatically use Norway Sweep V1: capped at 60 leads across prioritized Norwegian city queries, grouped by city. Brreg runs by default for seller-ready identity context.
 
 Repeated Brreg/company-profile lookups use the local `.cache/company-profile/` file cache. Successful non-error matches are reused across runs for speed; failed Brreg lookups are not cached, so a later run can retry.
 
