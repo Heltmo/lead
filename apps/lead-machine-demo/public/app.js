@@ -156,6 +156,7 @@ async function loadLatestRun() {
     if (payload.parsedQuery?.normalizedQuery) els.query.value = payload.parsedQuery.normalizedQuery
     if (payload.summary?.sellerIntent && els.sellerIntent) els.sellerIntent.value = payload.summary.sellerIntent
     if (payload.summary?.searchScope && els.searchScope) els.searchScope.value = payload.summary.searchScope
+    if (payload.summary?.marketSweep && els.leadSort) els.leadSort.value = 'city'
     clearStatus()
     renderAll()
   } catch (error) {
@@ -197,6 +198,7 @@ async function runSearch() {
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || 'Run failed')
     state.result = payload
+    if (payload.summary?.marketSweep && els.leadSort) els.leadSort.value = 'city'
     clearStatus()
     renderAll()
   } catch (error) {
@@ -236,6 +238,7 @@ function renderSummary(result) {
     ${metric('Ingen svar', counts.no_answer)}
     ${metric('Oppfølging', counts.follow_up_today)}
     ${metric('Interessert', counts.interested)}
+    ${summary.marketSweep ? metric('Byer', Object.keys(summary.marketSweepCityCounts || {}).length) : ''}
     ${metric('Status', compactRunStatus(summary))}
   `
 }
@@ -250,7 +253,7 @@ function renderReadiness(result) {
   els.readiness.innerHTML = '<section class="saved-market-panel">' +
     '<div class="saved-market-head"><div><p class="eyebrow">Saved markets</p><h2>Return to useful searches</h2><small>' + escapeHtml(String(savedCount) + ' saved searches · ' + String(noteCount) + ' leads with notes') + '</small></div><button type="button" class="quiet-export" data-workspace-export>Download test data</button></div>' +
     (savedSearches.length ? '<div class="saved-searches saved-search-management">' + savedSearches.map(savedSearchButton).join('') + '</div>' : '<p class="readiness-note">Saved searches appear here after the first run.</p>') +
-  '</section>'
+  '</section>' + marketSweepPanel(result)
 }
 
 function defaultReadiness() {
@@ -344,6 +347,7 @@ async function updateSavedSearch(button, patch) {
 function compactRunStatus(summary = {}) {
   const mode = readable(summary.mode || 'fast')
   if (!summary || Object.keys(summary).length === 0) return 'Ready'
+  if (summary.marketSweep) return `Norge-sweep · ${summary.includedLeadCount || summary.totalLeads || 0}`
   if (summary.lowSupply) return `${mode} · low supply`
   if (summary.fallbackUsed) return `${mode} · fallback used`
   return mode
@@ -411,13 +415,18 @@ function renderLeads(visibleLeads) {
     els.leadCards.innerHTML = '<div class="empty-state">No leads match these filters.</div>'
     return
   }
+  let previousCity = ''
   els.leadCards.innerHTML = visibleLeads.map(({ lead, index, id }) => {
     const contact = lead.contact || {}
     const places = lead.places || {}
     const company = lead.company || {}
     const primarySignal = sellerSignals(lead)[0] || humanize(lead.opportunityType || 'Lead pack')
     const queueAction = leadQueueActionLabel(lead)
+    const city = leadCity(lead)
+    const cityHeading = state.result?.summary?.marketSweep && city !== previousCity ? '<div class="city-group-heading"><span>' + escapeHtml(city) + '</span><strong>' + escapeHtml(cityCountLabel(city)) + '</strong></div>' : ''
+    previousCity = city
     return `
+      ${cityHeading}
       <button class="lead-card ${id === state.selectedLeadId ? 'active' : ''}" type="button" data-index="${index}" data-id="${escapeAttr(id)}">
         <div class="badge-row">${badge(callReadiness(lead).key)}${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
@@ -434,6 +443,25 @@ function renderLeads(visibleLeads) {
     renderAll()
     focusLeadDetail({ block: 'nearest' })
   }))
+}
+
+function cityCountLabel(city) {
+  const counts = state.result?.summary?.marketSweepCityCounts || {}
+  const count = counts[city] || 0
+  return count ? String(count) + ' leads' : ''
+}
+
+function marketSweepPanel(result) {
+  const summary = result?.summary || {}
+  if (!summary.marketSweep) return ''
+  const counts = summary.marketSweepCityCounts || {}
+  const cityEntries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right, 'nb'))
+  const searchedCities = Array.isArray(summary.marketSweepCities) ? summary.marketSweepCities.length : 0
+  const citiesWithLeads = cityEntries.length
+  const chips = cityEntries.length
+    ? cityEntries.map(([city, count]) => '<span class="city-chip"><strong>' + escapeHtml(city) + '</strong> ' + escapeHtml(String(count)) + '</span>').join('')
+    : '<span class="muted">Ingen bygrupper ennå.</span>'
+  return '<section class="market-sweep-panel"><div><p class="eyebrow">Norge-sweep</p><h2>Leads gruppert etter by</h2><small>' + escapeHtml(String(searchedCities) + ' bysøk · ' + String(citiesWithLeads) + ' byer med treff · maks ' + String(summary.maxResults || 60) + ' leads') + '</small></div><div class="city-chip-row">' + chips + '</div></section>'
 }
 
 function focusLeadDetail(options = {}) {
@@ -558,9 +586,22 @@ function matchesLeadFilters(lead, filters) {
 }
 
 function compareLeads(a, b, sortKey) {
+  if (sortKey === 'city') return compareLeadsByCity(a, b)
   const rankDiff = leadSortScore(b, sortKey) - leadSortScore(a, sortKey)
   if (rankDiff) return rankDiff
   return priorityScore(b) - priorityScore(a)
+}
+
+function compareLeadsByCity(a, b) {
+  const cityDiff = leadCity(a).localeCompare(leadCity(b), 'nb')
+  if (cityDiff) return cityDiff
+  const queueDiff = callQueueSortScore(b) - callQueueSortScore(a)
+  if (queueDiff) return queueDiff
+  return String(a.company?.displayName || a.companyName || '').localeCompare(String(b.company?.displayName || b.companyName || ''), 'nb')
+}
+
+function leadCity(lead = {}) {
+  return String(lead.contact?.city || lead.city || lead.sourceQuality?.marketSweepCity || 'unknown')
 }
 
 function leadSortScore(lead, sortKey) {
@@ -1750,7 +1791,7 @@ function renderExport(result) {
     els.exportPanel.innerHTML = '<p class="eyebrow">Export</p><div class="empty-state">CSV and JSON links appear after a completed run.</div>'
     return
   }
-  const leads = result.leadPacks || []
+  const leads = result.summary?.marketSweep ? (result.leadPacks || []).slice().sort(compareLeadsByCity) : (result.leadPacks || [])
   els.exportPanel.innerHTML = `
     <p class="eyebrow">Export</p>
     <p class="muted">Run path: <code>${escapeHtml(result.outputDir)}</code></p>

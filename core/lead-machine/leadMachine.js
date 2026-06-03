@@ -32,6 +32,10 @@ async function runLeadMachine(options = {}) {
     googlePlacesEndpoint: options.googlePlacesEndpoint,
     brregEndpoint: options.brregEndpoint,
     braveEndpoint: options.braveEndpoint,
+    marketSweep: options.marketSweep,
+    marketSweepCities: options.marketSweepCities,
+    maxProviderQueries: options.maxProviderQueries,
+    perProviderQueryMaxResults: options.perProviderQueryMaxResults,
   })
   const discoveryOutputs = writeDiscoveryOutputs(discovery, {
     outPath: path.join(discoveryDir, 'lead-candidates.json'),
@@ -116,6 +120,10 @@ function buildLeadMachineSummary({ runId, query, provider, maxResults, searchSco
     companyProfileCounts: countCompanyProfileStatuses(leadPacks),
     economyStatus: 'not_enabled',
     auditStatus: 'skipped_fast_mode',
+    marketSweep: Boolean(discovery.provider?.sweep?.enabled),
+    marketSweepCities: discovery.provider?.sweep?.cities || [],
+    marketSweepPerCityLimit: discovery.provider?.sweep?.perCity || null,
+    marketSweepCityCounts: countLeadPackCities(leadPacks),
     nextRecommendedAction,
     productBoundary: 'machine_generates_ranked_lead_packs_seller_owns_angle_wording_outreach_timing_relationship_close',
   }
@@ -124,11 +132,13 @@ function buildLeadMachineSummary({ runId, query, provider, maxResults, searchSco
 async function writeFastLeadPackOutputs({ outputDir, query, runId, discovery, candidates, enrichCompanyProfile }) {
   fs.mkdirSync(outputDir, { recursive: true })
   const lastCheckedAt = new Date().toISOString()
+  const orderedCandidates = orderCandidatesForLeadPacks(candidates, discovery)
   const leadPacks = []
-  for (const candidate of candidates) {
+  for (const candidate of orderedCandidates) {
     const companyProfile = enrichCompanyProfile ? await safeFastCompanyProfile(candidate) : null
     leadPacks.push(buildFastLeadPack({ candidate, discovery, query, runId, companyProfile, lastCheckedAt }))
   }
+  if (discovery.provider?.sweep?.enabled) leadPacks.sort(compareLeadPacksByCity)
   leadPacks.forEach((pack, index) => { pack.rank = index + 1 })
   const summary = buildFastLeadPackSummary({ outputDir, query, runId, discovery, leadPacks, enrichCompanyProfile, lastCheckedAt })
   const leadPacksPath = path.join(outputDir, 'lead-packs.json')
@@ -197,6 +207,8 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
     economy: { status: 'not_enabled', source: null, revenue: null, profit: null, employees: null },
     sourceQuality: {
       searchScope: candidate.searchScope || discovery.searchScope || 'strict',
+      marketSweep: Boolean(discovery.provider?.sweep?.enabled),
+      marketSweepCity: candidate.candidateCity || extractCity(candidate.address || candidate.location || ''),
       requestedMaxResults: discovery.searchSupply?.requestedMaxResults ?? null,
       includedLeadCount: discovery.searchSupply?.includedLeadCount ?? null,
       lowSupply: Boolean(discovery.searchSupply?.lowSupply),
@@ -219,8 +231,39 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
       sourceRun: runId,
       lastCheckedAt,
       mode: 'fast',
+      marketSweep: Boolean(discovery.provider?.sweep?.enabled),
     },
   }
+}
+
+function orderCandidatesForLeadPacks(candidates = [], discovery = {}) {
+  const list = Array.isArray(candidates) ? candidates.slice() : []
+  if (!discovery.provider?.sweep?.enabled) return list
+  return list.sort((a, b) => cityKey(a).localeCompare(cityKey(b)) || String(a.businessName || '').localeCompare(String(b.businessName || '')))
+}
+
+function compareLeadPacksByCity(a = {}, b = {}) {
+  const cityDiff = cityKey(a).localeCompare(cityKey(b))
+  if (cityDiff) return cityDiff
+  const phoneDiff = Number(Boolean(b.contact?.phone || b.phone)) - Number(Boolean(a.contact?.phone || a.phone))
+  if (phoneDiff) return phoneDiff
+  return String(a.company?.displayName || a.companyName || '').localeCompare(String(b.company?.displayName || b.companyName || ''))
+}
+
+function countLeadPackCities(leadPacks = []) {
+  const counts = {}
+  for (const lead of Array.isArray(leadPacks) ? leadPacks : []) {
+    const city = lead.contact?.city || lead.city || lead.sourceQuality?.marketSweepCity || 'unknown'
+    counts[city] = (counts[city] || 0) + 1
+  }
+  return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)))
+}
+
+function cityKey(value = {}) {
+  return String(value.contact?.city || value.city || value.candidateCity || value.location || value.address || 'unknown')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
 }
 
 function companyFromFastProfile(candidate, profile) {
@@ -360,6 +403,10 @@ function buildFastLeadPackSummary({ outputDir, query, runId, discovery, leadPack
     recommendedExpansion: discovery.searchSupply?.recommendedExpansion || null,
     locationQualityCounts: discovery.locationQuality?.counts || {},
     discoveryCoverage: discovery.discoveryCoverage || {},
+    marketSweep: Boolean(discovery.provider?.sweep?.enabled),
+    marketSweepCities: discovery.provider?.sweep?.cities || [],
+    marketSweepPerCityLimit: discovery.provider?.sweep?.perCity || null,
+    marketSweepCityCounts: countLeadPackCities(leadPacks),
   }
 }
 
@@ -402,11 +449,13 @@ function buildFastLeadPacksCsv(leadPacks) {
     identitySource: pack.sourceQuality.identitySource,
     presenceSource: pack.sourceQuality.presenceSource,
     searchScope: pack.sourceQuality.searchScope,
+    marketSweep: pack.sourceQuality.marketSweep ? 'yes' : 'no',
+    marketSweepCity: pack.sourceQuality.marketSweepCity,
     locationMatchStatus: pack.sourceQuality.locationMatchStatus,
     sourceQuery: pack.meta.sourceQuery,
     mode: pack.meta.mode,
   }))
-  return renderCsv(rows, ['rank', 'callPriority', 'leadClass', 'opportunityType', 'companyDisplayName', 'legalName', 'candidateLegalName', 'organizationNumber', 'candidateOrganizationNumber', 'organizationForm', 'registeredAddress', 'municipality', 'unitType', 'naceCode', 'naceDescription', 'employees', 'registrationDate', 'activeStatus', 'sourceUrl', 'matchStatus', 'matchConfidence', 'website', 'phone', 'email', 'address', 'city', 'placeId', 'rating', 'reviewCount', 'auditStatus', 'contactability', 'whyRanked', 'caution', 'economyStatus', 'identitySource', 'presenceSource', 'searchScope', 'locationMatchStatus', 'sourceQuery', 'mode'])
+  return renderCsv(rows, ['rank', 'callPriority', 'leadClass', 'opportunityType', 'companyDisplayName', 'legalName', 'candidateLegalName', 'organizationNumber', 'candidateOrganizationNumber', 'organizationForm', 'registeredAddress', 'municipality', 'unitType', 'naceCode', 'naceDescription', 'employees', 'registrationDate', 'activeStatus', 'sourceUrl', 'matchStatus', 'matchConfidence', 'website', 'phone', 'email', 'address', 'city', 'placeId', 'rating', 'reviewCount', 'auditStatus', 'contactability', 'whyRanked', 'caution', 'economyStatus', 'identitySource', 'presenceSource', 'searchScope', 'marketSweep', 'marketSweepCity', 'locationMatchStatus', 'sourceQuery', 'mode'])
 }
 
 function renderCsv(rows, columns) {
@@ -461,6 +510,10 @@ function writeEmptyLeadPackOutputs({ outputDir, query, runId, discovery }) {
     fallbackUsed: Boolean(discovery.searchSupply?.fallbackUsed),
     recommendedExpansion: discovery.searchSupply?.recommendedExpansion || null,
     locationQualityCounts: discovery.locationQuality?.counts || {},
+    marketSweep: Boolean(discovery.provider?.sweep?.enabled),
+    marketSweepCities: discovery.provider?.sweep?.cities || [],
+    marketSweepPerCityLimit: discovery.provider?.sweep?.perCity || null,
+    marketSweepCityCounts: {},
   }
   fs.writeFileSync(path.join(outputDir, 'lead-packs.json'), '[]\n')
   fs.writeFileSync(path.join(outputDir, 'lead-packs.csv'), '\n')

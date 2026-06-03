@@ -1,6 +1,7 @@
 const fs = require('fs')
 const { normalizeBusinessName, normalizeLocation } = require('../normalizers/leadCandidate')
 const { findNaceForIndustry, municipalityCodeFor } = require('../normalizers/naceMapping')
+const { createNorwaySweepQueries, normalizeProviderSweepOptions } = require('./norwaySweep')
 
 const BRAVE_ENDPOINT = 'https://api.search.brave.com/res/v1/web/search'
 const GOOGLE_PLACES_ENDPOINT = 'https://places.googleapis.com/v1/places:searchText'
@@ -23,13 +24,15 @@ async function loadLiveSearchResults(options = {}) {
 function createProviderPlan(options = {}) {
   const provider = normalizeProvider(options.provider)
   const maxResults = normalizeMaxResults(options.maxResults)
-  const queries = createSearchQueries(options).slice(0, normalizeMaxProviderQueries(options.maxProviderQueries))
+  const sweep = normalizeProviderSweepOptions({ ...options, maxResults })
+  const queries = createSearchQueries({ ...options, sweep }).slice(0, normalizeMaxProviderQueries(sweep.enabled ? sweep.maxCities : options.maxProviderQueries))
   const nace = findNaceForIndustry({ canonicalIndustry: options.canonicalIndustry, industry: options.industry, query: options.query })
   return {
     provider,
     dryRun: Boolean(options.dryRun),
     maxResults,
     queries,
+    sweep: sweep.enabled ? { enabled: true, cities: sweep.cities, perCity: sweep.perCity, maxResults } : { enabled: false },
     brreg: {
       naceCodes: nace.map((item) => item.code),
       municipalityCode: municipalityCodeFor(options.location),
@@ -40,10 +43,15 @@ function createProviderPlan(options = {}) {
 
 function createSearchQueries(options = {}) {
   const seen = new Set()
+  const result = []
+  const sweep = options.sweep || normalizeProviderSweepOptions(options)
+  if (sweep.enabled) {
+    for (const query of createNorwaySweepQueries(options.query, sweep.cities)) addUniqueQuery(result, seen, query)
+    return result
+  }
   const values = [options.query, ...(options.expandedQueries || [])]
     .map((query) => String(query || '').trim())
     .filter(Boolean)
-  const result = []
   for (const query of values) {
     if (shouldAddNorwayContext(options)) addUniqueQuery(result, seen, withNorwayContext(query))
     addUniqueQuery(result, seen, query)
@@ -128,7 +136,7 @@ async function fetchGooglePlacesRows(options, plan) {
       },
       body: JSON.stringify({
         textQuery: query,
-        maxResultCount: Math.min(20, plan.maxResults - rows.length),
+        maxResultCount: Math.min(20, googlePerQueryLimit(plan), plan.maxResults - rows.length),
         languageCode: options.languageCode || 'no',
         regionCode: options.regionCode || 'NO',
         locationRestriction: norwayLocationRestriction(options),
@@ -150,6 +158,11 @@ async function fetchGooglePlacesRows(options, plan) {
     }
   }
   return { plan, rows }
+}
+
+function googlePerQueryLimit(plan = {}) {
+  if (plan.sweep && plan.sweep.enabled) return Number(plan.sweep.perCity || 5)
+  return 20
 }
 
 function norwayLocationRestriction(options = {}) {

@@ -24,7 +24,7 @@ for (const required of [
   'buildproductreadiness',
   'proff_free_ready',
   'disabled_optional',
-  'google usage stays capped at 25 leads per run',
+  'google usage stays capped: 25 for normal searches, 60 for norway-sweep beta runs',
   'selectedleaddeeponly',
   'readinesspanel',
   'saved markets',

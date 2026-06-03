@@ -120,6 +120,54 @@ async function main() {
   assert(fastPacks[0].contact.phone === '41 00 00 00', 'fast lead pack should preserve phone from discovery')
   assert(fastCsv.includes('skipped_fast_mode'), 'fast CSV should expose skipped audit status')
 
+  const sweepFixturePath = path.join(root, 'sweep-places.json')
+  fs.writeFileSync(sweepFixturePath, JSON.stringify({
+    places: [
+      {
+        id: 'places/oslo-advokat',
+        displayName: { text: 'Oslo Advokat AS' },
+        websiteUri: 'https://oslo-advokat.example',
+        nationalPhoneNumber: '+47 22 00 00 00',
+        formattedAddress: 'Storgata 1, 0184 Oslo, Norway',
+        businessStatus: 'OPERATIONAL',
+        types: ['lawyer'],
+      },
+      {
+        id: 'places/bergen-advokat',
+        displayName: { text: 'Bergen Advokat AS' },
+        websiteUri: 'https://bergen-advokat.example',
+        nationalPhoneNumber: '+47 55 00 00 00',
+        formattedAddress: 'Bryggen 1, 5003 Bergen, Norway',
+        businessStatus: 'OPERATIONAL',
+        types: ['lawyer'],
+      },
+    ],
+  }, null, 2))
+  const sweepOutputDir = path.join(root, 'sweep-run')
+  const sweepResult = await runLeadMachine({
+    query: 'advokat',
+    provider: 'mock',
+    mockResultsPath: sweepFixturePath,
+    maxResults: 60,
+    searchScope: 'regional',
+    marketSweep: true,
+    maxProviderQueries: 2,
+    perProviderQueryMaxResults: 5,
+    mode: 'fast',
+    enrichCompanyProfile: false,
+    outputDir: sweepOutputDir,
+    runId: 'fixture-sweep-lead-machine',
+    validate: false,
+  })
+  const sweepSummary = JSON.parse(fs.readFileSync(sweepResult.summaryPath, 'utf8'))
+  const sweepPacks = JSON.parse(fs.readFileSync(path.join(sweepResult.leadPackOutputPath, 'lead-packs.json'), 'utf8'))
+  const sweepCsv = fs.readFileSync(path.join(sweepResult.leadPackOutputPath, 'lead-packs.csv'), 'utf8')
+  assert(sweepSummary.marketSweep === true, 'market sweep summary should be marked')
+  assert(sweepSummary.marketSweepCities.length === 2, 'market sweep summary should preserve searched cities')
+  assert(sweepSummary.marketSweepCityCounts.Bergen === 1 && sweepSummary.marketSweepCityCounts.Oslo === 1, 'market sweep should count leads by city')
+  assert(sweepPacks[0].contact.city === 'Bergen', 'market sweep lead packs should sort by city')
+  assert(sweepCsv.includes('marketSweepCity'), 'market sweep CSV should include city grouping column')
+
   assert(buildNextRecommendedAction({ searchScope: 'strict', includedLeadCount: 0, lowSupply: true, fallbackAvailable: true, fallbackUsed: false, recommendedExpansion: 'nearby', callPriorityCounts: {} }) === 'Run again with --search-scope nearby or regional.', 'zero strict supply should recommend expansion')
   assert(buildNextRecommendedAction({ searchScope: 'regional', includedLeadCount: 4, lowSupply: false, fallbackAvailable: false, fallbackUsed: true, recommendedExpansion: null, callPriorityCounts: { medium: 4 } }) === 'Review fallback location warnings before treating these as local leads.', 'regional fallback should warn')
   assert(buildNextRecommendedAction({ searchScope: 'strict', includedLeadCount: 2, lowSupply: false, fallbackAvailable: false, fallbackUsed: false, recommendedExpansion: null, callPriorityCounts: { high: 1, medium: 1 } }) === 'Review HIGH leads first.', 'HIGH leads should be reviewed first')

@@ -141,7 +141,7 @@ async function main() {
   assert(response.body.leadPacks[0].sourceFusion.recommendedTrustAction === 'verify_first', 'source fusion should recommend verify first for candidate identity')
   assert(response.body.downloads.csv.includes('/api/runs/'), 'completed run should return CSV download path')
   assert(response.body.readiness.sourceGuard.proffStatus.includes('optional'), 'readiness should mark Proff as optional, not required')
-  assert(response.body.readiness.sourceGuard.searchCap === 25, 'readiness should expose the 25-lead cost guard')
+  assert(response.body.readiness.sourceGuard.searchCap === 25, 'readiness should expose the 25-lead cost guard for normal searches')
   assert(response.body.readiness.persistence.status === 'sqlite_local', 'readiness should expose SQLite local workspace persistence')
   assert(response.body.readiness.workspace && response.body.readiness.workspace.status === 'sqlite_local', 'readiness should expose workspace visibility state')
   assert(response.body.readiness.workspace.savedSearchCount >= 1, 'workspace visibility should count saved searches')
@@ -169,6 +169,14 @@ async function main() {
   assert(latestRun.body.savedSearches[0].label === 'Kristiansand VVS', 'latest run should restore saved search label')
   assert(latestRun.body.savedSearches[0].pinned === true, 'latest run should restore saved search pin state')
   assert(latestRun.body.readiness && latestRun.body.readiness.mode === 'proff_free_ready', 'latest run should include product readiness state')
+
+  const explicitRunResponse = response
+  const broadSweepResponse = await post(port, '/api/runs', { query: 'rørlegger', provider: 'google-places', searchScope: 'regional', enrichCompanyProfile: false })
+  assert(broadSweepResponse.status === 200, 'broad Norway search should complete through runner')
+  assert(runnerArgs.marketSweep === true, 'broad regional search without place should enable Norway sweep')
+  assert(runnerArgs.maxResults === 60, 'Norway sweep should use the capped 60-lead beta limit')
+  assert(runnerArgs.maxProviderQueries > 1, 'Norway sweep should run multiple city queries')
+  response = explicitRunResponse
 
   const workflowLeadId = response.body.leadPacks[0].workflow.leadId
   const savedWorkflow = await post(port, '/api/workflow', {
@@ -299,7 +307,9 @@ async function main() {
   assert(lower.includes('ålesund'), 'UI should include Norway location autocomplete options')
   assert(lower.includes('fysioterapeut'), 'UI should include supported profession options')
   assert(lower.includes('value="balanced"'), 'UI should default to balanced Brreg + Google provider')
-  assert(lower.includes('id="maxresults" type="hidden" value="25"'), 'UI should hide max results and use the broad safe cap automatically')
+  assert(lower.includes('id="maxresults" type="hidden" value="25"'), 'UI should hide max results and let backend choose the safe cap automatically')
+  assert(lower.includes('value="city"'), 'UI should expose city sorting for Norway sweep')
+  assert(lower.includes('norge-sweep'), 'UI should expose Norway sweep state')
   assert(!lower.includes('<span>max</span><select'), 'UI should not expose max results as a seller-facing dropdown')
   assert(lower.includes('id="companyprofile" type="hidden" value="true"'), 'UI should make Brreg automatic without a seller checkbox')
   assert(lower.includes('<span>område</span><select id="searchscope"'), 'UI should label search scope as a geography control')

@@ -45,6 +45,10 @@ async function discoverLocalBusinesses(options) {
     brregEndpoint: options.brregEndpoint,
     languageCode: options.languageCode,
     regionCode: options.regionCode,
+    marketSweep: options.marketSweep,
+    marketSweepCities: options.marketSweepCities,
+    maxProviderQueries: options.maxProviderQueries,
+    perProviderQueryMaxResults: options.perProviderQueryMaxResults,
   })
   const rawResults = [...sourceResults, ...providerResult.rows]
   const normalized = rawResults

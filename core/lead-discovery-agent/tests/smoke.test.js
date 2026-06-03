@@ -158,6 +158,22 @@ async function main() {
   assert(providerDryRunReport.provider.queries.includes('tannlege Halden'), 'dry-run should show expanded/provider queries')
   assert(providerDryRunReport.candidates.length === 0, 'dry-run should not create live candidates')
 
+  const sweepDryRunReport = await discoverLocalBusinesses({
+    query: 'frisør',
+    provider: 'google-places',
+    dryRun: true,
+    maxResults: 60,
+    validate: false,
+    searchScope: 'regional',
+    marketSweep: true,
+    maxProviderQueries: 3,
+    perProviderQueryMaxResults: 5,
+  })
+  assert(sweepDryRunReport.provider.sweep.enabled === true, 'Norway sweep should be marked in provider plan')
+  assert(sweepDryRunReport.provider.queries[0] === 'frisør i Oslo', 'Norway sweep should query city batches first')
+  assert(sweepDryRunReport.provider.queries.length === 3, 'Norway sweep should respect maxProviderQueries')
+  assert(sweepDryRunReport.provider.sweep.perCity === 5, 'Norway sweep should keep per-city cap')
+
   const providerReport = await discoverLocalBusinesses({
     query: 'tannlege Halden',
     provider: 'mock',

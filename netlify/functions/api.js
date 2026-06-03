@@ -10,6 +10,7 @@ const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowA
 const { parseLeadQuery } = require('../../apps/lead-machine-demo/queryParser')
 const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
 const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-fit/sellerFit')
+const { buildNorwaySweepRunOptions, NORWAY_SWEEP_MAX_RESULTS } = require('../../core/lead-discovery-agent/providers/norwaySweep')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 
 exports.handler = async function handler(event) {
@@ -115,7 +116,7 @@ function buildBundledRun(latest) {
     leadPackOutputPath,
     downloads: downloadsForRun(latest.runId),
     summary,
-    readiness: hostedReadiness(leadPacks, savedSearches),
+    readiness: hostedReadiness(leadPacks, savedSearches, summary),
     savedSearches,
     leadPacks: leadPacks.map((lead, index) => attachSourceFusion({ ...lead, workflow: buildWorkflowForLead(lead, lead.workflow || {}, hostedLeadId(lead, index)) })),
   }
@@ -160,10 +161,11 @@ function savedSearchFromRun({ runId, query, leadPacks, summary = {} }) {
   return search
 }
 
-function hostedReadiness(leadPacks = [], savedSearches = []) {
+function hostedReadiness(leadPacks = [], savedSearches = [], summary = {}) {
+  const cap = summary.marketSweep ? NORWAY_SWEEP_MAX_RESULTS : 25
   return {
     mode: 'hosted_beta_ready',
-    sourceGuard: { searchCap: 25, includedLeadCount: leadPacks.length, selectedLeadDeepOnly: true, googleStatus: process.env.GOOGLE_PLACES_API_KEY ? 'configured' : 'not_configured', proffStatus: process.env.PROFF_API_KEY ? 'available_optional' : 'disabled_optional', brregStatus: 'automatic_identity_base' },
+    sourceGuard: { searchCap: cap, includedLeadCount: leadPacks.length, selectedLeadDeepOnly: true, googleStatus: process.env.GOOGLE_PLACES_API_KEY ? 'configured' : 'not_configured', proffStatus: process.env.PROFF_API_KEY ? 'available_optional' : 'disabled_optional', brregStatus: 'automatic_identity_base' },
     persistence: { status: getBlobStore() ? 'netlify_blobs' : 'tmp_json', note: 'Hosted beta stores notes and follow-ups for one shared tester workspace.' },
     workspace: { status: getBlobStore() ? 'netlify_blobs' : 'tmp_json', storageMode: getBlobStore() ? 'Netlify Blobs beta workspace' : 'Temporary JSON fallback', workflowLeadCount: 0, savedSearchCount: savedSearches.length, activityCount: 0, canExport: true, exportPath: '/api/workspace-export' },
     guardrails: ['One shared beta workspace.', 'No email sending, CRM sync, or telephony backend.', 'Call now uses the tester device tel link only.'],
@@ -199,7 +201,8 @@ async function hostedRunFromEvent(event, state) {
 async function hostedLiveRun({ body, parsedQuery, state }) {
   const sellerIntent = normalizeSellerIntent(body.sellerIntent)
   const searchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'regional'
-  const maxResults = normalizeHostedMaxResults(body.maxResults, 25)
+  const sweepPlan = buildNorwaySweepRunOptions({ parsedQuery, searchScope, requestedMaxResults: body.maxResults })
+  const maxResults = sweepPlan.maxResults
   const runId = createHostedRunId(parsedQuery.normalizedQuery)
   const outputDir = path.join(TMP_ROOT, 'runs', runId)
   const result = await runLeadMachine({
@@ -212,10 +215,14 @@ async function hostedLiveRun({ body, parsedQuery, state }) {
     outputDir,
     runId,
     validate: false,
+    marketSweep: sweepPlan.marketSweep,
+    marketSweepCities: sweepPlan.cities,
+    maxProviderQueries: sweepPlan.maxProviderQueries,
+    perProviderQueryMaxResults: sweepPlan.perProviderQueryMaxResults,
   })
   const leadPackOutputPath = result.leadPackOutputPath || path.join(outputDir, 'lead-packs')
   const leadPacks = attachHostedStateToLeads(attachSellerFitToLeads(readJsonFile(path.join(leadPackOutputPath, 'lead-packs.json'), []), sellerIntent), state)
-  const summary = { ...(result.summary || {}), query: parsedQuery.normalizedQuery, sellerIntent, provider: 'hosted-live-balanced', mode: 'fast', maxResults, searchScope, includedLeadCount: leadPacks.length, totalLeads: leadPacks.length }
+  const summary = { ...(result.summary || {}), query: parsedQuery.normalizedQuery, sellerIntent, provider: 'hosted-live-balanced', mode: 'fast', maxResults, searchScope, includedLeadCount: leadPacks.length, totalLeads: leadPacks.length, marketSweep: Boolean(sweepPlan.marketSweep) }
   const saved = savedSearchFromRun({ runId, query: parsedQuery.normalizedQuery, leadPacks, summary })
   state.savedSearches = sortSavedSearches([saved, ...(state.savedSearches || []).filter((item) => savedSearchKey(item) !== saved.key)]).slice(0, 30)
   return {
@@ -225,7 +232,7 @@ async function hostedLiveRun({ body, parsedQuery, state }) {
     leadPackOutputPath,
     downloads: downloadsForRun(runId),
     summary,
-    readiness: hostedReadiness(leadPacks, state.savedSearches),
+    readiness: hostedReadiness(leadPacks, state.savedSearches, summary),
     savedSearches: state.savedSearches,
     leadPacks,
   }

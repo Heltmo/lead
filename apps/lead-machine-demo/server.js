@@ -11,6 +11,7 @@ const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source
 const { parseLeadQuery } = require('./queryParser')
 const { createWorkspaceStore } = require('./localStore')
 const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowActivity, workflowForLead, inferLeadQueue, leadMatchesQueue, normalizeQueue } = require('./workQueues')
+const { buildNorwaySweepRunOptions, NORWAY_SWEEP_MAX_RESULTS } = require('../../core/lead-discovery-agent/providers/norwaySweep')
 
 const DEFAULT_PORT = Number(process.env.PORT || 8787)
 const APP_ROOT = __dirname
@@ -83,9 +84,10 @@ async function handleRun(req, res, context) {
   const parsedQuery = parseLeadQuery(query)
   if (!parsedQuery.ok) return json(res, 400, { error: parsedQuery.error })
 
-  const maxResults = normalizeMaxResults(body.maxResults, 25)
   const provider = ['demo-fixture', 'google-places', 'brreg', 'balanced', 'mock'].includes(body.provider) ? body.provider : 'balanced'
   const searchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'strict'
+  const sweepPlan = buildNorwaySweepRunOptions({ parsedQuery, searchScope, requestedMaxResults: body.maxResults })
+  const maxResults = provider === 'demo-fixture' ? normalizeMaxResults(body.maxResults, 25) : sweepPlan.maxResults
   const mode = ['fast', 'deep'].includes(body.mode) ? body.mode : 'fast'
   const sellerIntent = normalizeSellerIntent(body.sellerIntent)
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
@@ -115,6 +117,10 @@ async function handleRun(req, res, context) {
       mode,
       outputDir,
       runId,
+      marketSweep: sweepPlan.marketSweep,
+      marketSweepCities: sweepPlan.cities,
+      maxProviderQueries: sweepPlan.maxProviderQueries,
+      perProviderQueryMaxResults: sweepPlan.perProviderQueryMaxResults,
     })
   }
 
@@ -280,7 +286,7 @@ function buildProductReadiness({ summary = {}, leadPacks = [], workflowStore, sa
   return {
     mode: 'proff_free_ready',
     sourceGuard: {
-      searchCap: Math.min(cappedMax || 25, 25),
+      searchCap: Math.min(cappedMax || (summary.marketSweep ? NORWAY_SWEEP_MAX_RESULTS : 25), summary.marketSweep ? NORWAY_SWEEP_MAX_RESULTS : 25),
       includedLeadCount: included,
       selectedLeadDeepOnly: true,
       googleStatus: googleConfigured ? 'enabled_metered' : 'not_configured',
@@ -303,7 +309,7 @@ function buildProductReadiness({ summary = {}, leadPacks = [], workflowStore, sa
     workspace: buildWorkspaceSummary(workflowStore, savedSearchesStore),
     guardrails: [
       'Proff is optional and never required for lead quality.',
-      'Google usage stays capped at 25 leads per run in this demo.',
+      'Google usage stays capped: 25 for normal searches, 60 for Norway-sweep beta runs.',
       'Deep enrichment runs on one selected lead, not the whole market.',
       'No outreach automation, email sending, or telephony is added.',
     ],
