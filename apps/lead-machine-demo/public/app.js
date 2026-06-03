@@ -849,6 +849,7 @@ function leadQueueActionLabel(lead) {
   if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return 'Interested: follow up'
   const sellerAction = sellerRecommendedAction(lead)
   if (sellerAction === 'contact' && hasPhone) return 'Call now'
+  if (sellerAction === 'verify' && hasPhone) return 'Call, verify details'
   if (sellerAction === 'verify') return 'Verify first'
   if (sellerAction === 'skip') return 'Skip/deprioritize'
   if (!hasPhone) return 'Review contact path'
@@ -947,7 +948,7 @@ function renderDetail(lead) {
         ])}
         ${brregSourceCard(company)}
         ${sourceCard('Source strategy', sourceStrategyStatus(company, sourceQuality, places), [
-          ['Identity source', isBrregUnavailable(company) ? 'brreg unavailable' : (sourceQuality.identitySource || company.source || 'unknown')],
+          ['Identity source', isBrregUnavailable(company) ? 'brreg not confirmed' : (sourceQuality.identitySource || company.source || 'unknown')],
           ['Presence source', sourceQuality.presenceSource || places.provider || 'unknown'],
           ['Strategy', sourceStrategyLabel(company, sourceQuality)],
         ])}
@@ -1243,7 +1244,7 @@ function deepEnrichmentModules(lead, command) {
     : Array.isArray(lead.enrichment?.modules) ? lead.enrichment.modules : []
   const modules = liveModules.length ? liveModules : [
     { name: 'Digital presence check', status: isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), summary: isFastLead(lead) ? 'Run enrichment to check digital presence.' : 'Digital presence signals are attached.' },
-    { name: 'Brreg verification', status: company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), summary: company.organizationNumber ? 'Official identity is confirmed.' : company.candidateOrganizationNumber ? 'Candidate identity needs manual verify.' : 'No confirmed identity yet.' },
+    { name: 'Brreg verification', status: company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), summary: company.organizationNumber ? 'Official identity is confirmed.' : company.candidateOrganizationNumber ? 'Candidate identity needs manual verify.' : 'Not confirmed in fast search; Enrich lead retries Brreg for this company.' },
     { name: 'Economy / Proff', status: economy.status || 'not_enabled', summary: economyModuleSummary(economy) },
     { name: 'Social/source signals', status: 'not_enabled', summary: 'Later module: Facebook, LinkedIn, news and public source links.' },
     { name: 'Decision makers', status: 'not_enabled', summary: 'Later module: public role/contact hints when available.' },
@@ -1530,7 +1531,7 @@ function sellerCommand(lead) {
     : 'Registered business activity from Brreg/NACE.'
 
   const verification = confirmedOrg ? 'Confirmed org.nr' : candidateOrg ? 'Candidate org.nr' : brregUnavailable ? 'Identity pending' : 'Not verified'
-  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : brregUnavailable ? 'Brreg is unavailable right now; retry before export.' : 'Brreg returned no confirmed identity.'
+  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : brregUnavailable ? 'Brreg not confirmed in fast search; use Enrich lead for a focused retry.' : 'Brreg returned no confirmed identity.'
 
   let mainRisk = 'Low data risk'
   let mainRiskNote = 'Core contact and identity fields look usable.'
@@ -1557,7 +1558,7 @@ function sellerCommand(lead) {
     nextAction = 'Find contact first'
     nextActionNote = 'Do not prioritize for calling until a direct contact is found.'
   } else if (fast) {
-    nextAction = confirmedOrg ? 'Enrich if more context is needed' : candidateOrg ? 'Verify org.nr, then enrich if needed' : brregUnavailable ? 'Retry Brreg before export' : 'Enrich if needed'
+    nextAction = confirmedOrg ? 'Enrich if more context is needed' : candidateOrg ? 'Verify org.nr, then enrich if needed' : brregUnavailable ? 'Enrich lead for Brreg retry' : 'Enrich if needed'
     nextActionNote = 'Fast found a usable candidate; enrichment adds optional context modules.'
   } else if (priority === 'low' && sellerReadinessKey !== 'weak') {
     nextAction = 'Usable lead; weak digital angle'
@@ -1637,14 +1638,14 @@ function sourceCard(title, status, rows) {
 function companyIdValue(company = {}) {
   if (company.organizationNumber) return company.organizationNumber
   if (company.candidateOrganizationNumber) return company.candidateOrganizationNumber
-  if (isBrregUnavailable(company)) return 'Brreg unavailable'
+  if (isBrregUnavailable(company)) return 'Brreg ikke bekreftet'
   return 'not verified'
 }
 
 function companyIdNote(company = {}) {
   if (company.organizationNumber) return 'Confirmed official identity'
   if (company.candidateOrganizationNumber) return 'Candidate org.nr; verify before export'
-  if (isBrregUnavailable(company)) return 'Registry lookup failed; retry later'
+  if (isBrregUnavailable(company)) return 'Fast search could not confirm Brreg; use Enrich lead for a focused retry'
   return brregStatusLabel(company)
 }
 
@@ -1654,7 +1655,7 @@ function sourceStrategyStatus(company = {}, sourceQuality = {}, places = {}) {
 }
 
 function sourceStrategyLabel(company = {}, sourceQuality = {}) {
-  if (isBrregUnavailable(company)) return 'Presence-first fallback; Brreg should be retried before export'
+  if (isBrregUnavailable(company)) return 'Presence-first fallback; Enrich lead retries Brreg for this company'
   if (sourceQuality.identitySource === 'brreg') return 'Brreg-first identity with presence enrichment'
   return 'Presence-first discovery'
 }
@@ -1740,7 +1741,7 @@ function sellerSignals(lead) {
 
   if (company.organizationNumber) signals.push(`Brreg confirmed: org.nr ${company.organizationNumber}. Legal identity is ready for export.`)
   else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Brreg candidate exists, but legal identity should be verified before export.')
-  else if (isBrregUnavailable(company)) signals.push('Brreg is unavailable right now; this is a source gap, not a weak lead signal.')
+  else if (isBrregUnavailable(company)) signals.push('Brreg is not confirmed from the fast run; use Enrich lead for a focused retry.')
   else signals.push('Legal identity is not verified yet; Brreg returned no confirmed firm profile.')
 
   if (isLawLead(lead)) signals.push('Law-firm context: credibility, trust and client enquiry quality matter more than generic booking language.')
@@ -2204,7 +2205,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg unavailable', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed', ready_to_call: 'Ready to call', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Needs contact', follow_up_due: 'Follow-up due', later: 'Later', skip: 'Skip', queue_change: 'Queue change', follow_up_set: 'Follow-up set', contact_attempt: 'Contact attempt', status_change: 'Status change', note: 'Note', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Exact location', nearby: 'Nearby location', fallback: 'Regional fallback', conflict: 'Conflict', confirmed: 'Confirmed company', candidate: 'Candidate org.nr', unknown: 'Unknown', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Contact data', website_contact_profile: 'Website/contact profile', workflow: 'Workflow' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg ikke bekreftet', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed', ready_to_call: 'Ready to call', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Needs contact', follow_up_due: 'Follow-up due', later: 'Later', skip: 'Skip', queue_change: 'Queue change', follow_up_set: 'Follow-up set', contact_attempt: 'Contact attempt', status_change: 'Status change', note: 'Note', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Exact location', nearby: 'Nearby location', fallback: 'Regional fallback', conflict: 'Conflict', confirmed: 'Confirmed company', candidate: 'Candidate org.nr', unknown: 'Unknown', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Contact data', website_contact_profile: 'Website/contact profile', workflow: 'Workflow' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {

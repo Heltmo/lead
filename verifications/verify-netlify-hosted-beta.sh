@@ -44,6 +44,10 @@ for (const required of [
   'runleadmachine',
   'hostedliverun',
   'hosted-live-balanced',
+  '/api/deep-qualify',
+  'hosteddeepqualifyfromevent',
+  'enrichcompanyprofile',
+  'selected_lead_enrichment',
   'google_places_api_key is required for hosted beta searches',
 ]) {
   if (!lower.includes(required.toLowerCase())) throw new Error("Netlify hosted beta requirement missing: " + required)

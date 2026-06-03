@@ -12,6 +12,7 @@ const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
 const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-fit/sellerFit')
 const { buildNorwaySweepRunOptions, NORWAY_SWEEP_MAX_RESULTS } = require('../../core/lead-discovery-agent/providers/norwaySweep')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
+const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
 
 exports.handler = async function handler(event) {
   try {
@@ -31,6 +32,11 @@ exports.handler = async function handler(event) {
       const result = await updateSavedSearchFromEvent(event, state)
       await writeHostedState(state)
       return result.error ? jsonResponse(result.error.includes('not found') ? 404 : 400, result) : jsonResponse(200, result)
+    }
+    if (event.httpMethod === 'POST' && apiPath === '/api/deep-qualify') {
+      const result = await hostedDeepQualifyFromEvent(event, state)
+      await writeHostedState(state)
+      return result.error ? jsonResponse(result.statusCode || 400, result) : jsonResponse(200, result)
     }
     if (event.httpMethod === 'GET' && apiPath === '/api/workspace-export') return jsonResponse(200, exportSnapshot(state))
     if (event.httpMethod === 'GET' && apiPath === '/api/latest-run') {
@@ -237,6 +243,180 @@ async function hostedLiveRun({ body, parsedQuery, state }) {
     leadPacks,
   }
 }
+
+async function hostedDeepQualifyFromEvent(event, state) {
+  const body = parseJsonBody(event)
+  const lead = body.lead && typeof body.lead === 'object' ? JSON.parse(JSON.stringify(body.lead)) : null
+  if (!lead) return { error: 'Lead is required', statusCode: 400 }
+  const sellerIntent = normalizeSellerIntent(body.sellerIntent || lead.sellerFit?.sellerIntent)
+  const leadId = lead.workflow?.leadId || findHostedLeadId(state.latestRun, lead)
+  const companyProfile = body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false'
+    ? null
+    : await hostedSelectedCompanyProfile(lead)
+  let enriched = mergeHostedCompanyProfile(lead, companyProfile)
+  enriched.rank = lead.rank || enriched.rank || 1
+  enriched.enrichmentStatus = 'deep_enriched'
+  enriched.enrichmentModules = hostedEnrichmentModules(enriched)
+  enriched.enrichment = {
+    status: 'deep_enriched',
+    mode: 'selected_lead_hosted',
+    enrichedAt: new Date().toISOString(),
+    modules: enriched.enrichmentModules,
+    summary: {
+      companyIdentity: hostedBrregStatus(enriched.company || {}),
+      contactability: hostedContactability(enriched),
+      digitalPresence: enriched.website?.auditStatus || 'skipped_hosted_beta',
+      economy: enriched.economy?.status || 'not_enabled',
+    },
+  }
+  enriched.meta = { ...(enriched.meta || {}), mode: 'deep', enrichmentMode: 'selected_lead_hosted', enrichedAt: enriched.enrichment.enrichedAt }
+  enriched.sellerFit = evaluateSellerFit(enriched, sellerIntent)
+  enriched.workflow = buildWorkflowForLead(enriched, { ...(lead.workflow || {}), ...(leadId ? state.workflow.leads[leadId] || {} : {}) }, leadId || hostedLeadId(enriched, 0))
+  enriched = attachSourceFusion(enriched)
+  replaceHostedLeadInLatestRun(state, lead, enriched)
+  return { leadPack: enriched, companyProfile, mode: 'selected_lead_enrichment', hosted: true }
+}
+
+async function hostedSelectedCompanyProfile(lead = {}) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  try {
+    return await enrichCompanyProfile({
+      companyName: company.displayName || lead.companyName || company.legalName || company.candidateLegalName,
+      website: selectedHostedWebsiteUrl(lead),
+      phone: contact.phone || lead.phone,
+      email: contact.email || lead.email,
+      address: contact.address || lead.address,
+      city: contact.city || lead.city,
+      industry: lead.leadClass || lead.opportunityType,
+    }, { timeoutMs: 7000, retries: 1, cache: false })
+  } catch (error) {
+    return hostedBrregErrorProfile(error)
+  }
+}
+
+function mergeHostedCompanyProfile(lead = {}, profile) {
+  const copy = JSON.parse(JSON.stringify(lead || {}))
+  if (!profile) return copy
+  const current = copy.company || {}
+  if (String(profile.matchStatus || '').toLowerCase() === 'error' && (current.organizationNumber || current.candidateOrganizationNumber)) return copy
+  const confirmed = profile.organizationNumber && ['exact_match', 'strong_match'].includes(String(profile.matchStatus || '').toLowerCase())
+  copy.company = {
+    ...current,
+    legalName: profile.legalName || current.legalName || null,
+    candidateLegalName: profile.candidateLegalName || current.candidateLegalName || profile.legalName || null,
+    organizationNumber: confirmed ? profile.organizationNumber : (current.organizationNumber || null),
+    candidateOrganizationNumber: profile.candidateOrganizationNumber || current.candidateOrganizationNumber || (!confirmed ? profile.organizationNumber : null),
+    organizationForm: profile.organizationForm || current.organizationForm || null,
+    registeredAddress: profile.registeredAddress || current.registeredAddress || null,
+    municipality: profile.municipality || current.municipality || null,
+    unitType: profile.unitType || current.unitType || null,
+    naceCode: profile.naceCode || current.naceCode || null,
+    naceDescription: profile.naceDescription || current.naceDescription || null,
+    employees: profile.employees ?? current.employees ?? null,
+    registrationDate: profile.registrationDate || current.registrationDate || null,
+    activeStatus: profile.activeStatus || current.activeStatus || null,
+    source: profile.source || current.source || 'brreg',
+    sourceUrl: profile.sourceUrl || current.sourceUrl || null,
+    errorType: profile.errorType || current.errorType || null,
+    matchStatus: profile.matchStatus || current.matchStatus || null,
+    matchConfidence: profile.matchConfidence ?? current.matchConfidence ?? null,
+    matchReasons: Array.isArray(profile.matchReasons) ? profile.matchReasons : (current.matchReasons || []),
+    warnings: Array.from(new Set([...(current.warnings || []), ...(profile.warnings || [])].filter(Boolean))),
+    candidates: Array.isArray(profile.candidates) && profile.candidates.length ? profile.candidates : (current.candidates || []),
+  }
+  return copy
+}
+
+function hostedEnrichmentModules(lead = {}) {
+  const company = lead.company || {}
+  const contactability = hostedContactability(lead)
+  const websiteStatus = selectedHostedWebsiteUrl(lead) ? (lead.website?.auditStatus || 'skipped_hosted_beta') : 'skipped_no_website'
+  const economyStatus = lead.economy?.status || 'not_enabled'
+  return [
+    { id: 'company_identity', name: 'Brreg verification', status: hostedBrregStatus(company), summary: hostedBrregSummary(company) },
+    { id: 'contactability', name: 'Contactability refresh', status: contactability, summary: contactability === 'strong' ? 'Direct phone is available for seller qualification.' : 'Direct phone is missing or indirect.' },
+    { id: 'digital_presence', name: 'Digital presence check', status: websiteStatus, summary: 'Hosted beta records website presence but does not run browser audit.' },
+    { id: 'seller_summary', name: 'Seller fit summary', status: 'completed', summary: 'Seller fit refreshed after selected-lead Brreg retry.' },
+    { id: 'economy_proff', name: 'Economy / Proff', status: economyStatus, summary: 'Proff is not enabled for hosted beta.' },
+  ]
+}
+
+function hostedBrregStatus(company = {}) {
+  if (company.organizationNumber) return 'completed'
+  if (company.candidateOrganizationNumber || ['manual_verify', 'weak_match'].includes(String(company.matchStatus || '').toLowerCase())) return 'manual_verify'
+  return company.matchStatus || 'not_run'
+}
+
+function hostedBrregSummary(company = {}) {
+  if (company.organizationNumber) return 'Confirmed org.nr ' + company.organizationNumber + '.'
+  if (company.candidateOrganizationNumber) return 'Candidate org.nr ' + company.candidateOrganizationNumber + '; verify before export.'
+  if (company.matchStatus === 'error') return 'Brreg retry failed in hosted beta; keep this as a contactable lead if phone is valid.'
+  if (company.matchStatus === 'no_match') return 'Brreg returned no confident company match.'
+  return 'Brreg identity is not confirmed yet.'
+}
+
+function hostedContactability(lead = {}) {
+  const contact = lead.contact || {}
+  if (contact.phone || lead.phone) return 'strong'
+  if (contact.email || lead.email || selectedHostedWebsiteUrl(lead)) return 'medium'
+  return 'weak'
+}
+
+function selectedHostedWebsiteUrl(lead = {}) {
+  const contactWebsite = lead.contact && typeof lead.contact.website === 'string' ? lead.contact.website.trim() : ''
+  if (contactWebsite) return contactWebsite
+  if (typeof lead.website === 'string') return lead.website.trim()
+  if (lead.website && typeof lead.website === 'object') return String(lead.website.url || lead.website.href || lead.website.website || lead.website.uri || '').trim()
+  return ''
+}
+
+function hostedBrregErrorProfile(error) {
+  return { source: 'brreg', matchStatus: 'error', matchConfidence: 0, errorType: 'unknown_error', warnings: [error && error.message ? error.message : 'company_profile_error'], candidates: [] }
+}
+
+function replaceHostedLeadInLatestRun(state, targetLead, replacement) {
+  if (!state.latestRun || !Array.isArray(state.latestRun.leadPacks)) return
+  let replaced = false
+  state.latestRun.leadPacks = state.latestRun.leadPacks.map((lead, index) => {
+    if (!replaced && hostedLeadMatches(lead, targetLead, index)) {
+      replaced = true
+      return replacement
+    }
+    return lead
+  })
+  if (!replaced) state.latestRun.leadPacks.unshift(replacement)
+  state.latestRun = attachHostedStateToRun(state.latestRun, state)
+}
+
+function findHostedLeadId(run, targetLead) {
+  const explicit = targetLead?.workflow?.leadId
+  if (explicit) return explicit
+  const leads = run && Array.isArray(run.leadPacks) ? run.leadPacks : []
+  const match = leads.find((lead, index) => hostedLeadMatches(lead, targetLead, index))
+  if (!match) return ''
+  const index = leads.indexOf(match)
+  return match.workflow?.leadId || hostedLeadId(match, index)
+}
+
+function hostedLeadMatches(lead = {}, targetLead = {}, index = 0) {
+  const leadId = lead.workflow?.leadId || hostedLeadId(lead, index)
+  const targetId = targetLead.workflow?.leadId
+  if (targetId && leadId === targetId) return true
+  const leadOrg = lead.company?.organizationNumber || lead.company?.candidateOrganizationNumber
+  const targetOrg = targetLead.company?.organizationNumber || targetLead.company?.candidateOrganizationNumber
+  if (leadOrg && targetOrg && String(leadOrg) === String(targetOrg)) return true
+  const leadPlace = lead.places?.placeId
+  const targetPlace = targetLead.places?.placeId
+  if (leadPlace && targetPlace && leadPlace === targetPlace) return true
+  const leadName = String(lead.company?.displayName || lead.companyName || '').toLowerCase()
+  const targetName = String(targetLead.company?.displayName || targetLead.companyName || '').toLowerCase()
+  const leadPhone = digitsOnly(lead.contact?.phone || lead.phone)
+  const targetPhone = digitsOnly(targetLead.contact?.phone || targetLead.phone)
+  return Boolean(leadName && targetName && leadName === targetName && (!leadPhone || !targetPhone || leadPhone === targetPhone))
+}
+
+function digitsOnly(value) { return String(value || '').replace(/\D/g, '') }
 
 function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b') {
   const normalizedSellerIntent = normalizeSellerIntent(sellerIntent)
