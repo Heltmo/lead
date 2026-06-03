@@ -97,16 +97,26 @@ function inferLeadQueue(lead = {}, workflow = {}, options = {}) {
   const company = lead.company || {}
   const contact = lead.contact || {}
   const sourceQuality = lead.sourceQuality || {}
+  const sourceFusion = lead.sourceFusion || {}
   const action = String(sellerFit.recommendedAction || '').toLowerCase()
   const fit = String(sellerFit.sellerFit || '').toLowerCase()
   const hasPhone = Boolean(contact.phone || lead.phone)
-  const brregRisk = !company.organizationNumber || company.candidateOrganizationNumber || ['manual_verify', 'weak_match', 'no_match', 'brreg_unavailable', 'not_run', 'error'].includes(String(company.matchStatus || '').toLowerCase())
-  const locationRisk = ['regional_fallback', 'unknown', ''].includes(String(sourceQuality.locationMatchStatus || '').toLowerCase())
+  const matchStatus = String(company.matchStatus || '').toLowerCase()
+  const locationStatus = String(sourceQuality.locationMatchStatus || '').toLowerCase()
+  const trustAction = String(sourceFusion.recommendedTrustAction || '').toLowerCase()
+  const identityConfidence = String(sourceFusion.identityConfidence || '').toLowerCase()
+  const contactConfidence = String(sourceFusion.contactConfidence || '').toLowerCase()
+  const locationConfidence = String(sourceFusion.locationConfidence || '').toLowerCase()
+  const hasSevereIdentityRisk = ['no_match', 'error'].includes(matchStatus) || identityConfidence === 'unknown' && !company.candidateOrganizationNumber && !company.organizationNumber
+  const hasSevereLocationRisk = ['out_of_area', 'conflict', 'location_conflict'].includes(locationStatus) || locationConfidence === 'conflict'
+  const hasSevereContactRisk = !hasPhone || contactConfidence === 'weak'
+  const hasSevereTrustRisk = trustAction === 'skip' || trustAction === 'verify_first' && (hasSevereLocationRisk || hasSevereContactRisk || hasSevereIdentityRisk)
 
   if (action === 'contact' && hasPhone && ['strong', 'good'].includes(fit)) return 'call_now'
-  if (action === 'contact' && hasPhone && !brregRisk) return 'call_now'
-  if (action === 'skip') return 'archived'
-  if (action === 'verify' || action === 'review' || brregRisk || locationRisk || !hasPhone) return 'verify_first'
+  if (action === 'contact' && hasPhone) return 'call_now'
+  if (action === 'skip' || trustAction === 'skip') return 'archived'
+  if (hasSevereTrustRisk) return 'verify_first'
+  if (hasPhone && ['review', 'verify', ''].includes(action)) return 'call_now'
   if (hasPhone) return 'call_now'
   return 'verify_first'
 }

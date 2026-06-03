@@ -9,9 +9,11 @@ const { evaluateSourceFusion } = require('../../../core/source-fusion/sourceFusi
 
 async function main() {
   const strongLead = { sellerFit: { sellerFit: 'strong', recommendedAction: 'contact' }, contact: { phone: '12345678' }, company: { organizationNumber: '999888777' }, sourceQuality: { locationMatchStatus: 'exact_location' } }
-  const verifyLead = { sellerFit: { sellerFit: 'review', recommendedAction: 'verify' }, contact: { phone: '12345678' }, company: { candidateOrganizationNumber: '999111222', matchStatus: 'manual_verify' }, sourceQuality: { locationMatchStatus: 'regional_fallback' } }
+  const phoneReadyReviewLead = { sellerFit: { sellerFit: 'review', recommendedAction: 'verify' }, contact: { phone: '12345678' }, company: { candidateOrganizationNumber: '999111222', matchStatus: 'manual_verify' }, sourceQuality: { locationMatchStatus: 'regional_fallback' } }
+  const verifyLead = { sellerFit: { sellerFit: 'review', recommendedAction: 'verify' }, contact: {}, company: { candidateOrganizationNumber: '999111222', matchStatus: 'manual_verify' }, sourceQuality: { locationMatchStatus: 'regional_fallback' } }
   assert(workflowForLead(strongLead, {}, 'strong::1').queue === 'call_now', 'strong/good contact-ready lead should enter call_now')
-  assert(workflowForLead(verifyLead, {}, 'verify::1').queue === 'verify_first', 'verify lead should enter verify_first')
+  assert(workflowForLead(phoneReadyReviewLead, {}, 'review-phone::1').queue === 'call_now', 'phone-ready review leads should stay callable while showing verification caution')
+  assert(workflowForLead(verifyLead, {}, 'verify::1').queue === 'verify_first', 'missing-contact verify lead should enter verify_first')
   assert(normalizeWorkflow({ response: 'no_answer' }, { today: '2026-06-02', now: '2026-06-02T09:00:00.000Z' }).queue === 'no_answer', 'no_answer without due date should move to no_answer and get a later follow-up')
   assert(normalizeWorkflow({ response: 'no_answer', followUpDate: '2026-06-02' }, { today: '2026-06-02' }).queue === 'follow_up_today', 'no_answer with follow-up today should appear in follow_up_today')
   assert(normalizeWorkflow({ response: 'interested' }).queue === 'interested', 'interested outcome should move to interested')
@@ -22,7 +24,7 @@ async function main() {
   const fusedStrongLead = evaluateSourceFusion(strongLead)
   assert(['strong', 'good'].includes(fusedStrongLead.leadConfidence), 'source fusion should trust confirmed phone-ready leads')
   assert(fusedStrongLead.recommendedTrustAction === 'call', 'source fusion should recommend call for trusted contactable leads')
-  const fusedVerifyLead = evaluateSourceFusion(verifyLead)
+  const fusedVerifyLead = evaluateSourceFusion(phoneReadyReviewLead)
   assert(fusedVerifyLead.identityConfidence === 'manual_verify', 'source fusion should mark candidate org.nr as manual verify')
   assert(fusedVerifyLead.recommendedTrustAction === 'verify_first', 'source fusion should recommend verify_first for candidate/fallback leads')
 

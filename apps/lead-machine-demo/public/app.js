@@ -157,6 +157,7 @@ async function loadLatestRun() {
     if (payload.summary?.sellerIntent && els.sellerIntent) els.sellerIntent.value = payload.summary.sellerIntent
     if (payload.summary?.searchScope && els.searchScope) els.searchScope.value = payload.summary.searchScope
     if (payload.summary?.marketSweep && els.leadSort) els.leadSort.value = 'city'
+    selectBestQueueForResult(payload)
     clearStatus()
     renderAll()
   } catch (error) {
@@ -199,6 +200,7 @@ async function runSearch() {
     if (!response.ok) throw new Error(payload.error || 'Run failed')
     state.result = payload
     if (payload.summary?.marketSweep && els.leadSort) els.leadSort.value = 'city'
+    selectBestQueueForResult(payload)
     clearStatus()
     renderAll()
   } catch (error) {
@@ -206,6 +208,17 @@ async function runSearch() {
   } finally {
     els.runButton.disabled = false
   }
+}
+
+function selectBestQueueForResult(result) {
+  const leads = result?.leadPacks || []
+  if (!leads.length) {
+    state.selectedQueue = 'call_now'
+    return
+  }
+  const counts = workQueueCounts(leads)
+  const preferredQueues = ['call_now', 'follow_up_today', 'interested', 'no_answer', 'verify_first', 'not_relevant', 'archived']
+  state.selectedQueue = preferredQueues.find((queue) => counts[queue] > 0) || 'call_now'
 }
 
 function renderAll() {
@@ -523,15 +536,25 @@ function leadWorkQueue(lead) {
   if (explicit === 'call_now' || explicit === 'verify_first') return explicit
   const company = lead.company || {}
   const sourceQuality = lead.sourceQuality || {}
+  const fusion = sourceFusionForLead(lead)
   const hasPhone = Boolean(lead.contact?.phone || lead.phone)
   const sellerAction = sellerRecommendedAction(lead)
   const fit = String(lead.sellerFit?.sellerFit || '').toLowerCase()
-  const brregRisk = !company.organizationNumber || company.candidateOrganizationNumber || ['candidate_org', 'no_match', 'brreg_unavailable', 'not_run', 'manual_verify', 'weak_match'].includes(brregStatusLabel(company))
-  const locationRisk = ['regional_fallback', 'unknown', ''].includes(String(sourceQuality.locationMatchStatus || '').toLowerCase())
+  const matchStatus = String(company.matchStatus || '').toLowerCase()
+  const locationStatus = String(sourceQuality.locationMatchStatus || '').toLowerCase()
+  const trustAction = String(fusion.recommendedTrustAction || '').toLowerCase()
+  const identityConfidence = String(fusion.identityConfidence || '').toLowerCase()
+  const contactConfidence = String(fusion.contactConfidence || '').toLowerCase()
+  const locationConfidence = String(fusion.locationConfidence || '').toLowerCase()
+  const severeIdentityRisk = ['no_match', 'error'].includes(matchStatus) || identityConfidence === 'unknown' && !company.candidateOrganizationNumber && !company.organizationNumber
+  const severeLocationRisk = ['out_of_area', 'conflict', 'location_conflict'].includes(locationStatus) || locationConfidence === 'conflict'
+  const severeContactRisk = !hasPhone || contactConfidence === 'weak'
+  const severeTrustRisk = trustAction === 'skip' || trustAction === 'verify_first' && (severeLocationRisk || severeContactRisk || severeIdentityRisk)
   if (sellerAction === 'contact' && hasPhone && ['strong', 'good'].includes(fit)) return 'call_now'
-  if (sellerAction === 'contact' && hasPhone && !brregRisk) return 'call_now'
-  if (sellerAction === 'skip') return 'archived'
-  if (sellerAction === 'verify' || sellerAction === 'review' || brregRisk || locationRisk || !hasPhone) return 'verify_first'
+  if (sellerAction === 'contact' && hasPhone) return 'call_now'
+  if (sellerAction === 'skip' || trustAction === 'skip') return 'archived'
+  if (severeTrustRisk) return 'verify_first'
+  if (hasPhone && ['review', 'verify', ''].includes(sellerAction)) return 'call_now'
   return hasPhone ? 'call_now' : 'verify_first'
 }
 
@@ -690,15 +713,25 @@ function sellerRecommendedAction(lead) {
 function callReadiness(lead) {
   const workflow = lead.workflow || {}
   const company = lead.company || {}
+  const sourceQuality = lead.sourceQuality || {}
+  const fusion = sourceFusionForLead(lead)
   const hasPhone = Boolean(lead.contact?.phone || lead.phone)
   const sellerAction = sellerRecommendedAction(lead)
-  const brreg = brregStatusLabel(company)
+  const trustAction = String(fusion.recommendedTrustAction || '').toLowerCase()
+  const identityConfidence = String(fusion.identityConfidence || '').toLowerCase()
+  const contactConfidence = String(fusion.contactConfidence || '').toLowerCase()
+  const locationConfidence = String(fusion.locationConfidence || '').toLowerCase()
+  const matchStatus = String(company.matchStatus || '').toLowerCase()
+  const locationStatus = String(sourceQuality.locationMatchStatus || '').toLowerCase()
+  const severeIdentityRisk = ['no_match', 'error'].includes(matchStatus) || identityConfidence === 'unknown' && !company.candidateOrganizationNumber && !company.organizationNumber
+  const severeLocationRisk = ['out_of_area', 'conflict', 'location_conflict'].includes(locationStatus) || locationConfidence === 'conflict'
   if (workflow.status === 'rejected') return { key: 'skip', label: 'Skip', note: 'Rejected or not relevant.', rank: -2000 }
   if (isFollowUpDue(lead)) return { key: 'follow_up_due', label: 'Follow-up due', note: workflow.followUpDate ? 'Due ' + workflow.followUpDate : 'Follow-up is due.', rank: 1800 }
   if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return { key: 'follow_up_due', label: 'Follow-up', note: 'Interested lead needs follow-up.', rank: 1500 }
   if (!hasPhone) return { key: 'needs_contact', label: 'Needs contact', note: 'No direct phone yet.', rank: -300 }
-  if (sellerAction === 'skip') return { key: 'skip', label: 'Skip', note: 'Seller-fit engine says deprioritize.', rank: -1200 }
-  if (sellerAction === 'verify' || ['candidate_org', 'no_match', 'brreg_unavailable', 'not_run', 'manual_verify', 'weak_match'].includes(brreg)) return { key: 'verify_first', label: 'Verify first', note: 'Check identity/source before using.', rank: 550 }
+  if (sellerAction === 'skip' || trustAction === 'skip') return { key: 'skip', label: 'Skip', note: 'Seller-fit engine says deprioritize.', rank: -1200 }
+  if (severeLocationRisk || severeIdentityRisk && contactConfidence === 'weak') return { key: 'verify_first', label: 'Verify first', note: 'Resolve source conflict before calling.', rank: 550 }
+  if (sellerAction === 'verify' || trustAction === 'verify_first' || trustAction === 'review' || identityConfidence === 'manual_verify' || locationConfidence === 'fallback') return { key: 'ready_to_call', label: 'Ready to call', note: 'Phone-ready; verify details while calling.', rank: 1050 }
   if (sellerAction === 'contact' || !workflow.contacted) return { key: 'ready_to_call', label: 'Ready to call', note: 'Phone-ready and not contacted.', rank: 1200 }
   return { key: 'later', label: 'Later', note: 'Review when current queue is clear.', rank: 50 }
 }

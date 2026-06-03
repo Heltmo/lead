@@ -342,7 +342,11 @@ function attachHostedStateToRun(run, state) {
   copy.leadPacks = (copy.leadPacks || []).map((lead, index) => {
     const next = { ...lead }
     const id = next.workflow && next.workflow.leadId || hostedLeadId(next, index)
-    next.workflow = buildWorkflowForLead(next, { ...(next.workflow || {}), ...(state.workflow.leads[id] || {}) }, id)
+    const savedWorkflow = state.workflow.leads[id] || {}
+    const existingWorkflow = next.workflow && (next.workflow.updatedAt || Array.isArray(next.workflow.activities) && next.workflow.activities.length || Array.isArray(next.workflow.activityLog) && next.workflow.activityLog.length)
+      ? next.workflow
+      : {}
+    next.workflow = buildWorkflowForLead(next, { ...existingWorkflow, ...savedWorkflow }, id)
     return attachSourceFusion(next)
   })
   if (copy.readiness && copy.readiness.workspace) {
