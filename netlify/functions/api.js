@@ -7,6 +7,9 @@ const STATE_PATH = path.join(TMP_ROOT, 'hosted-state.json')
 const BUNDLED_RUNS_DIR = path.join(__dirname, '..', '..', 'apps', 'lead-machine-demo', 'runs')
 const STORE_NAME = 'lead-machine-beta'
 const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowActivity, workflowForLead: buildWorkflowForLead, leadMatchesQueue, normalizeQueue } = require('../../apps/lead-machine-demo/workQueues')
+const { parseLeadQuery } = require('../../apps/lead-machine-demo/queryParser')
+const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
+const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-fit/sellerFit')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 
 exports.handler = async function handler(event) {
@@ -43,7 +46,7 @@ exports.handler = async function handler(event) {
     if (event.httpMethod === 'POST' && apiPath === '/api/runs') {
       const result = await hostedRunFromEvent(event, state)
       await writeHostedState(state)
-      return result.error ? jsonResponse(404, result) : jsonResponse(200, result)
+      return result.error ? jsonResponse(result.statusCode || 400, result) : jsonResponse(200, result)
     }
 
     return jsonResponse(404, { error: 'Hosted beta endpoint not found' })
@@ -169,14 +172,82 @@ function hostedReadiness(leadPacks = [], savedSearches = []) {
 
 async function hostedRunFromEvent(event, state) {
   const body = parseJsonBody(event)
+  const rawQuery = limitText(body.query || '', 180).trim()
+  if (!rawQuery) return { error: 'Query is required', statusCode: 400 }
+  const parsedQuery = parseLeadQuery(rawQuery)
+  if (!parsedQuery.ok) return { error: parsedQuery.error || 'Query is invalid', statusCode: 400 }
+
+  if (process.env.GOOGLE_PLACES_API_KEY) {
+    try {
+      const payload = await hostedLiveRun({ body, parsedQuery, state })
+      state.latestRun = payload
+      return payload
+    } catch (error) {
+      return { error: friendlyHostedError(error), statusCode: 500 }
+    }
+  }
+
   const latest = await bundledLatestRun()
-  if (!latest) return { error: 'No bundled lead run found for hosted beta.' }
-  const query = limitText(body.query || latest.parsedQuery && latest.parsedQuery.normalizedQuery || 'hosted beta', 180)
-  const payload = attachHostedStateToRun({ ...latest, parsedQuery: { ok: true, rawQuery: query, normalizedQuery: query }, summary: { ...(latest.summary || {}), query } }, state)
-  const saved = savedSearchFromRun({ runId: payload.runId, query, leadPacks: payload.leadPacks || [], summary: payload.summary || {} })
+  if (!latest) return { error: 'GOOGLE_PLACES_API_KEY is required for hosted beta searches. Add it in Netlify Environment variables, then redeploy.', statusCode: 400 }
+  const payload = attachHostedStateToRun({ ...latest, parsedQuery, summary: { ...(latest.summary || {}), query: parsedQuery.normalizedQuery } }, state)
+  const saved = savedSearchFromRun({ runId: payload.runId, query: parsedQuery.normalizedQuery, leadPacks: payload.leadPacks || [], summary: payload.summary || {} })
   state.savedSearches = sortSavedSearches([saved, ...(state.savedSearches || []).filter((item) => savedSearchKey(item) !== saved.key)]).slice(0, 30)
   state.latestRun = { ...payload, savedSearches: state.savedSearches }
   return state.latestRun
+}
+
+async function hostedLiveRun({ body, parsedQuery, state }) {
+  const sellerIntent = normalizeSellerIntent(body.sellerIntent)
+  const searchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'regional'
+  const maxResults = normalizeHostedMaxResults(body.maxResults, 25)
+  const runId = createHostedRunId(parsedQuery.normalizedQuery)
+  const outputDir = path.join(TMP_ROOT, 'runs', runId)
+  const result = await runLeadMachine({
+    query: parsedQuery.normalizedQuery,
+    provider: 'balanced',
+    maxResults,
+    searchScope,
+    enrichCompanyProfile: true,
+    mode: 'fast',
+    outputDir,
+    runId,
+    validate: false,
+  })
+  const leadPackOutputPath = result.leadPackOutputPath || path.join(outputDir, 'lead-packs')
+  const leadPacks = attachHostedStateToLeads(attachSellerFitToLeads(readJsonFile(path.join(leadPackOutputPath, 'lead-packs.json'), []), sellerIntent), state)
+  const summary = { ...(result.summary || {}), query: parsedQuery.normalizedQuery, sellerIntent, provider: 'hosted-live-balanced', mode: 'fast', maxResults, searchScope, includedLeadCount: leadPacks.length, totalLeads: leadPacks.length }
+  const saved = savedSearchFromRun({ runId, query: parsedQuery.normalizedQuery, leadPacks, summary })
+  state.savedSearches = sortSavedSearches([saved, ...(state.savedSearches || []).filter((item) => savedSearchKey(item) !== saved.key)]).slice(0, 30)
+  return {
+    runId,
+    parsedQuery,
+    outputDir,
+    leadPackOutputPath,
+    downloads: downloadsForRun(runId),
+    summary,
+    readiness: hostedReadiness(leadPacks, state.savedSearches),
+    savedSearches: state.savedSearches,
+    leadPacks,
+  }
+}
+
+function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b') {
+  const normalizedSellerIntent = normalizeSellerIntent(sellerIntent)
+  return (Array.isArray(leadPacks) ? leadPacks : []).map((lead) => {
+    const copy = JSON.parse(JSON.stringify(lead || {}))
+    copy.sellerFit = evaluateSellerFit(copy, normalizedSellerIntent)
+    copy.meta = { ...(copy.meta || {}), sellerIntent: normalizedSellerIntent }
+    return copy
+  })
+}
+
+function attachHostedStateToLeads(leadPacks, state) {
+  return (Array.isArray(leadPacks) ? leadPacks : []).map((lead, index) => {
+    const next = { ...lead }
+    const id = hostedLeadId(next, index)
+    next.workflow = buildWorkflowForLead(next, { ...(next.workflow || {}), ...(state.workflow.leads[id] || {}) }, id)
+    return attachSourceFusion(next)
+  })
 }
 
 async function readHostedState() {
@@ -366,6 +437,23 @@ function hostedHealth(state) {
 function parseJsonBody(event) {
   const body = event.body ? Buffer.from(event.body, event.isBase64Encoded ? 'base64' : 'utf8').toString('utf8') : '{}'
   return parseJson(body, {}) || {}
+}
+
+function createHostedRunId(query) {
+  const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)
+  const slug = String(query || 'lead-machine').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'lead-machine'
+  return slug + '-' + stamp
+}
+
+function normalizeHostedMaxResults(value, fallback) {
+  const number = Number(value)
+  return Number.isFinite(number) && number > 0 && number <= 25 ? Math.floor(number) : fallback
+}
+
+function friendlyHostedError(error) {
+  const message = error && error.message ? String(error.message) : 'Hosted beta search failed'
+  if (message.includes('GOOGLE_PLACES_API_KEY')) return 'Google Places API key is missing or unavailable in Netlify. Check GOOGLE_PLACES_API_KEY and redeploy.'
+  return message
 }
 
 function hostedLeadId(lead, index) {

@@ -8,7 +8,7 @@ This is the hosted path for two invited colleagues to try the Lead Machine selle
 - `/api/*` routes go through `netlify/functions/api.js`.
 - `Call now` uses normal `tel:` links on the tester device. The app does not place calls itself.
 - Notes, follow-ups, saved-search labels, and beta workspace export persist through Netlify Blobs when deployed on Netlify.
-- Hosted beta uses the bundled/latest lead run for calling and note testing. It does not run old browser-audit tooling or selected-lead enrichment on Netlify yet.
+- Hosted beta runs live capped Google/Brreg searches from the Netlify Function when `GOOGLE_PLACES_API_KEY` is set. It stores the latest run in the shared beta workspace for calling, notes, follow-ups and export. It does not run old browser-audit tooling or selected-lead enrichment on Netlify yet.
 - If Netlify Blobs is not available in local function tests, the function falls back to `/tmp` JSON.
 
 ## Required Netlify Environment Variables

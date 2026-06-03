@@ -41,10 +41,14 @@ for (const required of [
   'lead-machine-hosted-seller-desk',
   'netlify/functions/api.js',
   'google_places_api_key',
+  'runleadmachine',
+  'hostedliverun',
+  'hosted-live-balanced',
+  'google_places_api_key is required for hosted beta searches',
 ]) {
   if (!lower.includes(required.toLowerCase())) throw new Error("Netlify hosted beta requirement missing: " + required)
 }
-for (const banned of ["ready-to-send", "auto-email", "send email", "call opener"]) {
+for (const banned of ["ready-to-send", "auto-email", "send email", "call opener", "no bundled lead run found"]) {
   if (lower.includes(banned)) throw new Error("Banned hosted beta behavior found: " + banned)
 }
 CHECK
