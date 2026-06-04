@@ -32,7 +32,7 @@ const WORK_QUEUES = [
 ]
 const WORK_QUEUE_IDS = new Set(WORK_QUEUES.map((queue) => queue.id))
 
-const state = { result: null, selectedIndex: 0, selectedLeadId: null, selectedQueue: 'call_now' }
+const state = { result: null, selectedIndex: 0, selectedLeadId: null, selectedQueue: 'call_now', cityFilter: '' }
 
 initBetaAccess()
 
@@ -111,10 +111,12 @@ els.runMode.addEventListener('change', () => renderSummary(state.result))
 els.leadSort.addEventListener('change', () => { state.selectedLeadId = null; renderAll() })
 els.queuePresets.forEach((button) => button.addEventListener('click', () => applyQueuePreset(button.dataset.queuePreset)))
 els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { state.selectedLeadId = null; renderAll() }))
-els.clearLeadFilters.addEventListener('click', () => { els.leadFilters.forEach((filter) => { filter.checked = false }); state.selectedLeadId = null; renderAll() })
+els.clearLeadFilters.addEventListener('click', () => { els.leadFilters.forEach((filter) => { filter.checked = false }); state.cityFilter = ''; state.selectedLeadId = null; renderAll() })
 document.addEventListener('click', (event) => {
   const workQueueButton = event.target.closest('[data-work-queue]')
   if (workQueueButton) { state.selectedQueue = normalizeWorkQueue(workQueueButton.dataset.workQueue) || 'call_now'; state.selectedLeadId = null; renderAll(); return }
+  const cityFilterButton = event.target.closest('[data-city-filter]')
+  if (cityFilterButton) { state.cityFilter = cityFilterButton.dataset.cityFilter || ''; state.selectedLeadId = null; renderAll(); return }
   const workspaceExport = event.target.closest('[data-workspace-export]')
   if (workspaceExport) { exportWorkspaceSnapshot(); return }
   const pinSearch = event.target.closest('[data-saved-search-pin]')
@@ -211,6 +213,7 @@ async function runSearch() {
 }
 
 function selectBestQueueForResult(result) {
+  state.cityFilter = ''
   const leads = result?.leadPacks || []
   if (!leads.length) {
     state.selectedQueue = 'call_now'
@@ -471,8 +474,11 @@ function marketSweepPanel(result) {
   const cityEntries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right, 'nb'))
   const searchedCities = Array.isArray(summary.marketSweepCities) ? summary.marketSweepCities.length : 0
   const citiesWithLeads = cityEntries.length
+  const activeCity = String(state.cityFilter || '')
+  const totalCityLeads = cityEntries.reduce((sum, [, count]) => sum + Number(count || 0), 0)
+  const allChip = '<button type="button" class="city-chip ' + (!activeCity ? 'active' : '') + '" data-city-filter=""><strong>Alle byer</strong> ' + escapeHtml(String(totalCityLeads)) + '</button>'
   const chips = cityEntries.length
-    ? cityEntries.map(([city, count]) => '<span class="city-chip"><strong>' + escapeHtml(city) + '</strong> ' + escapeHtml(String(count)) + '</span>').join('')
+    ? allChip + cityEntries.map(([city, count]) => '<button type="button" class="city-chip ' + (normalizeCityName(city) === normalizeCityName(activeCity) ? 'active' : '') + '" data-city-filter="' + escapeAttr(city) + '"><strong>' + escapeHtml(city) + '</strong> ' + escapeHtml(String(count)) + '</button>').join('')
     : '<span class="muted">Ingen bygrupper ennå.</span>'
   return '<section class="market-sweep-panel"><div><p class="eyebrow">Norge-sweep</p><h2>Leads gruppert etter by</h2><small>' + escapeHtml(String(searchedCities) + ' bysøk · ' + String(citiesWithLeads) + ' byer med treff · maks ' + String(summary.maxResults || 60) + ' leads') + '</small></div><div class="city-chip-row">' + chips + '</div></section>'
 }
@@ -584,6 +590,7 @@ function getVisibleLeads(leads) {
   const activeFilters = new Set(els.leadFilters.filter((filter) => filter.checked).map((filter) => filter.value))
   const wrapped = leads.map((lead, index) => ({ lead, index, id: leadId(lead, index) }))
     .filter(({ lead }) => leadMatchesWorkQueue(lead, state.selectedQueue))
+    .filter(({ lead }) => matchesCityFilter(lead))
     .filter(({ lead }) => matchesLeadFilters(lead, activeFilters))
   return wrapped.sort((a, b) => compareLeads(a.lead, b.lead, els.leadSort.value))
 }
@@ -605,6 +612,13 @@ function matchesLeadFilters(lead, filters) {
   if (filters.has('contacted') && !(workflow.contacted || ['contacted', 'follow_up', 'interested'].includes(workflow.status))) return false
   if (filters.has('followUpDue') && !isFollowUpDue(lead)) return false
   if (filters.has('interested') && workflow.status !== 'interested' && workflow.response !== 'interested' && workflow.response !== 'meeting_booked') return false
+  if (filters.has('strongEnough')) {
+    const fusion = sourceFusionForLead(lead)
+    const fit = String(lead.sellerFit?.sellerFit || '').toLowerCase()
+    const confidence = String(fusion.leadConfidence || '').toLowerCase()
+    const trustAction = String(fusion.recommendedTrustAction || '').toLowerCase()
+    if (fit === 'weak' || confidence === 'weak' || trustAction === 'skip') return false
+  }
   return true
 }
 
@@ -625,6 +639,15 @@ function compareLeadsByCity(a, b) {
 
 function leadCity(lead = {}) {
   return String(lead.contact?.city || lead.city || lead.sourceQuality?.marketSweepCity || 'unknown')
+}
+
+function normalizeCityName(value) {
+  return String(value || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim()
+}
+
+function matchesCityFilter(lead) {
+  if (!state.cityFilter) return true
+  return normalizeCityName(leadCity(lead)) === normalizeCityName(state.cityFilter)
 }
 
 function leadSortScore(lead, sortKey) {
@@ -863,6 +886,7 @@ function leadQueueActionLabel(lead) {
 function updateFilterSummary(visible, total) {
   if (!els.leadFilterSummary) return
   const active = els.leadFilters.filter((filter) => filter.checked).map((filter) => filter.parentElement.textContent.trim())
+  if (state.cityFilter) active.unshift('By: ' + state.cityFilter)
   const prefix = total ? `${visible}/${total} leads shown` : 'No leads yet'
   els.leadFilterSummary.textContent = active.length ? `${prefix} · ${active.join(', ')}` : `${prefix} · no filters applied`
 }
@@ -1172,6 +1196,7 @@ async function saveWorkflow(event) {
       archivedAt: form.get('archivedAt'),
       notes: form.get('notes'),
     }
+    applyWorkflowDefaults(workflow)
     setStatus('saving note...', 'running')
     const response = await apiFetch('/api/workflow', {
       method: 'POST',
@@ -1200,6 +1225,35 @@ async function saveWorkflow(event) {
       saveButton.textContent = originalButtonText || 'Save note'
     }
   }
+}
+
+function applyWorkflowDefaults(workflow) {
+  const response = String(workflow.response || '').toLowerCase()
+  const status = String(workflow.status || '').toLowerCase()
+  const now = new Date().toISOString()
+  const needsNoAnswerFollowUp = response === 'no_answer' || response === 'no_response' || status === 'follow_up'
+  const needsInterestedFollowUp = response === 'interested' || response === 'meeting_booked' || status === 'interested'
+  if ((needsNoAnswerFollowUp || needsInterestedFollowUp) && !workflow.followUpDate) {
+    workflow.followUpDate = isoDateOffset(1)
+  }
+  if (needsNoAnswerFollowUp) {
+    workflow.status = 'follow_up'
+    workflow.queue = 'no_answer'
+    workflow.contacted = true
+    workflow.channel = workflow.channel || 'phone'
+    workflow.lastContactedAt = workflow.lastContactedAt || now
+  }
+  if (needsInterestedFollowUp) {
+    workflow.status = 'interested'
+    workflow.queue = 'interested'
+    workflow.contacted = true
+    workflow.channel = workflow.channel || 'phone'
+    workflow.lastContactedAt = workflow.lastContactedAt || now
+  }
+  if (workflow.followUpDate) workflow.nextFollowUpAt = workflow.followUpDate
+  if (needsNoAnswerFollowUp && (!workflow.nextAction || workflow.nextAction === 'review')) workflow.nextAction = 'call again'
+  if (needsInterestedFollowUp && (!workflow.nextAction || workflow.nextAction === 'review')) workflow.nextAction = 'follow up interested lead'
+  return workflow
 }
 
 function noteSaveErrorMessage(error) {
@@ -1993,7 +2047,7 @@ function buildQuickWorkflow(action, current = {}) {
   const nextWeek = isoDateOffset(7)
   if (action === 'mark_called') return { ...base, status: 'contacted', queue: 'archived', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: base.response || 'neutral', nextAction: 'review call result' }
   if (action === 'no_answer') return { ...base, status: 'follow_up', queue: 'no_answer', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'no_answer', followUpDate: base.followUpDate || tomorrow, nextFollowUpAt: base.nextFollowUpAt || base.followUpDate || tomorrow, nextAction: 'call again' }
-  if (action === 'interested') return { ...base, status: 'interested', queue: 'interested', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'interested', nextAction: 'follow up interested lead', outcome: base.outcome || 'interested' }
+  if (action === 'interested') return { ...base, status: 'interested', queue: 'interested', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'interested', followUpDate: base.followUpDate || tomorrow, nextFollowUpAt: base.nextFollowUpAt || base.followUpDate || tomorrow, nextAction: 'follow up interested lead', outcome: base.outcome || 'interested' }
   if (action === 'not_relevant') return { ...base, status: 'rejected', queue: 'not_relevant', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'negative', nextAction: 'do not contact', outcome: 'not relevant' }
   if (action === 'follow_up_tomorrow') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: 'follow up tomorrow' }
   if (action === 'follow_up_next_week') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: nextWeek, nextFollowUpAt: nextWeek, nextAction: 'follow up next week' }

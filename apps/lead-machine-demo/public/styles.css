@@ -311,7 +311,8 @@ a { color: var(--blue); }
 .market-sweep-panel h2 { margin: 0; font-size: 18px; line-height: 1.2; }
 .market-sweep-panel small { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.35; }
 .city-chip-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: start; }
-.city-chip { display: inline-flex; align-items: baseline; gap: 5px; min-height: 28px; padding: 5px 8px; border: 1px solid #c7e5d6; border-radius: 999px; background: #f3faf7; color: var(--green); font-size: 12px; font-weight: 750; }
+.city-chip { display: inline-flex; align-items: baseline; gap: 5px; min-height: 28px; padding: 5px 8px; border: 1px solid #c7e5d6; border-radius: 999px; background: #f3faf7; color: var(--green); font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
+.city-chip.active, .city-chip:hover, .city-chip:focus-visible { border-color: var(--green); background: var(--green-soft); color: var(--green); outline: none; }
 .city-chip strong { color: var(--ink); }
 .city-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0 6px; padding: 8px 10px; border: 1px solid #c7e5d6; border-radius: 8px; background: #f3faf7; color: var(--ink); }
 .city-group-heading span { font-weight: 900; }
