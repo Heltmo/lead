@@ -35,6 +35,11 @@ Purpose: test Lead Machine as a daily seller desk, not as a finished SaaS.
    - Use `Enrich lead` if available.
    - Confirm the app makes Brreg/contact confidence easier to understand.
 
+6. Mobile calling
+   - Open the beta URL on a phone.
+   - Select a lead and confirm the bottom call bar stays visible.
+   - Test `Ring`, `Neste`, `Ingen svar`, and `Interessert` from the phone view.
+
 ## Feedback Questions
 
 - Did you understand which lead to call first?

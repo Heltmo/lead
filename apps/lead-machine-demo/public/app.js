@@ -937,6 +937,8 @@ function renderDetail(lead) {
       </div>
     </section>
 
+    ${mobileCallBar(lead)}
+
     ${workflowPanel(lead)}
 
     ${sellerDeskCards(lead, command, { includeTop: false })}
@@ -1037,6 +1039,22 @@ function renderDetail(lead) {
   `
   const nextButton = document.getElementById('nextLeadButton')
   if (nextButton) nextButton.addEventListener('click', selectNextVisibleLead)
+}
+
+function mobileCallBar(lead) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const phone = contact.phone || lead.phone || ''
+  const callHref = phoneHref(phone)
+  const name = company.displayName || lead.companyName || 'Selected lead'
+  return '<aside class="mobile-call-bar queue-row" aria-label="Mobile call actions">' +
+    '<div class="mobile-call-main"><strong>' + escapeHtml(name) + '</strong><span>' + escapeHtml(phone || workQueueLabel(leadWorkQueue(lead))) + '</span></div>' +
+    '<div class="mobile-call-actions">' +
+    (callHref ? '<a class="mobile-call-button primary" href="' + escapeAttr(callHref) + '">Ring</a>' : '<span class="mobile-call-button disabled">Ingen tlf</span>') +
+    '<button type="button" class="mobile-call-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Neste</button>' +
+    '<button type="button" class="mobile-call-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ingen svar</button>' +
+    '<button type="button" class="mobile-call-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interessert</button>' +
+    '</div></aside>'
 }
 
 function nextLeadDisabledAttr() {
@@ -1926,6 +1944,11 @@ document.addEventListener('click', (event) => {
       return
     }
     runWorkflowQuickAction(quickActionButton)
+    return
+  }
+  const nextVisibleButton = event.target.closest('[data-next-visible-lead]')
+  if (nextVisibleButton) {
+    selectNextVisibleLead()
     return
   }
   if (event.target && event.target.id === 'runDeepQualification') {

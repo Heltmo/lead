@@ -309,6 +309,7 @@ async function main() {
   assert(lower.includes('data-city-filter'), 'Norway sweep city chips should filter visible leads')
   assert(lower.includes('strongenough') && lower.includes('skjul svake/usikre'), 'UI should allow hiding weak/uncertain leads')
   assert(lower.includes('applyworkflowdefaults'), 'Workflow save should apply practical follow-up defaults')
+  assert(lower.includes('mobile-call-bar') && lower.includes('data-next-visible-lead'), 'Mobile call desk should keep call and next actions reachable')
   assert(uiText.includes('href="/styles.css"') && uiText.includes('src="/app.js"'), 'Netlify static deploy should load root CSS and JS assets')
   assert(!uiText.includes('/assets/styles.css') && !uiText.includes('/assets/app.js'), 'Netlify deploy should not depend on local-only /assets aliases')
   assert(lower.includes('lead-name-line'), 'Selected lead header should align company name and phone')
