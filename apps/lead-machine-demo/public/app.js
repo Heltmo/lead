@@ -98,9 +98,11 @@ const els = {
   clearLeadFilters: document.getElementById('clearLeadFilters'),
   leadFilterSummary: document.getElementById('leadFilterSummary'),
   queryExamples: Array.from(document.querySelectorAll('[data-query-example]')),
+  owner: document.getElementById('ownerInput'),
 }
 
 initStructuredSearch()
+initOwnerControl()
 els.runButton.addEventListener('click', runSearch)
 els.query.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
 els.queryExamples.forEach((button) => button.addEventListener('click', () => { els.query.value = button.dataset.queryExample || ''; els.query.focus() }))
@@ -138,6 +140,20 @@ function initStructuredSearch() {
   els.profession.innerHTML = PROFESSIONS.map((item) => `<option value="${escapeAttr(item.value)}">${escapeHtml(item.label)}</option>`).join('')
   els.locationOptions.innerHTML = LOCATIONS.map((location) => `<option value="${escapeAttr(location)}"></option>`).join('')
   els.profession.value = 'rørlegger'
+}
+
+function initOwnerControl() {
+  if (!els.owner) return
+  els.owner.value = currentOwner()
+  els.owner.addEventListener('input', () => {
+    try { window.localStorage.setItem('leadMachineBetaOwner', String(els.owner.value || '').trim()) } catch (_) {}
+  })
+}
+
+function currentOwner() {
+  const live = String(els.owner?.value || '').trim()
+  if (live) return live
+  try { return String(window.localStorage.getItem('leadMachineBetaOwner') || '').trim() } catch (_) { return '' }
 }
 
 function syncQueryFromStructuredSearch() {
@@ -552,16 +568,13 @@ function leadWorkQueue(lead) {
   const identityConfidence = String(fusion.identityConfidence || '').toLowerCase()
   const contactConfidence = String(fusion.contactConfidence || '').toLowerCase()
   const locationConfidence = String(fusion.locationConfidence || '').toLowerCase()
-  const severeIdentityRisk = ['no_match', 'error'].includes(matchStatus) || identityConfidence === 'unknown' && !company.candidateOrganizationNumber && !company.organizationNumber
-  const severeLocationRisk = ['out_of_area', 'conflict', 'location_conflict'].includes(locationStatus) || locationConfidence === 'conflict'
-  const severeContactRisk = !hasPhone || contactConfidence === 'weak'
-  const severeTrustRisk = trustAction === 'skip' || trustAction === 'verify_first' && (severeLocationRisk || severeContactRisk || severeIdentityRisk)
-  if (sellerAction === 'contact' && hasPhone && ['strong', 'good'].includes(fit)) return 'call_now'
-  if (sellerAction === 'contact' && hasPhone) return 'call_now'
+  const quality = leadQueueQuality(lead, { company, sourceQuality, fusion, hasPhone, fit, sellerAction, trustAction, identityConfidence, contactConfidence, locationConfidence, matchStatus, locationStatus })
   if (sellerAction === 'skip' || trustAction === 'skip') return 'archived'
-  if (severeTrustRisk) return 'verify_first'
-  if (hasPhone && ['review', 'verify', ''].includes(sellerAction)) return 'call_now'
-  return hasPhone ? 'call_now' : 'verify_first'
+  if (!quality.hasPhone) return 'verify_first'
+  if (quality.foreignPhone || quality.severeLocationRisk) return 'verify_first'
+  if (quality.trustedToCall) return 'call_now'
+  if (quality.needsVerifyBeforeCall) return 'verify_first'
+  return 'verify_first'
 }
 
 function normalizeWorkQueue(value) {
@@ -685,6 +698,10 @@ function callQueueSortScore(lead) {
   if (websiteValue(contact.website || lead.website)) score += 20
   if (isFastLead(lead)) score += 15
   score += sellerFitSortScore(lead)
+  const quality = leadQueueQuality(lead)
+  if (quality.trustedToCall) score += 160
+  if (quality.needsVerifyBeforeCall) score -= 90
+  if (quality.foreignPhone || quality.severeLocationRisk) score -= 500
   if (sellerRecommendedAction(lead) === 'contact') score += 120
   if (sellerRecommendedAction(lead) === 'verify') score += 35
   if (sellerRecommendedAction(lead) === 'skip') score -= 500
@@ -746,17 +763,53 @@ function callReadiness(lead) {
   const locationConfidence = String(fusion.locationConfidence || '').toLowerCase()
   const matchStatus = String(company.matchStatus || '').toLowerCase()
   const locationStatus = String(sourceQuality.locationMatchStatus || '').toLowerCase()
-  const severeIdentityRisk = ['no_match', 'error'].includes(matchStatus) || identityConfidence === 'unknown' && !company.candidateOrganizationNumber && !company.organizationNumber
-  const severeLocationRisk = ['out_of_area', 'conflict', 'location_conflict'].includes(locationStatus) || locationConfidence === 'conflict'
+  const quality = leadQueueQuality(lead, { company, sourceQuality, fusion, hasPhone, sellerAction, trustAction, identityConfidence, contactConfidence, locationConfidence, matchStatus, locationStatus })
   if (workflow.status === 'rejected') return { key: 'skip', label: 'Skip', note: 'Rejected or not relevant.', rank: -2000 }
   if (isFollowUpDue(lead)) return { key: 'follow_up_due', label: 'Follow-up due', note: workflow.followUpDate ? 'Due ' + workflow.followUpDate : 'Follow-up is due.', rank: 1800 }
   if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return { key: 'follow_up_due', label: 'Follow-up', note: 'Interested lead needs follow-up.', rank: 1500 }
-  if (!hasPhone) return { key: 'needs_contact', label: 'Needs contact', note: 'No direct phone yet.', rank: -300 }
+  if (!quality.hasPhone) return { key: 'needs_contact', label: 'Needs contact', note: 'No direct phone yet.', rank: -300 }
   if (sellerAction === 'skip' || trustAction === 'skip') return { key: 'skip', label: 'Skip', note: 'Seller-fit engine says deprioritize.', rank: -1200 }
-  if (severeLocationRisk || severeIdentityRisk && contactConfidence === 'weak') return { key: 'verify_first', label: 'Verify first', note: 'Resolve source conflict before calling.', rank: 550 }
-  if (sellerAction === 'verify' || trustAction === 'verify_first' || trustAction === 'review' || identityConfidence === 'manual_verify' || locationConfidence === 'fallback') return { key: 'ready_to_call', label: 'Ready to call', note: 'Phone-ready; verify details while calling.', rank: 1050 }
-  if (sellerAction === 'contact' || !workflow.contacted) return { key: 'ready_to_call', label: 'Ready to call', note: 'Phone-ready and not contacted.', rank: 1200 }
+  if (quality.foreignPhone) return { key: 'verify_first', label: 'Verify first', note: 'Phone format looks outside Norway.', rank: 250 }
+  if (quality.severeLocationRisk) return { key: 'verify_first', label: 'Verify first', note: 'Resolve location conflict before calling.', rank: 350 }
+  if (quality.trustedToCall) return { key: 'ready_to_call', label: 'Ready to call', note: quality.locationFallback ? 'Phone-ready; confirm location during call.' : 'Phone-ready and not contacted.', rank: 1250 }
+  if (quality.needsVerifyBeforeCall) return { key: 'verify_first', label: 'Verify first', note: 'Verify identity/location before calling.', rank: 500 }
   return { key: 'later', label: 'Later', note: 'Review when current queue is clear.', rank: 50 }
+}
+
+function leadQueueQuality(lead = {}, context = {}) {
+  const company = context.company || lead.company || {}
+  const sourceQuality = context.sourceQuality || lead.sourceQuality || {}
+  const fusion = context.fusion || sourceFusionForLead(lead)
+  const phone = lead.contact?.phone || lead.phone || ''
+  const hasPhone = context.hasPhone ?? Boolean(phone)
+  const fit = String(context.fit ?? lead.sellerFit?.sellerFit ?? '').toLowerCase()
+  const sellerAction = String(context.sellerAction ?? sellerRecommendedAction(lead)).toLowerCase()
+  const trustAction = String(context.trustAction ?? fusion.recommendedTrustAction ?? '').toLowerCase()
+  const identityConfidence = String(context.identityConfidence ?? fusion.identityConfidence ?? '').toLowerCase()
+  const contactConfidence = String(context.contactConfidence ?? fusion.contactConfidence ?? '').toLowerCase()
+  const locationConfidence = String(context.locationConfidence ?? fusion.locationConfidence ?? '').toLowerCase()
+  const matchStatus = String(context.matchStatus ?? company.matchStatus ?? '').toLowerCase()
+  const locationStatus = String(context.locationStatus ?? sourceQuality.locationMatchStatus ?? '').toLowerCase()
+  const confirmedOrg = Boolean(company.organizationNumber)
+  const candidateOrg = Boolean(company.candidateOrganizationNumber)
+  const exactLocation = locationStatus === 'exact_location' || locationConfidence === 'exact'
+  const locationFallback = locationStatus === 'regional_fallback' || locationConfidence === 'fallback' || locationConfidence === 'unknown'
+  const identityUnknown = identityConfidence === 'unknown' && !candidateOrg && !confirmedOrg
+  const severeIdentityRisk = ['no_match', 'error'].includes(matchStatus) || identityUnknown
+  const severeLocationRisk = ['out_of_area', 'conflict', 'location_conflict'].includes(locationStatus) || locationConfidence === 'conflict'
+  const foreignPhone = Boolean(phone) && !isLikelyNorwegianPhone(phone)
+  const trustedToCall = hasPhone && !foreignPhone && !severeLocationRisk && (confirmedOrg || exactLocation || trustAction === 'call' || (candidateOrg && ['strong', 'good'].includes(fit) && !locationFallback) || (sellerAction === 'contact' && !identityUnknown && !locationFallback))
+  const needsVerifyBeforeCall = !hasPhone || foreignPhone || severeLocationRisk || severeIdentityRisk && !confirmedOrg || trustAction === 'verify_first' && !trustedToCall || contactConfidence === 'weak'
+  return { hasPhone, confirmedOrg, candidateOrg, exactLocation, locationFallback, identityUnknown, severeIdentityRisk, severeLocationRisk, foreignPhone, trustedToCall, needsVerifyBeforeCall }
+}
+
+function isLikelyNorwegianPhone(value) {
+  const raw = String(value || '').trim()
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return false
+  if (/^\+?47[\s\d]+$/.test(raw) && digits.length === 10 && digits.startsWith('47')) return true
+  if (digits.length === 8) return /^[2-9]/.test(digits)
+  return false
 }
 
 function callFocusStrip(lead, command) {
@@ -928,6 +981,7 @@ function renderDetail(lead) {
           </div>
         </div>
       </div>
+      ${callSessionPanel(lead, command)}
       ${sellerDeskCards(lead, command, { includeDetails: false })}
       <div class="instant-decision-grid">
         ${commandMetric('Do this now', command.nextAction, command.nextActionNote)}
@@ -1041,6 +1095,22 @@ function renderDetail(lead) {
   if (nextButton) nextButton.addEventListener('click', selectNextVisibleLead)
 }
 
+function callSessionPanel(lead, command) {
+  const phone = lead.contact?.phone || lead.phone || ''
+  const callHref = phoneHref(phone)
+  const queue = leadWorkQueue(lead)
+  const queueCount = workQueueLeads(state.result?.leadPacks || [], queue).length
+  return '<section class="call-session-panel queue-row" aria-label="Call session">' +
+    '<div class="call-session-copy"><p class="eyebrow">Call session</p><h3>' + escapeHtml(workQueueLabel(queue)) + ' · ' + escapeHtml(String(queueCount)) + ' leads</h3><p>' + escapeHtml(command.nextActionNote || callReadiness(lead).note) + '</p></div>' +
+    '<div class="call-session-actions">' +
+      (callHref ? '<a class="call-session-button primary" href="' + escapeAttr(callHref) + '">Call now</a>' : '<span class="call-session-button disabled">No phone</span>') +
+      '<button type="button" class="call-session-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Next lead</button>' +
+      '<button type="button" class="call-session-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">No answer</button>' +
+      '<button type="button" class="call-session-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interested</button>' +
+      '<button type="button" class="call-session-button negative" data-workflow-action="not_relevant" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Not relevant</button>' +
+    '</div></section>'
+}
+
 function mobileCallBar(lead) {
   const company = lead.company || {}
   const contact = lead.contact || {}
@@ -1073,7 +1143,7 @@ function selectNextVisibleLead() {
 }
 
 function workflowPanel(lead) {
-  const workflow = { status: 'new', queue: leadWorkQueue(lead), owner: '', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextFollowUpAt: '', lastContactedAt: '', nextAction: 'review', outcome: '', archivedAt: '', activities: [], ...(lead.workflow || {}) }
+  const workflow = { status: 'new', queue: leadWorkQueue(lead), owner: currentOwner(), contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextFollowUpAt: '', lastContactedAt: '', nextAction: 'review', outcome: '', archivedAt: '', activities: [], ...(lead.workflow || {}) }
   const currentQueue = leadWorkQueue({ ...lead, workflow })
   workflow.queue = currentQueue
   workflow.nextFollowUpAt = workflow.nextFollowUpAt || workflow.followUpDate || ''
@@ -1208,7 +1278,7 @@ async function saveWorkflow(event) {
       nextAction: form.get('nextAction'),
       outcome: form.get('outcome'),
       queue: form.get('queue'),
-      owner: form.get('owner'),
+      owner: currentOwner() || form.get('owner'),
       lastContactedAt: form.get('lastContactedAt'),
       nextFollowUpAt: form.get('followUpDate'),
       archivedAt: form.get('archivedAt'),
@@ -1223,7 +1293,7 @@ async function saveWorkflow(event) {
         leadId: lead.workflow?.leadId || leadId(lead, state.selectedIndex),
         runId: state.result?.runId,
         leadName: lead.company?.displayName || lead.companyName || '',
-        workflow,
+        workflow: { ...workflow, owner: currentOwner() || workflow.owner || '' },
       }),
     })
     const payload = await response.json()
@@ -1251,6 +1321,7 @@ function applyWorkflowDefaults(workflow) {
   const now = new Date().toISOString()
   const needsNoAnswerFollowUp = response === 'no_answer' || response === 'no_response' || status === 'follow_up'
   const needsInterestedFollowUp = response === 'interested' || response === 'meeting_booked' || status === 'interested'
+  if (!workflow.owner) workflow.owner = currentOwner()
   if ((needsNoAnswerFollowUp || needsInterestedFollowUp) && !workflow.followUpDate) {
     workflow.followUpDate = isoDateOffset(1)
   }
@@ -1963,6 +2034,7 @@ async function runWorkflowQuickAction(button) {
   const action = button.dataset.workflowAction
   const workflow = buildQuickWorkflow(action, lead.workflow || {})
   if (!workflow) return setStatus('failed: unknown quick action', 'failed')
+  workflow.owner = currentOwner() || workflow.owner || ''
   const advanceQueue = Boolean(button.closest('.queue-row'))
   state.selectedIndex = index
   state.selectedLeadId = leadId(lead, index)
@@ -2022,7 +2094,7 @@ function readWorkflowDraft(form, current = {}) {
     nextAction: data.get('nextAction') || current.nextAction || 'review',
     outcome: data.get('outcome') || current.outcome || '',
     queue: data.get('queue') || current.queue || '',
-    owner: data.get('owner') || current.owner || '',
+    owner: currentOwner() || data.get('owner') || current.owner || '',
     nextFollowUpAt: data.get('followUpDate') || current.nextFollowUpAt || current.followUpDate || '',
     lastContactedAt: data.get('lastContactedAt') || current.lastContactedAt || '',
     archivedAt: data.get('archivedAt') || current.archivedAt || '',
@@ -2064,7 +2136,8 @@ function selectNextQueueLead(previousLead) {
 }
 
 function buildQuickWorkflow(action, current = {}) {
-  const base = { status: 'new', queue: '', owner: '', contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextFollowUpAt: '', lastContactedAt: '', nextAction: 'review', outcome: '', archivedAt: '', ...current }
+  const base = { status: 'new', queue: '', owner: currentOwner(), contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextFollowUpAt: '', lastContactedAt: '', nextAction: 'review', outcome: '', archivedAt: '', ...current }
+  base.owner = currentOwner() || base.owner || ''
   const now = new Date().toISOString()
   const tomorrow = isoDateOffset(1)
   const nextWeek = isoDateOffset(7)

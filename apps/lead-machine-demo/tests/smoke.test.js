@@ -4,16 +4,23 @@ const os = require('os')
 const path = require('path')
 const { createServer } = require('../server')
 const { parseLeadQuery } = require('../queryParser')
-const { workflowForLead, normalizeWorkflow } = require('../workQueues')
+const { workflowForLead, normalizeWorkflow, isLikelyNorwegianPhone } = require('../workQueues')
 const { evaluateSourceFusion } = require('../../../core/source-fusion/sourceFusion')
 const { buildNorwaySweepRunOptions } = require('../../../core/lead-discovery-agent/providers/norwaySweep')
 
 async function main() {
-  const strongLead = { sellerFit: { sellerFit: 'strong', recommendedAction: 'contact' }, contact: { phone: '12345678' }, company: { organizationNumber: '999888777' }, sourceQuality: { locationMatchStatus: 'exact_location' } }
-  const phoneReadyReviewLead = { sellerFit: { sellerFit: 'review', recommendedAction: 'verify' }, contact: { phone: '12345678' }, company: { candidateOrganizationNumber: '999111222', matchStatus: 'manual_verify' }, sourceQuality: { locationMatchStatus: 'regional_fallback' } }
+  const strongLead = { sellerFit: { sellerFit: 'strong', recommendedAction: 'contact' }, contact: { phone: '98849599' }, company: { organizationNumber: '999888777' }, sourceQuality: { locationMatchStatus: 'exact_location' } }
+  const phoneReadyReviewLead = { sellerFit: { sellerFit: 'review', recommendedAction: 'verify' }, contact: { phone: '98849599' }, company: { candidateOrganizationNumber: '999111222', matchStatus: 'manual_verify' }, sourceQuality: { locationMatchStatus: 'exact_location' } }
+  const fallbackCandidateLead = { sellerFit: { sellerFit: 'review', recommendedAction: 'verify' }, contact: { phone: '98849599' }, company: { candidateOrganizationNumber: '999111222', matchStatus: 'manual_verify' }, sourceQuality: { locationMatchStatus: 'regional_fallback' }, sourceFusion: { recommendedTrustAction: 'verify_first', identityConfidence: 'manual_verify', contactConfidence: 'good', locationConfidence: 'fallback' } }
+  const confirmedFallbackLead = { sellerFit: { sellerFit: 'good', recommendedAction: 'verify' }, contact: { phone: '98849599' }, company: { organizationNumber: '891592752', matchStatus: 'exact_match' }, sourceQuality: { locationMatchStatus: 'regional_fallback' }, sourceFusion: { recommendedTrustAction: 'verify_first', identityConfidence: 'confirmed', contactConfidence: 'good', locationConfidence: 'fallback' } }
+  const foreignPhoneLead = { sellerFit: { sellerFit: 'good', recommendedAction: 'contact' }, contact: { phone: '(614) 412-5372' }, company: {}, sourceQuality: { locationMatchStatus: 'regional_fallback' } }
   const verifyLead = { sellerFit: { sellerFit: 'review', recommendedAction: 'verify' }, contact: {}, company: { candidateOrganizationNumber: '999111222', matchStatus: 'manual_verify' }, sourceQuality: { locationMatchStatus: 'regional_fallback' } }
   assert(workflowForLead(strongLead, {}, 'strong::1').queue === 'call_now', 'strong/good contact-ready lead should enter call_now')
-  assert(workflowForLead(phoneReadyReviewLead, {}, 'review-phone::1').queue === 'call_now', 'phone-ready review leads should stay callable while showing verification caution')
+  assert(workflowForLead(phoneReadyReviewLead, {}, 'review-phone::1').queue === 'call_now', 'exact phone-ready review leads should stay callable while showing verification caution')
+  assert(workflowForLead(fallbackCandidateLead, {}, 'fallback-candidate::1').queue === 'verify_first', 'candidate identity with fallback location should verify before calling')
+  assert(workflowForLead(confirmedFallbackLead, {}, 'confirmed-fallback::1').queue === 'call_now', 'confirmed org with valid phone can stay in call_now even when location is fallback')
+  assert(workflowForLead(foreignPhoneLead, {}, 'foreign-phone::1').queue === 'verify_first', 'non-Norwegian phone-like leads should not enter call_now')
+  assert(isLikelyNorwegianPhone('988 49 599') && !isLikelyNorwegianPhone('(614) 412-5372'), 'phone quality should separate Norwegian phone numbers from foreign formats')
   assert(workflowForLead(verifyLead, {}, 'verify::1').queue === 'verify_first', 'missing-contact verify lead should enter verify_first')
   assert(normalizeWorkflow({ response: 'no_answer' }, { today: '2026-06-02', now: '2026-06-02T09:00:00.000Z' }).queue === 'no_answer', 'no_answer without due date should move to no_answer and get a later follow-up')
   assert(normalizeWorkflow({ response: 'no_answer', followUpDate: '2026-06-02' }, { today: '2026-06-02' }).queue === 'follow_up_today', 'no_answer with follow-up today should appear in follow_up_today')
@@ -310,6 +317,9 @@ async function main() {
   assert(lower.includes('strongenough') && lower.includes('skjul svake/usikre'), 'UI should allow hiding weak/uncertain leads')
   assert(lower.includes('applyworkflowdefaults'), 'Workflow save should apply practical follow-up defaults')
   assert(lower.includes('mobile-call-bar') && lower.includes('data-next-visible-lead'), 'Mobile call desk should keep call and next actions reachable')
+  assert(lower.includes('call-session-panel') && lower.includes('data-workflow-action="no_answer"'), 'Selected lead should expose a desktop call session with direct outcomes')
+  assert(lower.includes('ownerinput') && lower.includes('leadmachinebetaowner'), 'Beta tester owner should be visible and persisted for workflow logs')
+  assert(lower.includes('leadqueuequality') && lower.includes('islikelynorwegianphone'), 'UI should apply lead quality rules before call queue placement')
   assert(uiText.includes('href="/styles.css"') && uiText.includes('src="/app.js"'), 'Netlify static deploy should load root CSS and JS assets')
   assert(!uiText.includes('/assets/styles.css') && !uiText.includes('/assets/app.js'), 'Netlify deploy should not depend on local-only /assets aliases')
   assert(lower.includes('lead-name-line'), 'Selected lead header should align company name and phone')

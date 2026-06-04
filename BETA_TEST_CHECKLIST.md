@@ -5,6 +5,7 @@ Purpose: test Lead Machine as a daily seller desk, not as a finished SaaS.
 ## Before Testing
 
 - Use the Netlify beta URL.
+- Write your name in `Tester` before calling so notes/export show who tested each lead.
 - API keys are configured in Netlify; testers should not add keys locally.
 - Use manual calling only. The app opens `tel:` links and logs outcomes; it does not call, record, email, or sync CRM automatically.
 

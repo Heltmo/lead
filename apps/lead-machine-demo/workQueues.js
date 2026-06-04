@@ -107,18 +107,51 @@ function inferLeadQueue(lead = {}, workflow = {}, options = {}) {
   const identityConfidence = String(sourceFusion.identityConfidence || '').toLowerCase()
   const contactConfidence = String(sourceFusion.contactConfidence || '').toLowerCase()
   const locationConfidence = String(sourceFusion.locationConfidence || '').toLowerCase()
-  const hasSevereIdentityRisk = ['no_match', 'error'].includes(matchStatus) || identityConfidence === 'unknown' && !company.candidateOrganizationNumber && !company.organizationNumber
-  const hasSevereLocationRisk = ['out_of_area', 'conflict', 'location_conflict'].includes(locationStatus) || locationConfidence === 'conflict'
-  const hasSevereContactRisk = !hasPhone || contactConfidence === 'weak'
-  const hasSevereTrustRisk = trustAction === 'skip' || trustAction === 'verify_first' && (hasSevereLocationRisk || hasSevereContactRisk || hasSevereIdentityRisk)
+  const quality = leadQueueQuality(lead, { company, contact, sourceQuality, sourceFusion, action, fit, hasPhone, matchStatus, locationStatus, trustAction, identityConfidence, contactConfidence, locationConfidence })
 
-  if (action === 'contact' && hasPhone && ['strong', 'good'].includes(fit)) return 'call_now'
-  if (action === 'contact' && hasPhone) return 'call_now'
   if (action === 'skip' || trustAction === 'skip') return 'archived'
-  if (hasSevereTrustRisk) return 'verify_first'
-  if (hasPhone && ['review', 'verify', ''].includes(action)) return 'call_now'
-  if (hasPhone) return 'call_now'
+  if (!quality.hasPhone) return 'verify_first'
+  if (quality.foreignPhone || quality.severeLocationRisk) return 'verify_first'
+  if (quality.trustedToCall) return 'call_now'
+  if (quality.needsVerifyBeforeCall) return 'verify_first'
   return 'verify_first'
+}
+
+function leadQueueQuality(lead = {}, context = {}) {
+  const company = context.company || lead.company || {}
+  const contact = context.contact || lead.contact || {}
+  const sourceQuality = context.sourceQuality || lead.sourceQuality || {}
+  const sourceFusion = context.sourceFusion || lead.sourceFusion || {}
+  const phone = contact.phone || lead.phone || ''
+  const hasPhone = context.hasPhone !== undefined ? context.hasPhone : Boolean(phone)
+  const fit = String(context.fit !== undefined ? context.fit : lead.sellerFit && lead.sellerFit.sellerFit || '').toLowerCase()
+  const action = String(context.action !== undefined ? context.action : lead.sellerFit && lead.sellerFit.recommendedAction || '').toLowerCase()
+  const trustAction = String(context.trustAction !== undefined ? context.trustAction : sourceFusion.recommendedTrustAction || '').toLowerCase()
+  const identityConfidence = String(context.identityConfidence !== undefined ? context.identityConfidence : sourceFusion.identityConfidence || '').toLowerCase()
+  const contactConfidence = String(context.contactConfidence !== undefined ? context.contactConfidence : sourceFusion.contactConfidence || '').toLowerCase()
+  const locationConfidence = String(context.locationConfidence !== undefined ? context.locationConfidence : sourceFusion.locationConfidence || '').toLowerCase()
+  const matchStatus = String(context.matchStatus !== undefined ? context.matchStatus : company.matchStatus || '').toLowerCase()
+  const locationStatus = String(context.locationStatus !== undefined ? context.locationStatus : sourceQuality.locationMatchStatus || '').toLowerCase()
+  const confirmedOrg = Boolean(company.organizationNumber)
+  const candidateOrg = Boolean(company.candidateOrganizationNumber)
+  const exactLocation = locationStatus === 'exact_location' || locationConfidence === 'exact'
+  const locationFallback = locationStatus === 'regional_fallback' || locationConfidence === 'fallback' || locationConfidence === 'unknown'
+  const identityUnknown = identityConfidence === 'unknown' && !candidateOrg && !confirmedOrg
+  const severeIdentityRisk = ['no_match', 'error'].includes(matchStatus) || identityUnknown
+  const severeLocationRisk = ['out_of_area', 'conflict', 'location_conflict'].includes(locationStatus) || locationConfidence === 'conflict'
+  const foreignPhone = Boolean(phone) && !isLikelyNorwegianPhone(phone)
+  const trustedToCall = hasPhone && !foreignPhone && !severeLocationRisk && (confirmedOrg || exactLocation || trustAction === 'call' || (candidateOrg && ['strong', 'good'].includes(fit) && !locationFallback) || (action === 'contact' && !identityUnknown && !locationFallback))
+  const needsVerifyBeforeCall = !hasPhone || foreignPhone || severeLocationRisk || severeIdentityRisk && !confirmedOrg || trustAction === 'verify_first' && !trustedToCall || contactConfidence === 'weak'
+  return { hasPhone, confirmedOrg, candidateOrg, exactLocation, locationFallback, identityUnknown, severeIdentityRisk, severeLocationRisk, foreignPhone, trustedToCall, needsVerifyBeforeCall }
+}
+
+function isLikelyNorwegianPhone(value) {
+  const raw = String(value || '').trim()
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return false
+  if (/^\+?47[\s\d]+$/.test(raw) && digits.length === 10 && digits.startsWith('47')) return true
+  if (digits.length === 8) return /^[2-9]/.test(digits)
+  return false
 }
 
 function workflowQueueFromWorkflow(workflow = {}, options = {}) {
@@ -249,6 +282,8 @@ module.exports = {
   workflowForLead,
   inferLeadQueue,
   leadMatchesQueue,
+  leadQueueQuality,
+  isLikelyNorwegianPhone,
   normalizeQueue,
   isDateDue,
   isoDateOffset,
