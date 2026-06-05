@@ -13,6 +13,7 @@ const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-
 const { buildNorwaySweepRunOptions, NORWAY_SWEEP_MAX_RESULTS } = require('../../core/lead-discovery-agent/providers/norwaySweep')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
+const { buildOpportunityCommandCenter } = require('../../core/opportunity-command-center/opportunityCommandCenter')
 
 exports.handler = async function handler(event) {
   try {
@@ -22,6 +23,7 @@ exports.handler = async function handler(event) {
 
     const state = await readHostedState()
     if (event.httpMethod === 'GET' && apiPath === '/api/health') return jsonResponse(200, hostedHealth(state))
+    if (event.httpMethod === 'GET' && apiPath === '/api/opportunity-command-center') return jsonResponse(200, hostedOpportunityCommandCenter(state))
     if (event.httpMethod === 'GET' && apiPath === '/api/workflow') return jsonResponse(200, { workflow: workflowForLead(state, queryUrl(event, apiPath).searchParams.get('leadId')) })
     if (event.httpMethod === 'POST' && apiPath === '/api/workflow') {
       const result = await saveWorkflowFromEvent(event, state)
@@ -123,6 +125,7 @@ function buildBundledRun(latest) {
     downloads: downloadsForRun(latest.runId),
     summary,
     readiness: hostedReadiness(leadPacks, savedSearches, summary),
+    commandCenter: buildOpportunityCommandCenter({ leadPacks: leadPacks.map((lead, index) => attachSourceFusion({ ...lead, workflow: buildWorkflowForLead(lead, lead.workflow || {}, hostedLeadId(lead, index)) })), savedSearches, summary }),
     savedSearches,
     leadPacks: leadPacks.map((lead, index) => attachSourceFusion({ ...lead, workflow: buildWorkflowForLead(lead, lead.workflow || {}, hostedLeadId(lead, index)) })),
   }
@@ -240,6 +243,7 @@ async function hostedLiveRun({ body, parsedQuery, state }) {
     downloads: downloadsForRun(runId),
     summary,
     readiness: hostedReadiness(leadPacks, state.savedSearches, summary),
+    commandCenter: buildOpportunityCommandCenter({ leadPacks, savedSearches: state.savedSearches, summary }),
     savedSearches: state.savedSearches,
     leadPacks,
   }
@@ -530,12 +534,24 @@ function attachHostedStateToRun(run, state) {
     next.workflow = buildWorkflowForLead(next, { ...existingWorkflow, ...savedWorkflow }, id)
     return attachSourceFusion(next)
   })
+  copy.commandCenter = buildOpportunityCommandCenter({
+    leadPacks: copy.leadPacks || [],
+    savedSearches: copy.savedSearches || [],
+    summary: copy.summary || {},
+  })
   if (copy.readiness && copy.readiness.workspace) {
     copy.readiness.workspace.workflowLeadCount = Object.keys(state.workflow.leads || {}).length
     copy.readiness.workspace.savedSearchCount = copy.savedSearches.length
     copy.readiness.workspace.activityCount = state.activityLog.length
   }
   return copy
+}
+
+function hostedOpportunityCommandCenter(state) {
+  const run = state.latestRun ? attachHostedStateToRun(state.latestRun, state) : null
+  return run && run.commandCenter
+    ? run.commandCenter
+    : buildOpportunityCommandCenter({ leadPacks: [], savedSearches: state.savedSearches || [], summary: {} })
 }
 
 function attachSourceFusion(lead = {}) {

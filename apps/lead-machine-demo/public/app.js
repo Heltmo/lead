@@ -62,12 +62,10 @@ function withBetaToken(url) {
 }
 
 const QUICK_WORKFLOW_ACTIONS = [
-  { id: 'mark_called', label: 'Mark called', tone: 'neutral' },
-  { id: 'no_answer', label: 'No answer', tone: 'warning' },
-  { id: 'interested', label: 'Interested', tone: 'positive' },
-  { id: 'not_relevant', label: 'Not relevant', tone: 'negative' },
-  { id: 'follow_up_tomorrow', label: 'Follow up tomorrow', shortLabel: 'Tomorrow', tone: 'warning' },
-  { id: 'follow_up_next_week', label: 'Follow up next week', shortLabel: 'Next week', tone: 'warning' },
+  { id: 'mark_called', label: 'Called / done', shortLabel: 'Done', tone: 'neutral' },
+  { id: 'no_answer', label: 'No answer', shortLabel: 'No answer', tone: 'warning' },
+  { id: 'interested', label: 'Interested', shortLabel: 'Interested', tone: 'positive' },
+  { id: 'not_relevant', label: 'Not relevant', shortLabel: 'Skip', tone: 'negative' },
   { id: 'archive', label: 'Archive', tone: 'neutral' },
 ]
 
@@ -87,6 +85,7 @@ const els = {
   status: document.getElementById('statusPanel'),
   summary: document.getElementById('summaryPanel'),
   readiness: document.getElementById('readinessPanel'),
+  commandCenter: document.getElementById('commandCenterPanel'),
   workflowBoard: document.getElementById('workflowBoard'),
   workQueueTabs: document.getElementById('workQueueTabs'),
   leadCards: document.getElementById('leadCards'),
@@ -119,6 +118,10 @@ document.addEventListener('click', (event) => {
   if (workQueueButton) { state.selectedQueue = normalizeWorkQueue(workQueueButton.dataset.workQueue) || 'call_now'; state.selectedLeadId = null; renderAll(); return }
   const cityFilterButton = event.target.closest('[data-city-filter]')
   if (cityFilterButton) { state.cityFilter = cityFilterButton.dataset.cityFilter || ''; state.selectedLeadId = null; renderAll(); return }
+  const commandQueueButton = event.target.closest('[data-command-queue]')
+  if (commandQueueButton) { state.selectedQueue = normalizeWorkQueue(commandQueueButton.dataset.commandQueue) || state.selectedQueue; state.selectedLeadId = null; renderAll(); return }
+  const commandLeadButton = event.target.closest('[data-command-lead-id]')
+  if (commandLeadButton) { selectCommandLead(commandLeadButton.dataset.commandLeadId || ''); return }
   const workspaceExport = event.target.closest('[data-workspace-export]')
   if (workspaceExport) { exportWorkspaceSnapshot(); return }
   const pinSearch = event.target.closest('[data-saved-search-pin]')
@@ -132,6 +135,7 @@ document.addEventListener('click', (event) => {
 })
 renderSummary(null)
 renderReadiness(null)
+renderCommandCenter(null)
 renderExport(null)
 clearStatus()
 loadLatestRun()
@@ -194,6 +198,7 @@ async function runSearch() {
   renderSummary(null)
   renderLeads([])
   renderDetail(null)
+  renderCommandCenter(null)
   renderExport(null)
 
   try {
@@ -236,7 +241,7 @@ function selectBestQueueForResult(result) {
     return
   }
   const counts = workQueueCounts(leads)
-  const preferredQueues = ['call_now', 'follow_up_today', 'interested', 'no_answer', 'verify_first', 'not_relevant', 'archived']
+  const preferredQueues = ['follow_up_today', 'call_now', 'interested', 'no_answer', 'verify_first', 'not_relevant', 'archived']
   state.selectedQueue = preferredQueues.find((queue) => counts[queue] > 0) || 'call_now'
 }
 
@@ -253,6 +258,7 @@ function renderAll() {
   }
   renderSummary(state.result)
   renderReadiness(state.result)
+  renderCommandCenter(state.result)
   renderWorkQueueTabs(leads)
   renderWorkflowBoard(state.result)
   renderLeads(visibleLeads)
@@ -286,6 +292,139 @@ function renderReadiness(result) {
     '<div class="saved-market-head"><div><p class="eyebrow">Saved markets</p><h2>Return to useful searches</h2><small>' + escapeHtml(String(savedCount) + ' saved searches · ' + String(noteCount) + ' leads with notes') + '</small></div><button type="button" class="quiet-export" data-workspace-export>Download test data</button></div>' +
     (savedSearches.length ? '<div class="saved-searches saved-search-management">' + savedSearches.map(savedSearchButton).join('') + '</div>' : '<p class="readiness-note">Saved searches appear here after the first run.</p>') +
   '</section>' + marketSweepPanel(result)
+}
+
+
+function renderCommandCenter(result) {
+  if (!els.commandCenter) return
+  const command = result && result.commandCenter
+  if (!command) {
+    els.commandCenter.innerHTML = '<section class="command-center-empty"><p class="eyebrow">Today / Command Center</p><div class="empty-state compact-empty">Run a search to build today command center.</div></section>'
+    return
+  }
+  const summary = command.summary || {}
+  const primaryMove = commandPrimaryMove(command)
+  els.commandCenter.innerHTML = '<section class="opportunity-command-center">' +
+    '<div class="command-next-move"><div><p class="eyebrow">Today / Command Center</p><h2>' + escapeHtml(primaryMove.title) + '</h2><small>' + escapeHtml(primaryMove.note) + '</small></div><div class="command-next-actions">' + primaryMove.actions + '</div></div>' +
+    '<div class="command-mini-queues">' +
+      commandQueueTile('Call first', command.callTheseFirst, 'call_now', 'No ready calls') +
+      commandQueueTile('Verify blockers', command.verifyBeforeCalling, 'verify_first', 'No blockers') +
+      commandQueueTile('Follow up', command.overdueFollowUps, 'follow_up_today', 'Nothing due') +
+    '</div>' +
+    '<details class="command-center-details"><summary>Market and warning signals</summary><div class="command-center-grid">' +
+      commandMarketList(command.bestMarketsNow) +
+      commandWarningList('Wasted-time warnings', command.wastedTimeWarnings) +
+      commandWarningList('Source warnings', command.sourceWarnings) +
+    '</div></details>' +
+    '<p class="command-center-footnote">' + escapeHtml(String(summary.phoneReadyCount || 0) + ' phone-ready · ' + String(summary.verifyFirstCount || 0) + ' verify first · ' + String(summary.overdueFollowUpCount || 0) + ' overdue') + '</p>' +
+  '</section>'
+}
+
+function commandPrimaryMove(command = {}) {
+  const overdue = Array.isArray(command.overdueFollowUps) ? command.overdueFollowUps[0] : null
+  if (overdue) {
+    return {
+      title: 'Next: follow up ' + (overdue.company || 'lead'),
+      note: [overdue.city, overdue.phone, (overdue.reasons || [])[0]].filter(Boolean).join(' · '),
+      actions: commandActionButton('Open lead', { leadId: overdue.leadId }, 'primary') + commandActionButton('Open queue', { queue: 'follow_up_today' }),
+    }
+  }
+  const callLead = Array.isArray(command.callTheseFirst) ? command.callTheseFirst[0] : null
+  if (callLead) {
+    return {
+      title: 'Next: call ' + (callLead.company || 'best lead'),
+      note: [callLead.city, callLead.phone, (callLead.reasons || [])[0]].filter(Boolean).join(' · '),
+      actions: commandActionButton('Open lead', { leadId: callLead.leadId }, 'primary') + commandActionButton('Call queue', { queue: 'call_now' }),
+    }
+  }
+  const verifyLead = Array.isArray(command.verifyBeforeCalling) ? command.verifyBeforeCalling[0] : null
+  if (verifyLead) {
+    return {
+      title: 'Next: verify ' + (verifyLead.company || 'lead'),
+      note: [verifyLead.city, (verifyLead.reasons || [])[0]].filter(Boolean).join(' · '),
+      actions: commandActionButton('Open lead', { leadId: verifyLead.leadId }, 'primary') + commandActionButton('Verify queue', { queue: 'verify_first' }),
+    }
+  }
+  const market = Array.isArray(command.bestMarketsNow) ? command.bestMarketsNow[0] : null
+  if (market) {
+    return {
+      title: 'Next: work ' + (market.city || 'best market'),
+      note: String(market.phoneReadyCount || 0) + '/' + String(market.leadCount || 0) + ' phone-ready in this market.',
+      actions: commandActionButton('Filter city', { city: market.city }, 'primary'),
+    }
+  }
+  return {
+    title: 'Next: run a market search',
+    note: 'Command Center appears after the first lead run.',
+    actions: '',
+  }
+}
+
+function commandActionButton(label, target = {}, variant) {
+  const className = variant === 'primary' ? ' class="primary"' : ''
+  if (target.leadId) return '<button type="button"' + className + ' data-command-lead-id="' + escapeAttr(target.leadId) + '">' + escapeHtml(label) + '</button>'
+  if (target.queue) return '<button type="button"' + className + ' data-command-queue="' + escapeAttr(target.queue) + '">' + escapeHtml(label) + '</button>'
+  if (target.city) return '<button type="button"' + className + ' data-city-filter="' + escapeAttr(target.city) + '">' + escapeHtml(label) + '</button>'
+  return ''
+}
+
+function commandQueueTile(title, items, queue, emptyText) {
+  const list = Array.isArray(items) ? items : []
+  const first = list[0]
+  const detail = first ? [first.company, first.city || first.phone].filter(Boolean).join(' · ') : emptyText
+  return '<button type="button" class="command-queue-tile" data-command-queue="' + escapeAttr(queue) + '"><span>' + escapeHtml(title) + '</span><strong>' + escapeHtml(String(list.length)) + '</strong><small>' + escapeHtml(detail || emptyText) + '</small></button>'
+}
+
+function commandTopActionButton(action = {}) {
+  const target = action.target || {}
+  if (target.queue) return '<button type="button" data-command-queue="' + escapeAttr(target.queue) + '"><strong>' + escapeHtml(action.label || 'Action') + '</strong><span>' + escapeHtml(action.note || '') + '</span></button>'
+  if (target.city) return '<button type="button" data-city-filter="' + escapeAttr(target.city) + '"><strong>' + escapeHtml(action.label || 'Market') + '</strong><span>' + escapeHtml(action.note || '') + '</span></button>'
+  return '<button type="button" disabled><strong>' + escapeHtml(action.label || 'Action') + '</strong><span>' + escapeHtml(action.note || '') + '</span></button>'
+}
+
+function commandLeadList(title, items, queue) {
+  const list = Array.isArray(items) ? items.slice(0, 4) : []
+  const rows = list.length ? list.map((item) => '<button type="button" class="command-lead-row" data-command-lead-id="' + escapeAttr(item.leadId || item.id || '') + '"><strong>' + escapeHtml(item.company || 'Unknown company') + '</strong><span>' + escapeHtml([item.city, item.phone || workQueueLabel(item.queue || queue)].filter(Boolean).join(' · ')) + '</span><small>' + escapeHtml((item.reasons || []).slice(0, 2).join(' · ') || item.action || '') + '</small></button>').join('') : '<p class="muted">Nothing urgent here.</p>'
+  return '<section class="command-center-card"><div class="command-card-title"><h3>' + escapeHtml(title) + '</h3><button type="button" data-command-queue="' + escapeAttr(queue) + '">Open queue</button></div>' + rows + '</section>'
+}
+
+function commandMarketList(items) {
+  const markets = Array.isArray(items) ? items.slice(0, 5) : []
+  const rows = markets.length ? markets.map((market) => '<button type="button" class="command-market-row" data-city-filter="' + escapeAttr(market.city || '') + '"><strong>' + escapeHtml(market.city || 'Unknown city') + '</strong><span>' + escapeHtml(String(market.phoneReadyCount || 0) + '/' + String(market.leadCount || 0) + ' phone-ready · ' + formatRatioPercent(market.verifyRate) + ' verify') + '</span><small>' + escapeHtml((market.reasons || []).slice(0, 2).join(' · ')) + '</small></button>').join('') : '<p class="muted">Run a Norway sweep to compare cities.</p>'
+  return '<section class="command-center-card"><div class="command-card-title"><h3>Best markets now</h3><span>By city</span></div>' + rows + '</section>'
+}
+
+function commandWarningList(title, items) {
+  const warnings = Array.isArray(items) ? items.slice(0, 4) : []
+  const rows = warnings.length ? warnings.map((item) => '<div class="command-warning-row"><strong>' + escapeHtml(item.label || 'Warning') + '</strong><span>' + escapeHtml(item.note || (item.count ? String(item.count) + ' leads' : '')) + '</span></div>').join('') : '<p class="muted">No major warning.</p>'
+  return '<section class="command-center-card"><div class="command-card-title"><h3>' + escapeHtml(title) + '</h3><span>Read-only</span></div>' + rows + '</section>'
+}
+
+function formatRatioPercent(value) {
+  const number = Number(value || 0)
+  return String(Math.round(number * 100)) + '%'
+}
+
+function selectCommandLead(id) {
+  if (!id || !state.result || !Array.isArray(state.result.leadPacks)) return
+  const index = state.result.leadPacks.findIndex((lead, candidateIndex) => (lead.workflow && lead.workflow.leadId || leadId(lead, candidateIndex)) === id)
+  if (index < 0) return
+  const lead = state.result.leadPacks[index]
+  state.selectedQueue = leadWorkQueue(lead)
+  state.cityFilter = ''
+  state.selectedIndex = index
+  state.selectedLeadId = leadId(lead, index)
+  renderAll()
+  focusLeadDetail({ block: 'start' })
+}
+
+async function refreshCommandCenter() {
+  if (!state.result) return
+  try {
+    const response = await apiFetch('/api/opportunity-command-center')
+    const payload = await response.json()
+    if (response.ok) state.result.commandCenter = payload
+  } catch (_) {}
 }
 
 function defaultReadiness() {
@@ -433,7 +572,7 @@ function currentCallCard(lead, index, reason, queueCount, queueId) {
 
 function quickActionsHtml(index, variant = 'full') {
   const actions = variant === 'queue'
-    ? QUICK_WORKFLOW_ACTIONS.filter((action) => ['mark_called', 'no_answer', 'interested', 'follow_up_tomorrow', 'follow_up_next_week'].includes(action.id))
+    ? QUICK_WORKFLOW_ACTIONS.filter((action) => ['mark_called', 'no_answer', 'interested', 'not_relevant'].includes(action.id))
     : QUICK_WORKFLOW_ACTIONS
   return `<div class="quick-actions ${variant === 'queue' ? 'compact' : ''}" aria-label="Quick workflow actions">
     ${actions.map((action) => `<button type="button" class="quick-action ${escapeAttr(action.tone)}" data-workflow-action="${escapeAttr(action.id)}" data-index="${index}">${escapeHtml(variant === 'queue' ? (action.shortLabel || action.label) : action.label)}</button>`).join('')}
@@ -1101,13 +1240,14 @@ function callSessionPanel(lead, command) {
   const queue = leadWorkQueue(lead)
   const queueCount = workQueueLeads(state.result?.leadPacks || [], queue).length
   return '<section class="call-session-panel queue-row" aria-label="Call session">' +
-    '<div class="call-session-copy"><p class="eyebrow">Call session</p><h3>' + escapeHtml(workQueueLabel(queue)) + ' · ' + escapeHtml(String(queueCount)) + ' leads</h3><p>' + escapeHtml(command.nextActionNote || callReadiness(lead).note) + '</p></div>' +
+    '<div class="call-session-copy"><p class="eyebrow">Seller next action</p><h3>' + escapeHtml(workQueueLabel(queue)) + ' · ' + escapeHtml(String(queueCount)) + ' leads</h3><p>' + escapeHtml(command.nextActionNote || callReadiness(lead).note) + '</p></div>' +
     '<div class="call-session-actions">' +
       (callHref ? '<a class="call-session-button primary" href="' + escapeAttr(callHref) + '">Call now</a>' : '<span class="call-session-button disabled">No phone</span>') +
-      '<button type="button" class="call-session-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Next lead</button>' +
       '<button type="button" class="call-session-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">No answer</button>' +
       '<button type="button" class="call-session-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interested</button>' +
+      '<button type="button" class="call-session-button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Called / done</button>' +
       '<button type="button" class="call-session-button negative" data-workflow-action="not_relevant" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Not relevant</button>' +
+      '<button type="button" class="call-session-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Next lead</button>' +
     '</div></section>'
 }
 
@@ -1121,9 +1261,10 @@ function mobileCallBar(lead) {
     '<div class="mobile-call-main"><strong>' + escapeHtml(name) + '</strong><span>' + escapeHtml(phone || workQueueLabel(leadWorkQueue(lead))) + '</span></div>' +
     '<div class="mobile-call-actions">' +
     (callHref ? '<a class="mobile-call-button primary" href="' + escapeAttr(callHref) + '">Ring</a>' : '<span class="mobile-call-button disabled">Ingen tlf</span>') +
-    '<button type="button" class="mobile-call-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Neste</button>' +
     '<button type="button" class="mobile-call-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ingen svar</button>' +
     '<button type="button" class="mobile-call-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interessert</button>' +
+    '<button type="button" class="mobile-call-button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ferdig</button>' +
+    '<button type="button" class="mobile-call-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Neste</button>' +
     '</div></aside>'
 }
 
@@ -1152,12 +1293,11 @@ function workflowPanel(lead) {
   const savedText = workflow.updatedAt ? `Saved ${escapeHtml(workflow.updatedAt)}` : 'Not saved yet'
   const lastContacted = workflow.lastContactedAt ? formatActivityTime(workflow.lastContactedAt) : 'Not contacted yet'
   const nextFollowUp = workflow.nextFollowUpAt || workflow.followUpDate || 'Not set'
-  return `<section class="workflow-panel compact-workflow-panel">
+  return `<section class="workflow-panel compact-workflow-panel seller-next-panel">
     <div class="workflow-head compact-workflow-head">
       <div>
-        <p class="eyebrow">Lead notes</p>
-        <h3>Call notes and follow-up</h3>
-        <p class="note-procedure">Choose outcome, write a short note, set follow-up, then save.</p>
+        <p class="eyebrow">Lead workflow</p>
+        <h3>Outcome and next action</h3>
       </div>
       <div class="workflow-head-actions">
         ${badge(currentQueue)}
@@ -1165,22 +1305,21 @@ function workflowPanel(lead) {
         ${callHref ? '<a class="call-now compact-call" href="' + escapeAttr(callHref) + '">Call now</a>' : ''}
       </div>
     </div>
-    <div class="workflow-state-strip">
+    <div class="workflow-state-strip seller-next-state">
       ${commandMetric('Current queue', workQueueLabel(currentQueue), workQueueReason({ ...lead, workflow }, currentQueue))}
       ${commandMetric('Last contacted', lastContacted, workflow.response ? readable(workflow.response) : 'No latest outcome yet')}
       ${commandMetric('Next follow-up', nextFollowUp, followUpTiming(workflow.nextFollowUpAt || workflow.followUpDate) === 'overdue' ? 'Overdue follow-up' : 'Date controls follow-up queue')}
     </div>
-    ${quickActionsHtml(state.selectedIndex, 'full')}
-    <form id="workflowForm" class="workflow-form compact-workflow-form">
-      <label><span>Queue</span><select name="queue">${workflowQueueOptions(currentQueue)}</select></label>
-      <label><span>Status</span><select name="status">${workflowOptions(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'], workflow.status)}</select></label>
-      <label><span>Response</span><select name="response">${workflowOptions(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'], workflow.response)}</select></label>
+    <form id="workflowForm" class="workflow-form compact-workflow-form seller-next-form">
+      <input type="hidden" name="queue" value="${escapeAttr(currentQueue)}">
+      <input type="hidden" name="status" value="${escapeAttr(workflow.status || 'new')}">
+      <label><span>Outcome</span><select name="response">${workflowOptions(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'], workflow.response)}</select></label>
       <label><span>Follow-up date</span><input type="date" name="followUpDate" value="${escapeAttr(workflow.followUpDate || workflow.nextFollowUpAt || '')}"></label>
-      <label class="workflow-notes compact-notes"><span>Note</span><textarea name="notes" rows="3" placeholder="What happened? Who did you speak with? What should happen next?">${escapeHtml(formatWorkflowNotes(workflow.notes || ''))}</textarea></label>
+      <label class="workflow-next-action"><span>Next action</span><input name="nextAction" value="${escapeAttr(workflow.nextAction || '')}" placeholder="call again / book meeting / send info"></label>
+      <label class="workflow-notes compact-notes"><span>Note</span><textarea name="notes" rows="3" placeholder="Short call note">${escapeHtml(formatWorkflowNotes(workflow.notes || ''))}</textarea></label>
       <input type="hidden" name="contacted" value="${escapeAttr(String(Boolean(workflow.contacted)))}">
       <input type="hidden" name="channel" value="${escapeAttr(workflow.channel || '')}">
       <input type="hidden" name="personReached" value="${escapeAttr(workflow.personReached || '')}">
-      <input type="hidden" name="nextAction" value="${escapeAttr(workflow.nextAction || '')}">
       <input type="hidden" name="outcome" value="${escapeAttr(workflow.outcome || '')}">
       <input type="hidden" name="owner" value="${escapeAttr(workflow.owner || '')}">
       <input type="hidden" name="lastContactedAt" value="${escapeAttr(workflow.lastContactedAt || '')}">
@@ -1189,12 +1328,13 @@ function workflowPanel(lead) {
       <details class="workflow-more">
         <summary>More logging fields</summary>
         <div class="workflow-form workflow-form-more">
+          <label><span>Queue</span><select name="queueMore" data-workflow-sync="queue">${workflowQueueOptions(currentQueue)}</select></label>
+          <label><span>Status</span><select name="statusMore" data-workflow-sync="status">${workflowOptions(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'], workflow.status)}</select></label>
           <label><span>Owner</span><input name="ownerMore" data-workflow-sync="owner" value="${escapeAttr(workflow.owner || '')}" placeholder="Seller / team"></label>
           <label><span>Contacted</span><select name="contactedMore" data-workflow-sync="contacted">${workflowOptions(['false', 'true'], String(Boolean(workflow.contacted)))}</select></label>
           <label><span>Channel</span><select name="channelMore" data-workflow-sync="channel">${workflowOptions(['', 'phone', 'email', 'contact_form', 'linkedin', 'other'], workflow.channel)}</select></label>
           <label><span>Person reached</span><input name="personReachedMore" data-workflow-sync="personReached" value="${escapeAttr(workflow.personReached || '')}" placeholder="Name / role"></label>
-          <label><span>Next action</span><input name="nextActionMore" data-workflow-sync="nextAction" value="${escapeAttr(workflow.nextAction || '')}" placeholder="review / call / follow up"></label>
-          <label><span>Outcome</span><input name="outcomeMore" data-workflow-sync="outcome" value="${escapeAttr(workflow.outcome || '')}" placeholder="pending / not relevant / meeting"></label>
+          <label><span>Outcome detail</span><input name="outcomeMore" data-workflow-sync="outcome" value="${escapeAttr(workflow.outcome || '')}" placeholder="pending / not relevant / meeting"></label>
         </div>
       </details>
       ${workflowTimeline(workflow)}
@@ -1299,6 +1439,7 @@ async function saveWorkflow(event) {
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || 'Note save failed')
     lead.workflow = payload.workflow
+    await refreshCommandCenter()
     if (saveText) saveText.textContent = 'Saved now'
     setStatus('note saved', '')
     renderAll()
@@ -2056,6 +2197,7 @@ async function runWorkflowQuickAction(button) {
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || 'Workflow quick action failed')
     lead.workflow = payload.workflow
+    await refreshCommandCenter()
     clearStatus()
     if (advanceQueue) selectNextQueueLead(lead)
     renderAll()
@@ -2141,10 +2283,10 @@ function buildQuickWorkflow(action, current = {}) {
   const now = new Date().toISOString()
   const tomorrow = isoDateOffset(1)
   const nextWeek = isoDateOffset(7)
-  if (action === 'mark_called') return { ...base, status: 'contacted', queue: 'archived', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: base.response || 'neutral', nextAction: 'review call result' }
-  if (action === 'no_answer') return { ...base, status: 'follow_up', queue: 'no_answer', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'no_answer', followUpDate: base.followUpDate || tomorrow, nextFollowUpAt: base.nextFollowUpAt || base.followUpDate || tomorrow, nextAction: 'call again' }
-  if (action === 'interested') return { ...base, status: 'interested', queue: 'interested', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'interested', followUpDate: base.followUpDate || tomorrow, nextFollowUpAt: base.nextFollowUpAt || base.followUpDate || tomorrow, nextAction: 'follow up interested lead', outcome: base.outcome || 'interested' }
-  if (action === 'not_relevant') return { ...base, status: 'rejected', queue: 'not_relevant', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'negative', nextAction: 'do not contact', outcome: 'not relevant' }
+  if (action === 'mark_called') return { ...base, status: 'contacted', queue: 'archived', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: base.response || 'neutral', followUpDate: '', nextFollowUpAt: '', nextAction: 'done' }
+  if (action === 'no_answer') return { ...base, status: 'follow_up', queue: 'no_answer', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'no_answer', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: 'call again' }
+  if (action === 'interested') return { ...base, status: 'interested', queue: 'interested', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'interested', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: base.nextAction && base.nextAction !== 'review' ? base.nextAction : 'follow up interested lead', outcome: base.outcome || 'interested' }
+  if (action === 'not_relevant') return { ...base, status: 'rejected', queue: 'not_relevant', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'negative', followUpDate: '', nextFollowUpAt: '', nextAction: 'do not contact', outcome: 'not relevant' }
   if (action === 'follow_up_tomorrow') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: 'follow up tomorrow' }
   if (action === 'follow_up_next_week') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: nextWeek, nextFollowUpAt: nextWeek, nextAction: 'follow up next week' }
   if (action === 'archive') return { ...base, queue: 'archived', archivedAt: base.archivedAt || now, nextAction: 'archived' }

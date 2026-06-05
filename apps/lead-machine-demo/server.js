@@ -8,6 +8,7 @@ const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-fit/sellerFit')
 const { enrichOsint } = require('../../core/osint/osint')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
+const { buildOpportunityCommandCenter } = require('../../core/opportunity-command-center/opportunityCommandCenter')
 const { parseLeadQuery } = require('./queryParser')
 const { createWorkspaceStore } = require('./localStore')
 const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowActivity, workflowForLead, inferLeadQueue, leadMatchesQueue, normalizeQueue } = require('./workQueues')
@@ -62,6 +63,7 @@ function createServer(options = {}) {
       if (req.method === 'GET' && url.pathname === '/api/workflow') return handleWorkflowGet(url, res, workflowStore)
       if (req.method === 'POST' && url.pathname === '/api/workflow') return handleWorkflowPost(req, res, workflowStore)
       if (req.method === 'PATCH' && url.pathname === '/api/saved-searches') return handleSavedSearchPatch(req, res, savedSearchesStore)
+      if (req.method === "GET" && url.pathname === "/api/opportunity-command-center") return handleOpportunityCommandCenter(res, { runsDir, runIndex, workflowStore, savedSearchesStore })
       if (req.method === "GET" && url.pathname === "/api/workspace-export") return json(res, 200, workspaceStore.exportSnapshot())
       if (req.method === "GET" && url.pathname === "/api/health") return json(res, 200, buildBetaHealth({ workspaceStore, savedSearchesStore }))
       if (req.method === 'GET' && url.pathname.startsWith('/api/runs/')) return handleRunFile(url, res, runIndex, workflowStore)
@@ -170,6 +172,31 @@ async function handleLatestRun(res, context) {
     workflowStore: context.workflowStore,
     savedSearchesStore: context.savedSearchesStore,
   }))
+}
+
+function handleOpportunityCommandCenter(res, context) {
+  const latest = findLatestRun(context.runsDir)
+  if (!latest) {
+    return json(res, 200, buildOpportunityCommandCenter({
+      leadPacks: [],
+      savedSearches: readSavedSearches(context.savedSearchesStore),
+    }))
+  }
+  const leadPackOutputPath = path.join(latest.outputDir, 'lead-packs')
+  const leadPacksPath = path.join(leadPackOutputPath, 'lead-packs.json')
+  const leadPackSummaryPath = path.join(leadPackOutputPath, 'summary.json')
+  const machineSummaryPath = path.join(latest.outputDir, 'lead-machine-summary.json')
+  const payload = buildRunPayload({
+    runId: latest.runId,
+    outputDir: latest.outputDir,
+    leadPackOutputPath,
+    leadPacksPath,
+    leadPackSummaryPath,
+    machineSummaryPath,
+    workflowStore: context.workflowStore,
+    savedSearchesStore: context.savedSearchesStore,
+  })
+  return json(res, 200, payload.commandCenter)
 }
 
 function saveSearchMetadata(filePath, entry = {}) {
@@ -371,6 +398,8 @@ function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, le
   const fittedLeadPacks = attachSellerFitToLeads(readJsonFile(leadPacksPath, []), normalizedSellerIntent)
   const leadPacks = attachSourceFusionToLeads(attachWorkflowToLeads(fittedLeadPacks, readWorkflowStore(workflowStore)))
   const normalizedQuery = parsedQuery?.normalizedQuery || machineSummary.query || leadPacks[0]?.meta?.sourceQuery || ''
+  const savedSearches = readSavedSearches(savedSearchesStore)
+  const summary = { ...leadPackSummary, ...machineSummary, sellerIntent: normalizedSellerIntent }
   return {
     runId,
     parsedQuery: parsedQuery || { ok: true, rawQuery: normalizedQuery, normalizedQuery },
@@ -386,9 +415,10 @@ function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, le
       callListFollowUps: `/api/runs/${runId}/call-list.csv?view=followUpDue`,
       callListInterested: `/api/runs/${runId}/call-list.csv?view=interested`,
     },
-    summary: { ...leadPackSummary, ...machineSummary, sellerIntent: normalizedSellerIntent },
-    readiness: buildProductReadiness({ summary: { ...leadPackSummary, ...machineSummary, sellerIntent: normalizedSellerIntent }, leadPacks, workflowStore, savedSearchesStore }),
-    savedSearches: readSavedSearches(savedSearchesStore),
+    summary,
+    readiness: buildProductReadiness({ summary, leadPacks, workflowStore, savedSearchesStore }),
+    commandCenter: buildOpportunityCommandCenter({ leadPacks, savedSearches, summary }),
+    savedSearches,
     leadPacks,
   }
 }
