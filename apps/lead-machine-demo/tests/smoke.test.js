@@ -403,6 +403,7 @@ async function main() {
   assert(lower.includes('fast scan'), 'Fast mode UI should show fast scan state')
   assert(lower.includes('need stronger proof?'), 'Fast leads should show optional Verify & Enrich state')
   assert(lower.includes('verify & enrich'), 'Fast leads should expose selected-lead Verify & Enrich action')
+  assert(lower.includes('hosted verify & enrich') && lower.includes('light company/contact/source refresh') && lower.includes('full local audit not run'), 'UI should distinguish hosted Verify & Enrich as a lightweight refresh')
   assert(lower.includes('/api/deep-qualify'), 'UI should call selected-lead deep qualification endpoint')
   assert(lower.includes('enrichment modules'), 'UI should expose Verify & Enrich module panel')
   assert(lower.includes('digital presence check'), 'Verify & Enrich should show digital presence module')

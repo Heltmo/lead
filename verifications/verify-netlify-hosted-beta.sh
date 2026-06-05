@@ -48,6 +48,13 @@ for (const required of [
   'hosteddeepqualifyfromevent',
   'enrichcompanyprofile',
   'selected_lead_enrichment',
+  'hosted_context_refresh',
+  'capabilitylevel',
+  'modulesrun',
+  'modulesskipped',
+  'full_browser_audit',
+  'local_osint',
+  'hosted verify & enrich is a lightweight context refresh',
   'google_places_api_key is required for hosted beta searches',
 ]) {
   if (!lower.includes(required.toLowerCase())) throw new Error("Netlify hosted beta requirement missing: " + required)

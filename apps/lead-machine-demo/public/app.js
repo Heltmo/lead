@@ -1581,6 +1581,7 @@ function isFastLead(lead) {
 }
 
 function enrichmentTool(lead) {
+  if (isHostedContextRefresh(lead)) return `<section class="detail-tool detail-tool-status"><strong>Hosted Verify & Enrich</strong><span>Light company/contact/source refresh. Full local audit not run.</span></section>`
   if (!isFastLead(lead)) return `<section class="detail-tool detail-tool-status"><strong>Verified & enriched</strong><span>Selected-lead verification has run. Digital presence is one secondary module.</span></section>`
   return `<section class="detail-tool enrichment-tool">
     <div><strong>Need stronger proof?</strong><span>Keep it fast unless this lead is worth a focused identity, contact and source check.</span></div>
@@ -1588,6 +1589,10 @@ function enrichmentTool(lead) {
   </section>`
 }
 
+
+function isHostedContextRefresh(lead = {}) {
+  return lead.enrichment?.enrichmentMode === 'hosted_context_refresh' || lead.meta?.enrichmentMode === 'hosted_context_refresh'
+}
 
 function deepEnrichmentModules(lead, command) {
   const company = lead.company || {}

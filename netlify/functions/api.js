@@ -6,6 +6,13 @@ const TMP_ROOT = path.join(os.tmpdir(), 'lead-machine-netlify-beta')
 const STATE_PATH = path.join(TMP_ROOT, 'hosted-state.json')
 const BUNDLED_RUNS_DIR = path.join(__dirname, '..', '..', 'apps', 'lead-machine-demo', 'runs')
 const STORE_NAME = 'lead-machine-beta'
+const HOSTED_VERIFY_ENRICH_BOUNDARY = {
+  enrichmentMode: 'hosted_context_refresh',
+  capabilityLevel: 'lightweight',
+  modulesRun: ['brreg_refresh', 'contact_refresh', 'source_fusion_refresh'],
+  modulesSkipped: ['full_browser_audit', 'local_osint', 'proff', '1881'],
+  warnings: ['Hosted Verify & Enrich is a lightweight context refresh, not full local deep enrichment.'],
+}
 const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowActivity, workflowForLead: buildWorkflowForLead, buildQueueQuality, leadMatchesQueue, normalizeQueue } = require('../../apps/lead-machine-demo/workQueues')
 const { parseLeadQuery } = require('../../apps/lead-machine-demo/queryParser')
 const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
@@ -264,7 +271,12 @@ async function hostedDeepQualifyFromEvent(event, state) {
   enriched.enrichmentModules = hostedEnrichmentModules(enriched)
   enriched.enrichment = {
     status: 'deep_enriched',
-    mode: 'selected_lead_hosted',
+    mode: 'selected_lead_enrichment',
+    enrichmentMode: HOSTED_VERIFY_ENRICH_BOUNDARY.enrichmentMode,
+    capabilityLevel: HOSTED_VERIFY_ENRICH_BOUNDARY.capabilityLevel,
+    modulesRun: HOSTED_VERIFY_ENRICH_BOUNDARY.modulesRun,
+    modulesSkipped: HOSTED_VERIFY_ENRICH_BOUNDARY.modulesSkipped,
+    warnings: HOSTED_VERIFY_ENRICH_BOUNDARY.warnings,
     enrichedAt: new Date().toISOString(),
     modules: enriched.enrichmentModules,
     summary: {
@@ -274,12 +286,18 @@ async function hostedDeepQualifyFromEvent(event, state) {
       economy: enriched.economy?.status || 'not_enabled',
     },
   }
-  enriched.meta = { ...(enriched.meta || {}), mode: 'deep', enrichmentMode: 'selected_lead_hosted', enrichedAt: enriched.enrichment.enrichedAt }
+  enriched.meta = { ...(enriched.meta || {}), mode: 'deep', enrichmentMode: HOSTED_VERIFY_ENRICH_BOUNDARY.enrichmentMode, capabilityLevel: HOSTED_VERIFY_ENRICH_BOUNDARY.capabilityLevel, enrichedAt: enriched.enrichment.enrichedAt }
   enriched.sellerFit = evaluateSellerFit(enriched, sellerIntent)
   enriched.workflow = buildWorkflowForLead(enriched, { ...(lead.workflow || {}), ...(leadId ? state.workflow.leads[leadId] || {} : {}) }, leadId || hostedLeadId(enriched, 0))
   enriched = attachSourceFusion(enriched)
   replaceHostedLeadInLatestRun(state, lead, enriched)
-  return { leadPack: enriched, companyProfile, mode: 'selected_lead_enrichment', hosted: true }
+  return {
+    leadPack: enriched,
+    companyProfile,
+    mode: 'selected_lead_enrichment',
+    hosted: true,
+    ...HOSTED_VERIFY_ENRICH_BOUNDARY,
+  }
 }
 
 async function hostedSelectedCompanyProfile(lead = {}) {
@@ -342,6 +360,7 @@ function hostedEnrichmentModules(lead = {}) {
     { id: 'company_identity', name: 'Brreg verification', status: hostedBrregStatus(company), summary: hostedBrregSummary(company) },
     { id: 'contactability', name: 'Contactability refresh', status: contactability, summary: contactability === 'strong' ? 'Direct phone is available for seller qualification.' : 'Direct phone is missing or indirect.' },
     { id: 'digital_presence', name: 'Digital presence check', status: websiteStatus, summary: 'Hosted beta records website presence but does not run browser audit.' },
+    { id: 'hosted_boundary', name: 'Hosted Verify & Enrich boundary', status: 'lightweight', summary: 'Light company/contact/source refresh. Full local audit not run.' },
     { id: 'seller_summary', name: 'Seller fit summary', status: 'completed', summary: 'Seller fit refreshed after selected-lead Brreg retry.' },
     { id: 'economy_proff', name: 'Economy / Proff', status: economyStatus, summary: 'Proff is not enabled for hosted beta.' },
   ]
