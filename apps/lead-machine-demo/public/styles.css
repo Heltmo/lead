@@ -241,6 +241,7 @@ a { color: var(--blue); }
 .seller-next-form .workflow-next-action input { font-weight: 760; }
 .seller-next-form .compact-notes textarea { min-height: 64px; }
 .seller-next-state .command-metric { min-height: 68px; }
+.queue-guidance-note { margin: -2px 0 8px; padding: 8px 10px; border: 1px solid #ecd098; border-radius: 8px; background: var(--amber-soft); color: var(--amber); font-size: 12px; font-weight: 760; }
 .compact-workflow-form { grid-template-columns: 140px 145px minmax(190px, .75fr) minmax(280px, 1fr) auto; gap: 8px; align-items: start; }
 .compact-workflow-form label { min-width: 0; }
 .compact-workflow-form input, .compact-workflow-form select { min-height: 36px; padding: 7px 9px; }

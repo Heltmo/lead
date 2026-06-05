@@ -683,7 +683,21 @@ function leadMatchesWorkQueue(lead, queueId) {
   return leadWorkQueue(lead) === queue
 }
 
+function queueQualityForLead(lead = {}) {
+  const quality = lead.queueQuality
+  return quality && typeof quality === 'object' && quality.rulesVersion === 'queue_quality_v1' ? quality : null
+}
+
 function leadWorkQueue(lead) {
+  const backendQuality = queueQualityForLead(lead)
+  const workflowQueue = normalizeWorkQueue(backendQuality?.workflowQueue || lead.workflow?.queue)
+  if (workflowQueue) return workflowQueue
+  const recommendedQueue = normalizeWorkQueue(backendQuality?.recommendedQueue)
+  if (recommendedQueue) return recommendedQueue
+  return fallbackLeadWorkQueue(lead)
+}
+
+function fallbackLeadWorkQueue(lead) {
   const workflow = lead.workflow || {}
   const explicit = normalizeWorkQueue(workflow.queue)
   const status = String(workflow.status || '').toLowerCase()
@@ -838,10 +852,17 @@ function callQueueSortScore(lead) {
   if (websiteValue(contact.website || lead.website)) score += 20
   if (isFastLead(lead)) score += 15
   score += sellerFitSortScore(lead)
-  const quality = leadQueueQuality(lead)
-  if (quality.trustedToCall) score += 160
-  if (quality.needsVerifyBeforeCall) score -= 90
-  if (quality.foreignPhone || quality.severeLocationRisk) score -= 500
+  const backendQuality = queueQualityForLead(lead)
+  if (backendQuality) {
+    if (backendQuality.recommendedQueue === 'call_now') score += 160
+    if (backendQuality.recommendedQueue === 'verify_first') score -= 90
+    if ((backendQuality.blockers || []).includes('phone_format_not_norwegian') || (backendQuality.blockers || []).includes('location_conflict')) score -= 500
+  } else {
+    const quality = leadQueueQuality(lead)
+    if (quality.trustedToCall) score += 160
+    if (quality.needsVerifyBeforeCall) score -= 90
+    if (quality.foreignPhone || quality.severeLocationRisk) score -= 500
+  }
   if (sellerRecommendedAction(lead) === 'contact') score += 120
   if (sellerRecommendedAction(lead) === 'verify') score += 35
   if (sellerRecommendedAction(lead) === 'skip') score -= 500
@@ -892,6 +913,9 @@ function sellerRecommendedAction(lead) {
 
 function callReadiness(lead) {
   const workflow = lead.workflow || {}
+  if (workflow.status === 'rejected' || workflow.queue === 'not_relevant' || workflow.archivedAt) return { key: 'skip', label: 'Skip', note: 'Rejected or not relevant.', rank: -2000 }
+  const backendQuality = queueQualityForLead(lead)
+  if (backendQuality) return callReadinessFromQueueQuality(backendQuality)
   const company = lead.company || {}
   const sourceQuality = lead.sourceQuality || {}
   const fusion = sourceFusionForLead(lead)
@@ -915,6 +939,19 @@ function callReadiness(lead) {
   if (quality.trustedToCall) return { key: 'ready_to_call', label: 'Ready to call', note: quality.locationFallback ? 'Phone-ready; confirm location during call.' : 'Phone-ready and not contacted.', rank: 1250 }
   if (quality.needsVerifyBeforeCall) return { key: 'verify_first', label: 'Verify first', note: 'Verify identity/location before calling.', rank: 500 }
   return { key: 'later', label: 'Later', note: 'Review when current queue is clear.', rank: 50 }
+}
+
+function callReadinessFromQueueQuality(queueQuality = {}) {
+  const note = queueQuality.blockers?.length
+    ? queueQuality.blockers.slice(0, 2).map(humanize).join(', ')
+    : queueQuality.reasons?.slice(0, 2).map(humanize).join(', ') || 'Backend queue-quality facts are attached.'
+  if (queueQuality.recommendedQueue === 'call_now') return { key: 'ready_to_call', label: 'Ready to call', note, rank: 1250 }
+  if (queueQuality.recommendedQueue === 'follow_up_today') return { key: 'follow_up_due', label: 'Follow-up due', note, rank: 1800 }
+  if (queueQuality.recommendedQueue === 'interested') return { key: 'follow_up_due', label: 'Follow-up', note, rank: 1500 }
+  if (queueQuality.recommendedQueue === 'verify_first') return { key: 'verify_first', label: 'Verify first', note, rank: 500 }
+  if (queueQuality.recommendedQueue === 'no_answer') return { key: 'no_answer', label: 'Call again', note, rank: 200 }
+  if (queueQuality.recommendedQueue === 'not_relevant' || queueQuality.recommendedQueue === 'archived') return { key: 'skip', label: 'Skip', note, rank: -1200 }
+  return { key: 'later', label: 'Later', note, rank: 50 }
 }
 
 function leadQueueQuality(lead = {}, context = {}) {
@@ -1062,15 +1099,16 @@ function leadQueueActionLabel(lead) {
 
 function salesEdgeAction(lead = {}) {
   const workflow = lead.workflow || {}
+  const rejected = workflow.status === 'rejected' || workflow.queue === 'not_relevant' || String(workflow.outcome || '').toLowerCase().includes('not relevant')
+  if (rejected) return { key: 'skip', label: 'Hopp over', note: 'Marked not relevant; keep out of seller focus.' }
+  const backendQuality = queueQualityForLead(lead)
+  if (backendQuality) return salesEdgeActionFromQueueQuality(backendQuality)
   const fusion = sourceFusionForLead(lead)
   const trustAction = String(fusion.recommendedTrustAction || '').toLowerCase()
   const sellerAction = sellerRecommendedAction(lead)
   const hasPhone = Boolean(lead.contact?.phone || lead.phone)
   const readiness = callReadiness(lead)
   const followUpDate = workflow.nextFollowUpAt || workflow.followUpDate || ''
-  const rejected = workflow.status === 'rejected' || workflow.queue === 'not_relevant' || String(workflow.outcome || '').toLowerCase().includes('not relevant')
-
-  if (rejected) return { key: 'skip', label: 'Hopp over', note: 'Marked not relevant; keep out of seller focus.' }
   if (isFollowUpDue(lead)) return { key: 'follow_up_today', label: 'Følg opp i dag', note: followUpDate ? 'Due ' + followUpDate + '.' : 'Follow-up is due.' }
   if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return { key: 'follow_up_today', label: 'Følg opp i dag', note: 'Interested lead needs a concrete next step.' }
   if (trustAction === 'skip' || sellerAction === 'skip' || readiness.key === 'skip') return { key: 'skip', label: 'Hopp over', note: 'Weak fit or source confidence; review only if you have a reason.' }
@@ -1082,6 +1120,19 @@ function salesEdgeAction(lead = {}) {
   if (String(fusion.leadConfidence || '').toLowerCase() === 'review') return { key: 'verify_enrich', label: 'Verify & Enrich', note: 'Source confidence needs a focused check before prioritizing.' }
   if (hasPhone) return { key: 'call', label: 'Ring nå', note: readiness.note || 'Phone is available and no hard blocker is visible.' }
   return { key: 'verify_first', label: 'Verifiser først', note: 'Verify contactability before sales work.' }
+}
+
+function salesEdgeActionFromQueueQuality(queueQuality = {}) {
+  const note = queueQuality.blockers?.length
+    ? queueQuality.blockers.slice(0, 2).map(humanize).join(', ')
+    : queueQuality.reasons?.slice(0, 2).map(humanize).join(', ') || 'Backend queue-quality recommendation.'
+  if (queueQuality.recommendedAction === 'call') return { key: 'call', label: 'Ring nå', note }
+  if (queueQuality.recommendedAction === 'follow_up_today' || queueQuality.recommendedQueue === 'follow_up_today') return { key: 'follow_up_today', label: 'Følg opp i dag', note }
+  if (queueQuality.recommendedAction === 'verify_first') return { key: 'verify_first', label: 'Verifiser først', note }
+  if (queueQuality.recommendedAction === 'skip') return { key: 'skip', label: 'Hopp over', note }
+  if (queueQuality.recommendedAction === 'call_again') return { key: 'follow_up_today', label: 'Følg opp', note }
+  if (queueQuality.recommendedAction === 'follow_up') return { key: 'follow_up_today', label: 'Følg opp', note }
+  return { key: 'verify_enrich', label: 'Verify & Enrich', note }
 }
 
 function updateFilterSummary(visible, total) {
@@ -1277,6 +1328,14 @@ function mobileCallBar(lead) {
     '</div></aside>'
 }
 
+function queueGuidanceNote(lead = {}) {
+  const quality = queueQualityForLead(lead)
+  if (!quality || !quality.queueMismatch) return ''
+  const actualQueue = workQueueLabel(leadWorkQueue(lead))
+  const recommendedQueue = workQueueLabel(quality.recommendedQueue)
+  return '<p class="queue-guidance-note">System suggests ' + escapeHtml(recommendedQueue) + '; current workflow stays ' + escapeHtml(actualQueue) + ' until you change it.</p>'
+}
+
 function nextLeadDisabledAttr() {
   return getVisibleLeads(state.result?.leadPacks || []).length > 1 ? '' : 'disabled'
 }
@@ -1297,6 +1356,7 @@ function workflowPanel(lead) {
   const currentQueue = leadWorkQueue({ ...lead, workflow })
   workflow.queue = currentQueue
   workflow.nextFollowUpAt = workflow.nextFollowUpAt || workflow.followUpDate || ''
+  const queueGuidance = queueGuidanceNote({ ...lead, workflow })
   const phone = lead.contact?.phone || lead.phone || ''
   const callHref = phoneHref(phone)
   const savedText = workflow.updatedAt ? `Saved ${escapeHtml(workflow.updatedAt)}` : 'Not saved yet'
@@ -1319,6 +1379,7 @@ function workflowPanel(lead) {
       ${commandMetric('Last contacted', lastContacted, workflow.response ? readable(workflow.response) : 'No latest outcome yet')}
       ${commandMetric('Next follow-up', nextFollowUp, followUpTiming(workflow.nextFollowUpAt || workflow.followUpDate) === 'overdue' ? 'Overdue follow-up' : 'Date controls follow-up queue')}
     </div>
+    ${queueGuidance}
     <form id="workflowForm" class="workflow-form compact-workflow-form seller-next-form">
       <input type="hidden" name="queue" value="${escapeAttr(currentQueue)}">
       <input type="hidden" name="status" value="${escapeAttr(workflow.status || 'new')}">

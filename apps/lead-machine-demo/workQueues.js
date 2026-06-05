@@ -9,6 +9,7 @@ const WORK_QUEUES = [
 ]
 
 const WORK_QUEUE_IDS = new Set(WORK_QUEUES.map((queue) => queue.id))
+const QUEUE_QUALITY_RULES_VERSION = 'queue_quality_v1'
 
 function defaultWorkflow() {
   return {
@@ -92,6 +93,34 @@ function inferLeadQueue(lead = {}, workflow = {}, options = {}) {
   const normalized = normalizeWorkflow(workflow || {}, options)
   const existing = workflowQueueFromWorkflow(normalized, { allowExplicit: true, today: options.today })
   if (existing) return existing
+  return buildQueueQuality(lead, normalized, options).recommendedQueue || 'verify_first'
+}
+
+function buildQueueQuality(lead = {}, workflow = {}, options = {}) {
+  const normalizedWorkflow = normalizeWorkflow(workflow || {}, options)
+  const workflowQueue = workflowQueueFromWorkflow(normalizedWorkflow, { allowExplicit: true, today: options.today })
+  const recommendedQueue = recommendedQueueForLead(lead, normalizedWorkflow, options)
+  const facts = queueQualityFacts(lead, normalizedWorkflow)
+  const explicitQueue = normalizeQueue(workflow && workflow.queue)
+  return {
+    recommendedQueue,
+    recommendedAction: queueActionFor(recommendedQueue),
+    readiness: readinessForQueue(recommendedQueue),
+    reasons: facts.reasons,
+    blockers: facts.blockers,
+    warnings: facts.warnings,
+    workflowQueue: workflowQueue || normalizedWorkflow.queue || '',
+    manualOverride: Boolean(explicitQueue && explicitQueue !== recommendedQueue),
+    queueMismatch: Boolean(workflowQueue && workflowQueue !== recommendedQueue),
+    computedAt: options.now || new Date().toISOString(),
+    rulesVersion: QUEUE_QUALITY_RULES_VERSION,
+  }
+}
+
+function recommendedQueueForLead(lead = {}, workflow = {}, options = {}) {
+  const normalized = normalizeWorkflow(workflow || {}, options)
+  const statusQueue = workflowQueueFromWorkflow(normalized, { allowExplicit: false, today: options.today })
+  if (statusQueue) return statusQueue
 
   const sellerFit = lead.sellerFit || {}
   const company = lead.company || {}
@@ -116,6 +145,51 @@ function inferLeadQueue(lead = {}, workflow = {}, options = {}) {
   if (quality.trustedToCall) return 'call_now'
   if (quality.needsVerifyBeforeCall) return 'verify_first'
   return 'verify_first'
+}
+
+function queueQualityFacts(lead = {}, workflow = {}) {
+  const sourceFusion = lead.sourceFusion || {}
+  const quality = leadQueueQuality(lead)
+  const reasons = []
+  const blockers = []
+  const warnings = []
+  if (workflow.response === 'no_answer' || workflow.response === 'no_response') reasons.push('no_answer_outcome')
+  if (workflow.response === 'interested' || workflow.response === 'meeting_booked' || workflow.status === 'interested') reasons.push('interested_outcome')
+  if (workflow.followUpDate || workflow.nextFollowUpAt) reasons.push('follow_up_scheduled')
+  if (quality.hasPhone) reasons.push('contact_available')
+  else blockers.push('contact_missing')
+  if (quality.confirmedOrg) reasons.push('confirmed_org_number')
+  if (quality.candidateOrg) blockers.push('candidate_org_number')
+  if (quality.exactLocation) reasons.push('exact_location')
+  if (quality.locationFallback) warnings.push('location_needs_review')
+  if (quality.foreignPhone) blockers.push('phone_format_not_norwegian')
+  if (quality.severeLocationRisk) blockers.push('location_conflict')
+  if (quality.severeIdentityRisk && !quality.confirmedOrg) blockers.push('identity_not_confirmed')
+  if (String(sourceFusion.recommendedTrustAction || '').toLowerCase() === 'verify_first') blockers.push('source_fusion_verify_first')
+  if (String(sourceFusion.recommendedTrustAction || '').toLowerCase() === 'skip') blockers.push('source_fusion_skip')
+  return {
+    reasons: unique(reasons).slice(0, 8),
+    blockers: unique(blockers).slice(0, 8),
+    warnings: unique(warnings).slice(0, 8),
+  }
+}
+
+function queueActionFor(queue) {
+  if (queue === 'call_now') return 'call'
+  if (queue === 'follow_up_today') return 'follow_up_today'
+  if (queue === 'verify_first') return 'verify_first'
+  if (queue === 'not_relevant' || queue === 'archived') return 'skip'
+  if (queue === 'no_answer') return 'call_again'
+  if (queue === 'interested') return 'follow_up'
+  return 'verify_first'
+}
+
+function readinessForQueue(queue) {
+  if (queue === 'call_now') return 'ready'
+  if (queue === 'follow_up_today' || queue === 'interested') return 'due'
+  if (queue === 'verify_first' || queue === 'no_answer') return 'review'
+  if (queue === 'not_relevant' || queue === 'archived') return 'skip'
+  return 'review'
 }
 
 function leadQueueQuality(lead = {}, context = {}) {
@@ -162,12 +236,13 @@ function workflowQueueFromWorkflow(workflow = {}, options = {}) {
   const outcome = String(workflow.outcome || '').toLowerCase()
   const followUpDate = normalizeDate(workflow.nextFollowUpAt || workflow.followUpDate)
 
-  if (explicit === 'archived' || workflow.archivedAt) return 'archived'
-  if (status === 'rejected' || explicit === 'not_relevant' || outcome.includes('not relevant') || outcome.includes('rejected')) return 'not_relevant'
+  const allowExplicit = options.allowExplicit !== false
+  if (workflow.archivedAt || allowExplicit && explicit === 'archived') return 'archived'
+  if (status === 'rejected' || allowExplicit && explicit === 'not_relevant' || outcome.includes('not relevant') || outcome.includes('rejected')) return 'not_relevant'
   if (followUpDate && isDateDue(followUpDate, options.today)) return 'follow_up_today'
-  if (status === 'interested' || response === 'interested' || response === 'meeting_booked' || explicit === 'interested') return 'interested'
-  if (response === 'no_answer' || response === 'no_response' || explicit === 'no_answer' || status === 'follow_up') return 'no_answer'
-  if (explicit === 'call_now' || explicit === 'verify_first') return explicit
+  if (status === 'interested' || response === 'interested' || response === 'meeting_booked' || allowExplicit && explicit === 'interested') return 'interested'
+  if (response === 'no_answer' || response === 'no_response' || allowExplicit && explicit === 'no_answer' || status === 'follow_up') return 'no_answer'
+  if (allowExplicit && (explicit === 'call_now' || explicit === 'verify_first')) return explicit
   return ''
 }
 
@@ -274,6 +349,10 @@ function limitText(value, max) {
   return String(value || '').slice(0, max)
 }
 
+function unique(values) {
+  return Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean)))
+}
+
 module.exports = {
   WORK_QUEUES,
   defaultWorkflow,
@@ -282,6 +361,7 @@ module.exports = {
   createWorkflowActivity,
   workflowForLead,
   inferLeadQueue,
+  buildQueueQuality,
   leadMatchesQueue,
   leadQueueQuality,
   isLikelyNorwegianPhone,

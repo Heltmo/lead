@@ -6,7 +6,7 @@ const TMP_ROOT = path.join(os.tmpdir(), 'lead-machine-netlify-beta')
 const STATE_PATH = path.join(TMP_ROOT, 'hosted-state.json')
 const BUNDLED_RUNS_DIR = path.join(__dirname, '..', '..', 'apps', 'lead-machine-demo', 'runs')
 const STORE_NAME = 'lead-machine-beta'
-const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowActivity, workflowForLead: buildWorkflowForLead, leadMatchesQueue, normalizeQueue } = require('../../apps/lead-machine-demo/workQueues')
+const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowActivity, workflowForLead: buildWorkflowForLead, buildQueueQuality, leadMatchesQueue, normalizeQueue } = require('../../apps/lead-machine-demo/workQueues')
 const { parseLeadQuery } = require('../../apps/lead-machine-demo/queryParser')
 const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
 const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-fit/sellerFit')
@@ -435,7 +435,7 @@ function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b') {
 
 function attachHostedStateToLeads(leadPacks, state) {
   return (Array.isArray(leadPacks) ? leadPacks : []).map((lead, index) => {
-    const next = { ...lead }
+    const next = attachSourceFusion({ ...lead })
     const id = hostedLeadId(next, index)
     next.workflow = buildWorkflowForLead(next, { ...(next.workflow || {}), ...(state.workflow.leads[id] || {}) }, id)
     return attachSourceFusion(next)
@@ -525,7 +525,7 @@ function attachHostedStateToRun(run, state) {
   const copy = JSON.parse(JSON.stringify(run || {}))
   copy.savedSearches = state.savedSearches.length ? state.savedSearches : (copy.savedSearches || [])
   copy.leadPacks = (copy.leadPacks || []).map((lead, index) => {
-    const next = { ...lead }
+    const next = attachSourceFusion({ ...lead })
     const id = next.workflow && next.workflow.leadId || hostedLeadId(next, index)
     const savedWorkflow = state.workflow.leads[id] || {}
     const existingWorkflow = next.workflow && (next.workflow.updatedAt || Array.isArray(next.workflow.activities) && next.workflow.activities.length || Array.isArray(next.workflow.activityLog) && next.workflow.activityLog.length)
@@ -565,6 +565,7 @@ function attachSourceFusion(lead = {}) {
     sellerFit: copy.sellerFit,
     workflow: copy.workflow,
   })
+  copy.queueQuality = buildQueueQuality(copy, copy.workflow || {})
   return copy
 }
 
@@ -595,13 +596,13 @@ function filterHostedCallList(leads, view) {
 }
 
 function hostedCsv(leads) {
-  const headers = ['rank', 'company', 'phone', 'city', 'leadConfidence', 'identityConfidence', 'contactConfidence', 'locationConfidence', 'recommendedTrustAction', 'sourceCoverage', 'verifiedFieldsSummary', 'proofReasonsSummary', 'riskReasonsSummary', 'sourceFusionWarnings', 'warningsSummary', 'workflowQueue', 'queue', 'workflowStatus', 'owner', 'response', 'followUpDate', 'nextFollowUpAt', 'lastContactedAt', 'nextAction', 'latestOutcome', 'workflowNotes']
+  const headers = ['rank', 'company', 'phone', 'city', 'leadConfidence', 'identityConfidence', 'contactConfidence', 'locationConfidence', 'recommendedTrustAction', 'sourceCoverage', 'verifiedFieldsSummary', 'proofReasonsSummary', 'riskReasonsSummary', 'sourceFusionWarnings', 'warningsSummary', 'workflowQueue', 'queue', 'queueQualityRecommendedQueue', 'queueQualityRecommendedAction', 'queueQualityReadiness', 'workflowStatus', 'owner', 'response', 'followUpDate', 'nextFollowUpAt', 'lastContactedAt', 'nextAction', 'latestOutcome', 'workflowNotes']
   const rows = (Array.isArray(leads) ? leads : []).map((lead, index) => {
     const workflow = normalizeWorkflow(lead.workflow || {})
     const contact = lead.contact || {}
     const fusion = lead.sourceFusion || evaluateSourceFusion({ lead, googlePlaces: lead.places, brregCompanyProfile: lead.company, contactProfile: lead.contact, sourceQuality: lead.sourceQuality, sellerFit: lead.sellerFit, workflow })
     const fusionSummary = sourceFusionSummary(fusion)
-    return [index + 1, lead.company && lead.company.displayName || lead.companyName || '', contact.phone || lead.phone || '', contact.city || lead.city || '', fusion.leadConfidence || '', fusion.identityConfidence || '', fusion.contactConfidence || '', fusion.locationConfidence || '', fusion.recommendedTrustAction || '', fusionSummary.sourceCoverage, fusionSummary.verifiedFields, fusionSummary.proofReasons, fusionSummary.riskReasons, fusionSummary.warnings, fusionSummary.warnings, workflow.queue || '', workflow.queue || '', workflow.status || '', workflow.owner || '', workflow.response || '', workflow.followUpDate || '', workflow.nextFollowUpAt || '', workflow.lastContactedAt || '', workflow.nextAction || '', workflow.response || workflow.outcome || '', workflow.notes || '']
+    return [index + 1, lead.company && lead.company.displayName || lead.companyName || '', contact.phone || lead.phone || '', contact.city || lead.city || '', fusion.leadConfidence || '', fusion.identityConfidence || '', fusion.contactConfidence || '', fusion.locationConfidence || '', fusion.recommendedTrustAction || '', fusionSummary.sourceCoverage, fusionSummary.verifiedFields, fusionSummary.proofReasons, fusionSummary.riskReasons, fusionSummary.warnings, fusionSummary.warnings, workflow.queue || '', workflow.queue || '', lead.queueQuality && lead.queueQuality.recommendedQueue || '', lead.queueQuality && lead.queueQuality.recommendedAction || '', lead.queueQuality && lead.queueQuality.readiness || '', workflow.status || '', workflow.owner || '', workflow.response || '', workflow.followUpDate || '', workflow.nextFollowUpAt || '', workflow.lastContactedAt || '', workflow.nextAction || '', workflow.response || workflow.outcome || '', workflow.notes || '']
   })
   return [headers, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n') + '\n'
 }
