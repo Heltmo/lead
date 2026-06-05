@@ -595,13 +595,13 @@ function filterHostedCallList(leads, view) {
 }
 
 function hostedCsv(leads) {
-  const headers = ['rank', 'company', 'phone', 'city', 'leadConfidence', 'identityConfidence', 'contactConfidence', 'locationConfidence', 'recommendedTrustAction', 'sourceCoverage', 'verifiedFieldsSummary', 'proofReasonsSummary', 'riskReasonsSummary', 'sourceFusionWarnings', 'workflowQueue', 'workflowStatus', 'owner', 'response', 'followUpDate', 'nextFollowUpAt', 'lastContactedAt', 'nextAction', 'latestOutcome', 'workflowNotes']
+  const headers = ['rank', 'company', 'phone', 'city', 'leadConfidence', 'identityConfidence', 'contactConfidence', 'locationConfidence', 'recommendedTrustAction', 'sourceCoverage', 'verifiedFieldsSummary', 'proofReasonsSummary', 'riskReasonsSummary', 'sourceFusionWarnings', 'warningsSummary', 'workflowQueue', 'queue', 'workflowStatus', 'owner', 'response', 'followUpDate', 'nextFollowUpAt', 'lastContactedAt', 'nextAction', 'latestOutcome', 'workflowNotes']
   const rows = (Array.isArray(leads) ? leads : []).map((lead, index) => {
     const workflow = normalizeWorkflow(lead.workflow || {})
     const contact = lead.contact || {}
     const fusion = lead.sourceFusion || evaluateSourceFusion({ lead, googlePlaces: lead.places, brregCompanyProfile: lead.company, contactProfile: lead.contact, sourceQuality: lead.sourceQuality, sellerFit: lead.sellerFit, workflow })
     const fusionSummary = sourceFusionSummary(fusion)
-    return [index + 1, lead.company && lead.company.displayName || lead.companyName || '', contact.phone || lead.phone || '', contact.city || lead.city || '', fusion.leadConfidence || '', fusion.identityConfidence || '', fusion.contactConfidence || '', fusion.locationConfidence || '', fusion.recommendedTrustAction || '', fusionSummary.sourceCoverage, fusionSummary.verifiedFields, fusionSummary.proofReasons, fusionSummary.riskReasons, fusionSummary.warnings, workflow.queue || '', workflow.status || '', workflow.owner || '', workflow.response || '', workflow.followUpDate || '', workflow.nextFollowUpAt || '', workflow.lastContactedAt || '', workflow.nextAction || '', workflow.response || workflow.outcome || '', workflow.notes || '']
+    return [index + 1, lead.company && lead.company.displayName || lead.companyName || '', contact.phone || lead.phone || '', contact.city || lead.city || '', fusion.leadConfidence || '', fusion.identityConfidence || '', fusion.contactConfidence || '', fusion.locationConfidence || '', fusion.recommendedTrustAction || '', fusionSummary.sourceCoverage, fusionSummary.verifiedFields, fusionSummary.proofReasons, fusionSummary.riskReasons, fusionSummary.warnings, fusionSummary.warnings, workflow.queue || '', workflow.queue || '', workflow.status || '', workflow.owner || '', workflow.response || '', workflow.followUpDate || '', workflow.nextFollowUpAt || '', workflow.lastContactedAt || '', workflow.nextAction || '', workflow.response || workflow.outcome || '', workflow.notes || '']
   })
   return [headers, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n') + '\n'
 }

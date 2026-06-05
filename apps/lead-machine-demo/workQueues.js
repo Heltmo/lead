@@ -110,6 +110,7 @@ function inferLeadQueue(lead = {}, workflow = {}, options = {}) {
   const quality = leadQueueQuality(lead, { company, contact, sourceQuality, sourceFusion, action, fit, hasPhone, matchStatus, locationStatus, trustAction, identityConfidence, contactConfidence, locationConfidence })
 
   if (action === 'skip' || trustAction === 'skip') return 'archived'
+  if (trustAction === 'verify_first') return 'verify_first'
   if (!quality.hasPhone) return 'verify_first'
   if (quality.foreignPhone || quality.severeLocationRisk) return 'verify_first'
   if (quality.trustedToCall) return 'call_now'

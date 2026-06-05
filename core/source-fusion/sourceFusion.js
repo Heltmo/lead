@@ -156,6 +156,7 @@ function leadConfidenceFor({ identityConfidence, contactConfidence, locationConf
 
 function trustActionFor({ leadConfidence, identityConfidence, contactConfidence, locationConfidence, sellerFit, conflicts }) {
   if (leadConfidence === 'weak' && contactConfidence === 'weak') return 'skip'
+  if (contactConfidence === 'weak') return leadConfidence === 'weak' ? 'skip' : 'verify_first'
   if (locationConfidence === 'conflict') return contactConfidence === 'weak' ? 'skip' : 'verify_first'
   if (sellerFit === 'weak') return leadConfidence === 'weak' ? 'skip' : 'review'
   if (conflicts.length) return 'verify_first'

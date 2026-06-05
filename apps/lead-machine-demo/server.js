@@ -323,7 +323,7 @@ function buildProductReadiness({ summary = {}, leadPacks = [], workflowStore, sa
     },
     providers: [
       { id: 'brreg', label: 'Brreg', status: 'automatic', note: 'Free company identity base: org.nr, legal name, NACE, status and employees when available.' },
-      { id: 'google_places', label: 'Google Places', status: googleConfigured ? 'metered_enabled' : 'not_configured', note: 'Metered public presence source; searches are capped and Deep runs only on selected leads.' },
+      { id: 'google_places', label: 'Google Places', status: googleConfigured ? 'metered_enabled' : 'not_configured', note: 'Metered public presence source; searches are capped and Verify & Enrich runs only on selected leads.' },
       { id: 'osint', label: 'OSINT public evidence', status: 'selected_lead_only', note: 'Uses source-backed public business evidence already attached to the selected lead.' },
       { id: 'proff', label: 'Proff economy', status: proffConfigured ? 'optional_enabled' : 'optional_disabled', note: proffConfigured ? 'Available only after confirmed org.nr.' : 'Not required for core seller workflow; keep as later paid add-on.' },
     ],
@@ -338,7 +338,7 @@ function buildProductReadiness({ summary = {}, leadPacks = [], workflowStore, sa
     guardrails: [
       'Proff is optional and never required for lead quality.',
       'Google usage stays capped: 25 for normal searches, 60 for Norway-sweep beta runs.',
-      'Deep enrichment runs on one selected lead, not the whole market.',
+      'Verify & Enrich runs on one selected lead, not the whole market.',
       'No outreach automation, email sending, or telephony is added.',
     ],
   }
@@ -772,15 +772,15 @@ function websiteSummaryV1(status, hasWebsite) {
 }
 
 function deepEvidenceLine({ company, contact, websiteStatus, contactability }) {
-  if (websiteStatus === 'skipped_no_website') return 'Deep enrichment skipped digital presence check because no website was available.'
-  if (company.organizationNumber && contact.phone) return 'Deep enrichment confirms usable company identity/contact context.'
-  if (contactability === 'strong') return 'Deep enrichment confirms strong contactability.'
-  return 'Deep enrichment refreshed selected-lead context.'
+  if (websiteStatus === 'skipped_no_website') return 'Verify & Enrich skipped digital presence check because no website was available.'
+  if (company.organizationNumber && contact.phone) return 'Verify & Enrich confirms usable company identity/contact context.'
+  if (contactability === 'strong') return 'Verify & Enrich confirms strong contactability.'
+  return 'Verify & Enrich refreshed selected-lead context.'
 }
 
 function deepWhyRanked({ company, contact, contactability, websiteStatus }) {
   return [
-    'Deep enrichment ran on this selected lead only.',
+    'Verify & Enrich ran on this selected lead only.',
     company.organizationNumber ? 'Official company identity is confirmed.' : company.candidateOrganizationNumber ? 'Official company identity has a candidate match.' : null,
     contact.phone ? 'Direct phone exists for seller qualification.' : null,
     websiteStatus === 'completed' ? 'Digital presence signals are attached.' : null,
@@ -914,7 +914,7 @@ function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searc
 }
 
 function toLeadPackCsv(leadPacks) {
-  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'sellerIntent', 'sellerFit', 'sellerRecommendedAction', 'leadConfidence', 'identityConfidence', 'contactConfidence', 'locationConfidence', 'recommendedTrustAction', 'sourceCoverage', 'verifiedFieldsSummary', 'proofReasonsSummary', 'riskReasonsSummary', 'sourceFusionWarnings', 'fitReasons', 'riskReasons', 'osintEvidenceCount', 'osintRiskCount', 'osintSourceCount', 'osintTopSignals', 'osintTopRisks', 'workflowQueue', 'workflowStatus', 'owner', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextFollowUpAt', 'lastContactedAt', 'nextAction', 'latestOutcome', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
+  const headers = ['rank', 'company', 'orgNumber', 'candidateOrgNumber', 'phone', 'email', 'website', 'city', 'priority', 'leadClass', 'matchStatus', 'sellerIntent', 'sellerFit', 'sellerRecommendedAction', 'leadConfidence', 'identityConfidence', 'contactConfidence', 'locationConfidence', 'recommendedTrustAction', 'sourceCoverage', 'verifiedFieldsSummary', 'proofReasonsSummary', 'riskReasonsSummary', 'sourceFusionWarnings', 'warningsSummary', 'fitReasons', 'riskReasons', 'osintEvidenceCount', 'osintRiskCount', 'osintSourceCount', 'osintTopSignals', 'osintTopRisks', 'workflowQueue', 'queue', 'workflowStatus', 'owner', 'contacted', 'channel', 'personReached', 'response', 'followUpDate', 'nextFollowUpAt', 'lastContactedAt', 'nextAction', 'latestOutcome', 'workflowNotes', 'workflowOutcome', 'lastActivityAt', 'evidenceSummary', 'cautionSummary']
   const rows = leadPacks.map((lead) => {
     const workflow = normalizeWorkflow(lead.workflow || {})
     const osintSummary = lead.osint && lead.osint.summary ? lead.osint.summary : {}
@@ -945,6 +945,7 @@ function toLeadPackCsv(leadPacks) {
       fusionSummary.proofReasons,
       fusionSummary.riskReasons,
       fusionSummary.warnings,
+      fusionSummary.warnings,
       lead.sellerFit && Array.isArray(lead.sellerFit.fitReasons) ? lead.sellerFit.fitReasons.join(' | ') : '',
       lead.sellerFit && Array.isArray(lead.sellerFit.riskReasons) ? lead.sellerFit.riskReasons.join(' | ') : '',
       osintSummary.evidenceCount || '',
@@ -952,6 +953,7 @@ function toLeadPackCsv(leadPacks) {
       osintSummary.sourceCount || '',
       Array.isArray(osintSummary.topSignals) ? osintSummary.topSignals.join(' | ') : '',
       Array.isArray(osintSummary.topRisks) ? osintSummary.topRisks.join(' | ') : '',
+      workflow.queue,
       workflow.queue,
       workflow.status,
       workflow.owner,

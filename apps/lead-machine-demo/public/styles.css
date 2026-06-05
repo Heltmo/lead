@@ -75,6 +75,10 @@ button, input, select { font: inherit; }
 .lead-card p, .muted { margin: 0; color: var(--muted); line-height: 1.4; font-size: 13px; }
 .queue-action { grid-column: 1 / -1 !important; display: inline-flex; gap: 5px; align-items: center; width: fit-content; max-width: 100%; padding: 5px 8px; border-radius: 8px; background: #f3faf7; color: #174b38 !important; font-weight: 800; font-size: 12px !important; }
 .queue-action strong { color: var(--green); }
+.sales-edge-action { color: var(--ink); overflow-wrap: anywhere; }
+.sales-edge-action.call { color: var(--green); }
+.sales-edge-action.verify_first, .sales-edge-action.follow_up_today, .sales-edge-action.verify_enrich { color: var(--amber); }
+.sales-edge-action.skip { color: var(--red); }
 .card-signal { color: var(--ink) !important; font-weight: 650; }
 .card-meta { font-size: 12px !important; }
 .badge-row { display: flex; flex-wrap: wrap; gap: 6px; }

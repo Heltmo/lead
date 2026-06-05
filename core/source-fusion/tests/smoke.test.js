@@ -46,7 +46,7 @@ function lead(overrides = {}) {
 {
   const fusion = evaluateSourceFusion(lead({ contact: {}, website: {}, phone: null, email: null }))
   assert(fusion.contactConfidence === 'weak', 'missing all contact paths should be weak')
-  assert(fusion.recommendedTrustAction !== 'call', 'missing contact should not recommend call')
+  assert(['verify_first', 'skip'].includes(fusion.recommendedTrustAction), 'missing contact should verify first or skip')
 }
 
 {

@@ -204,7 +204,7 @@ async function runSearch() {
   try {
     const statusText = els.runMode.value === 'fast'
       ? 'running: fast discovery and lead-pack build'
-      : 'running: selected lead enrichment; digital presence is one module'
+      : 'running: Verify & Enrich for selected lead'
     setStatus(statusText, 'running')
     const response = await apiFetch('/api/runs', {
       method: 'POST',
@@ -592,7 +592,7 @@ function renderLeads(visibleLeads) {
     const places = lead.places || {}
     const company = lead.company || {}
     const primarySignal = sellerSignals(lead)[0] || humanize(lead.opportunityType || 'Lead pack')
-    const queueAction = leadQueueActionLabel(lead)
+    const salesEdge = salesEdgeAction(lead)
     const city = leadCity(lead)
     const cityHeading = state.result?.summary?.marketSweep && city !== previousCity ? '<div class="city-group-heading"><span>' + escapeHtml(city) + '</span><strong>' + escapeHtml(cityCountLabel(city)) + '</strong></div>' : ''
     previousCity = city
@@ -602,7 +602,7 @@ function renderLeads(visibleLeads) {
         <div class="badge-row">${badge(callReadiness(lead).key)}${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
-        <p class="queue-action"><strong>Next:</strong> ${escapeHtml(queueAction)}</p>
+        <p class="queue-action"><strong>Next:</strong> <span class="sales-edge-action ${escapeAttr(salesEdge.key)}">${escapeHtml(salesEdge.label)}</span></p>
         <p class="card-signal">${escapeHtml(primarySignal)}</p>
         <p class="card-meta">${escapeHtml(formatRating(places))} · ${escapeHtml(workflowCardNote(lead))}</p>
       </button>
@@ -709,6 +709,7 @@ function leadWorkQueue(lead) {
   const locationConfidence = String(fusion.locationConfidence || '').toLowerCase()
   const quality = leadQueueQuality(lead, { company, sourceQuality, fusion, hasPhone, fit, sellerAction, trustAction, identityConfidence, contactConfidence, locationConfidence, matchStatus, locationStatus })
   if (sellerAction === 'skip' || trustAction === 'skip') return 'archived'
+  if (trustAction === 'verify_first') return 'verify_first'
   if (!quality.hasPhone) return 'verify_first'
   if (quality.foreignPhone || quality.severeLocationRisk) return 'verify_first'
   if (quality.trustedToCall) return 'call_now'
@@ -910,6 +911,7 @@ function callReadiness(lead) {
   if (sellerAction === 'skip' || trustAction === 'skip') return { key: 'skip', label: 'Skip', note: 'Seller-fit engine says deprioritize.', rank: -1200 }
   if (quality.foreignPhone) return { key: 'verify_first', label: 'Verify first', note: 'Phone format looks outside Norway.', rank: 250 }
   if (quality.severeLocationRisk) return { key: 'verify_first', label: 'Verify first', note: 'Resolve location conflict before calling.', rank: 350 }
+  if (trustAction === 'verify_first') return { key: 'verify_first', label: 'Verify first', note: 'Source Fusion says identity, contact or location needs verification.', rank: 500 }
   if (quality.trustedToCall) return { key: 'ready_to_call', label: 'Ready to call', note: quality.locationFallback ? 'Phone-ready; confirm location during call.' : 'Phone-ready and not contacted.', rank: 1250 }
   if (quality.needsVerifyBeforeCall) return { key: 'verify_first', label: 'Verify first', note: 'Verify identity/location before calling.', rank: 500 }
   return { key: 'later', label: 'Later', note: 'Review when current queue is clear.', rank: 50 }
@@ -1055,24 +1057,31 @@ function leadId(lead, index) {
 }
 
 function leadQueueActionLabel(lead) {
+  return salesEdgeAction(lead).label
+}
+
+function salesEdgeAction(lead = {}) {
   const workflow = lead.workflow || {}
-  const company = lead.company || {}
-  const hasPhone = Boolean(lead.contact?.phone || lead.phone)
-  const brregStatus = brregStatusLabel(company)
-  if (workflow.status === 'rejected') return 'Rejected; keep out of call queue'
-  if (isFollowUpDue(lead)) return `Follow up today: ${workflow.followUpDate}`
-  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return 'Interested: follow up'
+  const fusion = sourceFusionForLead(lead)
+  const trustAction = String(fusion.recommendedTrustAction || '').toLowerCase()
   const sellerAction = sellerRecommendedAction(lead)
-  if (sellerAction === 'contact' && hasPhone) return 'Call now'
-  if (sellerAction === 'verify' && hasPhone) return 'Call, verify details'
-  if (sellerAction === 'verify') return 'Verify first'
-  if (sellerAction === 'skip') return 'Skip/deprioritize'
-  if (!hasPhone) return 'Review contact path'
-  if (hasPhone && !workflow.contacted && !['contacted', 'follow_up'].includes(workflow.status)) return 'Call now'
-  if (workflow.status === 'follow_up') return workflow.followUpDate ? `Follow up ${workflow.followUpDate}` : 'Follow up'
-  if (['candidate_org', 'no_match', 'brreg_unavailable', 'not_run', 'manual_verify', 'weak_match'].includes(brregStatus)) return 'Verify company identity'
-  if (isFastLead(lead)) return 'Enrich if more context is needed'
-  return 'Review lead pack'
+  const hasPhone = Boolean(lead.contact?.phone || lead.phone)
+  const readiness = callReadiness(lead)
+  const followUpDate = workflow.nextFollowUpAt || workflow.followUpDate || ''
+  const rejected = workflow.status === 'rejected' || workflow.queue === 'not_relevant' || String(workflow.outcome || '').toLowerCase().includes('not relevant')
+
+  if (rejected) return { key: 'skip', label: 'Hopp over', note: 'Marked not relevant; keep out of seller focus.' }
+  if (isFollowUpDue(lead)) return { key: 'follow_up_today', label: 'Følg opp i dag', note: followUpDate ? 'Due ' + followUpDate + '.' : 'Follow-up is due.' }
+  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return { key: 'follow_up_today', label: 'Følg opp i dag', note: 'Interested lead needs a concrete next step.' }
+  if (trustAction === 'skip' || sellerAction === 'skip' || readiness.key === 'skip') return { key: 'skip', label: 'Hopp over', note: 'Weak fit or source confidence; review only if you have a reason.' }
+  if (!hasPhone && trustAction === 'skip') return { key: 'skip', label: 'Hopp over', note: 'No useful contact path found.' }
+  if (!hasPhone) return { key: 'verify_first', label: 'Verifiser først', note: 'Find or verify a direct contact path before calling.' }
+  if (readiness.key === 'verify_first' || readiness.key === 'needs_contact' || trustAction === 'verify_first') return { key: 'verify_first', label: 'Verifiser først', note: readiness.note || 'Verify identity, contact or location before calling.' }
+  if ((trustAction === 'call' || readiness.key === 'ready_to_call') && hasPhone) return { key: 'call', label: 'Ring nå', note: readiness.note || 'Phone, identity and location are strong enough to work.' }
+  if (isFastLead(lead)) return { key: 'verify_enrich', label: 'Verify & Enrich', note: 'Run a focused selected-lead check if this one is worth more context.' }
+  if (String(fusion.leadConfidence || '').toLowerCase() === 'review') return { key: 'verify_enrich', label: 'Verify & Enrich', note: 'Source confidence needs a focused check before prioritizing.' }
+  if (hasPhone) return { key: 'call', label: 'Ring nå', note: readiness.note || 'Phone is available and no hard blocker is visible.' }
+  return { key: 'verify_first', label: 'Verifiser først', note: 'Verify contactability before sales work.' }
 }
 
 function updateFilterSummary(visible, total) {
@@ -1098,7 +1107,7 @@ function renderDetail(lead) {
   const discoveryQuality = sourceQuality.discoveryQuality || {}
   const leverage = sellerSignals(lead)
   const command = sellerCommand(lead)
-  const nextStep = command.nextAction
+  const salesEdge = salesEdgeAction(lead)
   els.leadDetail.innerHTML = `
     <section class="instant-lead-view">
       <div class="instant-lead-main">
@@ -1123,7 +1132,7 @@ function renderDetail(lead) {
       ${callSessionPanel(lead, command)}
       ${sellerDeskCards(lead, command, { includeDetails: false })}
       <div class="instant-decision-grid">
-        ${commandMetric('Do this now', command.nextAction, command.nextActionNote)}
+        ${commandMetric('Do this now', salesEdge.label, salesEdge.note)}
         ${commandMetric('Verify before use', command.mainRisk, command.mainRiskNote)}
         ${commandMetric('Company identity', command.verification, command.verificationNote)}
         ${commandMetric('Business type', command.businessType, command.businessTypeNote)}
@@ -1495,10 +1504,10 @@ function noteSaveErrorMessage(error) {
 function modeGuidance(summary) {
   const mode = summary.mode || els.runMode.value || 'fast'
   if (!summary || Object.keys(summary).length === 0) {
-    return mode === 'deep' ? 'Deep enrich adds modules to selected leads.' : 'Fast scan finds candidates; enrich selected leads when more context is needed.'
+    return mode === 'deep' ? 'Verify & Enrich adds selected-lead proof modules.' : 'Fast scan finds candidates; verify and enrich only the leads that need more context.'
   }
   const included = Number(summary.includedLeadCount ?? summary.totalLeads ?? 0)
-  if (mode === 'fast' && included > 0) return 'These are candidates. Enrich only the leads that need more context.'
+  if (mode === 'fast' && included > 0) return 'These are candidates. Use Verify & Enrich only on leads that need more context.'
   return summary.nextRecommendedAction || 'These leads include enrichment signals.'
 }
 
@@ -1511,10 +1520,10 @@ function isFastLead(lead) {
 }
 
 function enrichmentTool(lead) {
-  if (!isFastLead(lead)) return `<section class="detail-tool detail-tool-status"><strong>Enriched</strong><span>Selected enrichment has run. Website/digital presence is one module.</span></section>`
+  if (!isFastLead(lead)) return `<section class="detail-tool detail-tool-status"><strong>Verified & enriched</strong><span>Selected-lead verification has run. Digital presence is one secondary module.</span></section>`
   return `<section class="detail-tool enrichment-tool">
-    <div><strong>Need more context?</strong><span>Keep it fast unless this lead is worth a deeper check.</span></div>
-    <button type="button" id="runDeepQualification">Enrich lead</button>
+    <div><strong>Need stronger proof?</strong><span>Keep it fast unless this lead is worth a focused identity, contact and source check.</span></div>
+    <button type="button" id="runDeepQualification">Verify & Enrich</button>
   </section>`
 }
 
@@ -1528,7 +1537,7 @@ function deepEnrichmentModules(lead, command) {
     : Array.isArray(lead.enrichment?.modules) ? lead.enrichment.modules : []
   const modules = liveModules.length ? liveModules : [
     { name: 'Digital presence check', status: isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), summary: isFastLead(lead) ? 'Run enrichment to check digital presence.' : 'Digital presence signals are attached.' },
-    { name: 'Brreg verification', status: company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), summary: company.organizationNumber ? 'Official identity is confirmed.' : company.candidateOrganizationNumber ? 'Candidate identity needs manual verify.' : 'Not confirmed in fast search; Enrich lead retries Brreg for this company.' },
+    { name: 'Brreg verification', status: company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), summary: company.organizationNumber ? 'Official identity is confirmed.' : company.candidateOrganizationNumber ? 'Candidate identity needs manual verify.' : 'Not confirmed in fast search; Verify & Enrich retries Brreg for this company.' },
     { name: 'Economy / Proff', status: economy.status || 'not_enabled', summary: economyModuleSummary(economy) },
     { name: 'Social/source signals', status: 'not_enabled', summary: 'Later module: Facebook, LinkedIn, news and public source links.' },
     { name: 'Decision makers', status: 'not_enabled', summary: 'Later module: public role/contact hints when available.' },
@@ -1672,7 +1681,7 @@ function sellerDeskCards(lead, command, options = {}) {
     ['Next action', command.nextAction],
   ]
   const qualificationRows = [
-    ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Deep enriched'],
+    ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Verified/enriched'],
     ['Fit', command.sellerReadiness],
     ['Digital presence', command.websiteOpportunity],
     ['Main risk', command.mainRisk],
@@ -1720,7 +1729,7 @@ function sellerDeskCards(lead, command, options = {}) {
       ${sellerDeskCard('Market proof', sourceQuality.locationMatchStatus || 'unknown', marketRows, places.placeId ? `Place ID: ${places.placeId}` : '')}
       ${sellerDeskCard('Sales signals', command.sellerReadinessKey, actionRows, 'No script generated; seller owns angle and wording.')}
       ${sellerDeskCard('Risk / verify', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : command.sellerReadinessKey, riskRows, command.mainRiskNote)}
-      ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Enrichment has not run yet.' : 'Selected enrichment modules included.')}
+      ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Verify & Enrich has not run yet.' : 'Verify & Enrich modules included.')}
     </div>
   </details>`
   const includeTop = options.includeTop !== false
@@ -1815,7 +1824,7 @@ function sellerCommand(lead) {
     : 'Registered business activity from Brreg/NACE.'
 
   const verification = confirmedOrg ? 'Confirmed org.nr' : candidateOrg ? 'Candidate org.nr' : brregUnavailable ? 'Identity pending' : 'Not verified'
-  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : brregUnavailable ? 'Brreg not confirmed in fast search; use Enrich lead for a focused retry.' : 'Brreg returned no confirmed identity.'
+  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : brregUnavailable ? 'Brreg not confirmed in fast search; use Verify & Enrich for a focused retry.' : 'Brreg returned no confirmed identity.'
 
   let mainRisk = 'Low data risk'
   let mainRiskNote = 'Core contact and identity fields look usable.'
@@ -1842,8 +1851,8 @@ function sellerCommand(lead) {
     nextAction = 'Find contact first'
     nextActionNote = 'Do not prioritize for calling until a direct contact is found.'
   } else if (fast) {
-    nextAction = confirmedOrg ? 'Enrich if more context is needed' : candidateOrg ? 'Verify org.nr, then enrich if needed' : brregUnavailable ? 'Enrich lead for Brreg retry' : 'Enrich if needed'
-    nextActionNote = 'Fast found a usable candidate; enrichment adds optional context modules.'
+    nextAction = confirmedOrg ? 'Verify & Enrich if more context is needed' : candidateOrg ? 'Verify org.nr, then use Verify & Enrich if needed' : brregUnavailable ? 'Verify & Enrich for Brreg retry' : 'Verify & Enrich if needed'
+    nextActionNote = 'Fast found a usable candidate; Verify & Enrich adds optional context modules.'
   } else if (priority === 'low' && sellerReadinessKey !== 'weak') {
     nextAction = 'Usable lead; weak digital angle'
     nextActionNote = 'Do not treat LOW digital signal as a bad business lead.'
@@ -1929,7 +1938,7 @@ function companyIdValue(company = {}) {
 function companyIdNote(company = {}) {
   if (company.organizationNumber) return 'Confirmed official identity'
   if (company.candidateOrganizationNumber) return 'Candidate org.nr; verify before export'
-  if (isBrregUnavailable(company)) return 'Fast search could not confirm Brreg; use Enrich lead for a focused retry'
+  if (isBrregUnavailable(company)) return 'Fast search could not confirm Brreg; use Verify & Enrich for a focused retry'
   return brregStatusLabel(company)
 }
 
@@ -1939,7 +1948,7 @@ function sourceStrategyStatus(company = {}, sourceQuality = {}, places = {}) {
 }
 
 function sourceStrategyLabel(company = {}, sourceQuality = {}) {
-  if (isBrregUnavailable(company)) return 'Presence-first fallback; Enrich lead retries Brreg for this company'
+  if (isBrregUnavailable(company)) return 'Presence-first fallback; Verify & Enrich retries Brreg for this company'
   if (sourceQuality.identitySource === 'brreg') return 'Brreg-first identity with presence enrichment'
   return 'Presence-first discovery'
 }
@@ -2025,7 +2034,7 @@ function sellerSignals(lead) {
 
   if (company.organizationNumber) signals.push(`Brreg confirmed: org.nr ${company.organizationNumber}. Legal identity is ready for export.`)
   else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Brreg candidate exists, but legal identity should be verified before export.')
-  else if (isBrregUnavailable(company)) signals.push('Brreg is not confirmed from the fast run; use Enrich lead for a focused retry.')
+  else if (isBrregUnavailable(company)) signals.push('Brreg is not confirmed from the fast run; use Verify & Enrich for a focused retry.')
   else signals.push('Legal identity is not verified yet; Brreg returned no confirmed firm profile.')
 
   if (isLawLead(lead)) signals.push('Law-firm context: credibility, trust and client enquiry quality matter more than generic booking language.')
@@ -2316,8 +2325,8 @@ async function runSelectedDeepQualification(button) {
   if (!lead) return setStatus('failed: no selected lead to qualify', 'failed')
   const originalText = button.textContent
   button.disabled = true
-  button.textContent = 'Enriching...'
-  setStatus(`running: enrichment for ${lead.company?.displayName || 'selected lead'}`, 'running')
+  button.textContent = 'Verifying...'
+  setStatus(`running: Verify & Enrich for ${lead.company?.displayName || 'selected lead'}`, 'running')
   try {
     const response = await apiFetch('/api/deep-qualify', {
       method: 'POST',
@@ -2336,7 +2345,7 @@ async function runSelectedDeepQualification(button) {
     updatedLead.workflow = lead.workflow || updatedLead.workflow
     state.result.leadPacks[state.selectedIndex] = updatedLead
     state.result.summary = updateSummaryAfterLeadReplacement(state.result.summary || {}, state.result.leadPacks)
-    setStatus('completed: selected lead enriched', '')
+    setStatus('completed: selected lead verified and enriched', '')
     renderAll()
   } catch (error) {
     setStatus(`failed: ${error.message || 'Lead enrichment failed'}`, 'failed')
