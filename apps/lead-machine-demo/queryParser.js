@@ -13,6 +13,16 @@ const VERTICALS = [
   { terms: ['escape room', 'escape rooms', 'escaperoom', 'escapreroom', 'rømningsrom', 'romningsrom', 'rømningsspill', 'romningsspill'], canonical: 'escape room' },
 ]
 
+const KNOWN_LOCATIONS = [
+  'Oslo', 'Bergen', 'Trondheim', 'Stavanger', 'Kristiansand', 'Drammen', 'Fredrikstad', 'Sarpsborg', 'Moss', 'Halden',
+  'Ålesund', 'Molde', 'Kristiansund', 'Bodø', 'Tromsø', 'Alta', 'Narvik', 'Harstad', 'Hamar', 'Lillehammer',
+  'Gjøvik', 'Elverum', 'Kongsvinger', 'Tønsberg', 'Sandefjord', 'Larvik', 'Skien', 'Porsgrunn', 'Arendal', 'Grimstad',
+  'Mandal', 'Flekkefjord', 'Bryne', 'Sandnes', 'Haugesund', 'Karmøy', 'Stord', 'Voss', 'Førde', 'Florø',
+  'Sogndal', 'Gol', 'Geilo', 'Hønefoss', 'Kongsberg', 'Notodden', 'Ringerike', 'Lillestrøm', 'Jessheim', 'Ski',
+  'Asker', 'Bærum', 'Lørenskog', 'Eidsvoll', 'Ullensaker', 'Nesodden', 'Nittedal', 'Råde', 'Rygge', 'Rolvsøy',
+  'Namsos', 'Steinkjer', 'Levanger', 'Stjørdal', 'Mo i Rana', 'Mosjøen', 'Brønnøysund', 'Sortland', 'Svolvær', 'Hammerfest',
+]
+
 function parseLeadQuery(rawQuery) {
   const query = String(rawQuery || '').trim().replace(/\s+/g, ' ')
   if (!query) return { ok: false, error: 'Query is required' }
@@ -21,6 +31,9 @@ function parseLeadQuery(rawQuery) {
   if (viaI) {
     const vertical = matchVertical(viaI[1])
     if (vertical) return result(query, vertical, cleanupLocation(viaI[2]))
+    const location = knownLocationFromText(viaI[2])
+    const freeTextVertical = cleanupLocation(viaI[1])
+    if (location && freeTextVertical) return freeTextLocationResult(query, freeTextVertical, location)
   }
 
   const exactVertical = matchVertical(query)
@@ -28,6 +41,9 @@ function parseLeadQuery(rawQuery) {
 
   const phraseMatch = matchVerticalPhraseWithLocation(query)
   if (phraseMatch) return result(query, phraseMatch.vertical, phraseMatch.location)
+
+  const freeTextLocationMatch = matchFreeTextWithKnownLocation(query)
+  if (freeTextLocationMatch) return freeTextLocationResult(query, freeTextLocationMatch.vertical, freeTextLocationMatch.location)
 
   const tokens = query.split(' ')
   for (let i = 0; i < tokens.length; i += 1) {
@@ -53,9 +69,49 @@ function result(originalQuery, vertical, location) {
   }
 }
 
+function freeTextLocationResult(originalQuery, vertical, location) {
+  return {
+    ok: true,
+    originalQuery,
+    vertical: null,
+    freeTextVertical: vertical,
+    location,
+    normalizedQuery: vertical + ' i ' + location,
+    warning: 'Parsed known location with free-text vertical',
+  }
+}
+
 function matchVertical(value) {
   const normalized = normalize(value)
   return VERTICALS.find((item) => item.terms.some((term) => normalize(term) === normalized)) || null
+}
+
+function matchFreeTextWithKnownLocation(query) {
+  const tokens = String(query || '').split(' ').filter(Boolean)
+  if (tokens.length < 2) return null
+  const normalizedQuery = normalize(query)
+  const locations = KNOWN_LOCATIONS
+    .map((location) => ({ location, normalized: normalize(location), words: normalize(location).split(' ').filter(Boolean).length }))
+    .sort((a, b) => b.normalized.length - a.normalized.length)
+
+  for (const item of locations) {
+    if (!item.normalized) continue
+    if (normalizedQuery.endsWith(' ' + item.normalized)) {
+      const vertical = cleanupLocation(tokens.slice(0, -item.words).join(' '))
+      if (vertical) return { vertical, location: item.location }
+    }
+    if (normalizedQuery.startsWith(item.normalized + ' ')) {
+      const vertical = cleanupLocation(tokens.slice(item.words).join(' '))
+      if (vertical) return { vertical, location: item.location }
+    }
+  }
+  return null
+}
+
+function knownLocationFromText(value) {
+  const normalized = normalize(value)
+  const match = KNOWN_LOCATIONS.find((location) => normalize(location) === normalized)
+  return match || ''
 }
 
 function matchVerticalPhraseWithLocation(query) {
@@ -93,4 +149,4 @@ function normalize(value) {
     .trim()
 }
 
-module.exports = { parseLeadQuery, VERTICALS }
+module.exports = { parseLeadQuery, VERTICALS, KNOWN_LOCATIONS }
