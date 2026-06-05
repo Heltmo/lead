@@ -1,5 +1,6 @@
 const assert = require('assert')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../sourceFusion')
+const { searchContactData } = require('../../contact-data/contactData')
 
 function lead(overrides = {}) {
   return {
@@ -77,6 +78,20 @@ function lead(overrides = {}) {
   }))
   assert(fusion.contactConfidence === 'review', 'contact conflict should require review')
   assert(fusion.conflicts.length >= 1, 'contact conflict should be explicit')
+}
+
+{
+  const providerResult = searchContactData({ companyName: 'Provider Match AS', city: 'Oslo' }, { scenario: 'matched' })
+  const fusion = evaluateSourceFusion(lead({ contact: { address: 'Testgata 1, Oslo', city: 'Oslo' }, contactData: providerResult }))
+  assert(['good', 'strong'].includes(fusion.contactConfidence), 'matched provider evidence should improve contact confidence')
+  assert(fusion.sourceCoverage.includes('contact_provider'), 'contact provider should be represented as source coverage')
+}
+
+{
+  const providerResult = searchContactData({ companyName: 'Provider Conflict AS', city: 'Oslo' }, { scenario: 'conflict' })
+  const fusion = evaluateSourceFusion(lead({ contactData: providerResult }))
+  assert(fusion.contactConfidence === 'review', 'provider conflict should require contact review')
+  assert(fusion.recommendedTrustAction === 'verify_first', 'provider conflict should trigger verify first')
 }
 
 {

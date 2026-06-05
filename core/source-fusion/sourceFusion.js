@@ -1,3 +1,8 @@
+const {
+  contactProviderEvidenceForSourceFusion,
+  hasContactProviderResult,
+} = require('../contact-data/contactData')
+
 const CONFIDENCE = new Set(['strong', 'good', 'review', 'weak', 'unknown'])
 const IDENTITY = new Set(['confirmed', 'candidate', 'manual_verify', 'unknown'])
 const CONTACT = new Set(['strong', 'good', 'review', 'weak', 'unknown'])
@@ -13,16 +18,22 @@ function evaluateSourceFusion(input = {}) {
   const sellerFit = input.sellerFit || lead.sellerFit || {}
   const workflow = input.workflow || lead.workflow || {}
   const website = lead.website && typeof lead.website === 'object' ? lead.website : {}
+  const contactProviderInput = input.contactDataProviderResult || input.contactData || lead.contactData || lead.contactProviderResult || null
+  const contactProvider = hasContactProviderResult(contactProviderInput) ? contactProviderEvidenceForSourceFusion(contactProviderInput) : null
 
   const proofReasons = []
   const riskReasons = []
   const conflicts = []
   const warnings = []
 
-  const hasPhone = Boolean(clean(contact.phone || lead.phone))
-  const hasEmail = Boolean(clean(contact.email || lead.email))
-  const hasWebsite = Boolean(clean(contact.website || website.url || lead.website))
-  const hasAddress = Boolean(clean(contact.address || lead.address || company.registeredAddress))
+  const hasProviderPhone = Boolean(contactProvider && contactProvider.status === 'matched' && contactProvider.hasPhone)
+  const hasProviderEmail = Boolean(contactProvider && contactProvider.status === 'matched' && contactProvider.hasEmail)
+  const hasProviderWebsite = Boolean(contactProvider && contactProvider.status === 'matched' && contactProvider.hasWebsite)
+  const hasProviderAddress = Boolean(contactProvider && contactProvider.status === 'matched' && contactProvider.hasAddress)
+  const hasPhone = Boolean(clean(contact.phone || lead.phone)) || hasProviderPhone
+  const hasEmail = Boolean(clean(contact.email || lead.email)) || hasProviderEmail
+  const hasWebsite = Boolean(clean(contact.website || website.url || lead.website)) || hasProviderWebsite
+  const hasAddress = Boolean(clean(contact.address || lead.address || company.registeredAddress)) || hasProviderAddress
   const hasOrg = Boolean(clean(company.organizationNumber))
   const hasCandidateOrg = Boolean(clean(company.candidateOrganizationNumber))
   const matchStatus = String(company.matchStatus || '').toLowerCase()
@@ -31,7 +42,7 @@ function evaluateSourceFusion(input = {}) {
   const contactWarnings = normalizeList(contact.warnings)
 
   const identityConfidence = identityConfidenceFor({ hasOrg, hasCandidateOrg, matchStatus, companyWarnings, warnings, conflicts, proofReasons, riskReasons })
-  const contactConfidence = contactConfidenceFor({ hasPhone, hasEmail, hasWebsite, contactWarnings, warnings, conflicts, proofReasons, riskReasons })
+  const contactConfidence = contactConfidenceFor({ hasPhone, hasEmail, hasWebsite, contactWarnings, contactProvider, warnings, conflicts, proofReasons, riskReasons })
   const locationConfidence = locationConfidenceFor({ sourceQuality, warnings, conflicts, proofReasons, riskReasons })
   const normalizedSellerFit = normalizeSellerFit(sellerFit.sellerFit)
 
@@ -60,7 +71,7 @@ function evaluateSourceFusion(input = {}) {
     locationConfidence: normalizeEnum(locationConfidence, LOCATION, 'unknown'),
     sellerFit: normalizedSellerFit,
     recommendedTrustAction: normalizeEnum(recommendedTrustAction, TRUST_ACTION, 'review'),
-    sourceCoverage: sourceCoverageFor({ company, contact, places, website, sourceQuality, workflow }),
+    sourceCoverage: sourceCoverageFor({ company, contact, places, website, sourceQuality, workflow, contactProvider }),
     verifiedFields,
     proofReasons: proofReasons.slice(0, 8),
     riskReasons: riskReasons.slice(0, 8),
@@ -94,7 +105,15 @@ function identityConfidenceFor(context) {
 }
 
 function contactConfidenceFor(context) {
-  const { hasPhone, hasEmail, hasWebsite, contactWarnings, warnings, conflicts, proofReasons, riskReasons } = context
+  const { hasPhone, hasEmail, hasWebsite, contactWarnings, contactProvider, warnings, conflicts, proofReasons, riskReasons } = context
+  if (contactProvider && contactProvider.status !== 'no_match') {
+    for (const reason of normalizeList(contactProvider.proofReasons)) addUnique(proofReasons, reason)
+    for (const reason of normalizeList(contactProvider.riskReasons)) addUnique(riskReasons, reason)
+    for (const warning of normalizeList(contactProvider.warnings)) addUnique(warnings, warning)
+    for (const conflict of normalizeList(contactProvider.conflicts)) addUnique(conflicts, conflict)
+    if (contactProvider.status === 'conflict' || normalizeList(contactProvider.conflicts).length) return 'review'
+    if (contactProvider.status === 'weak_match') return 'review'
+  }
   const warningText = contactWarnings.join(' ').toLowerCase()
   if (hasConflictText(warningText)) {
     addUnique(conflicts, 'Contact data has conflicting source signals.')
@@ -166,11 +185,12 @@ function trustActionFor({ leadConfidence, identityConfidence, contactConfidence,
   return 'review'
 }
 
-function sourceCoverageFor({ company, contact, places, website, sourceQuality, workflow }) {
+function sourceCoverageFor({ company, contact, places, website, sourceQuality, workflow, contactProvider }) {
   const coverage = []
   if (places.placeId || places.provider || places.rating || places.reviewCount || sourceQuality.presenceSource) coverage.push('google_places')
   if (company.organizationNumber || company.candidateOrganizationNumber || company.matchStatus || company.source === 'brreg' || sourceQuality.identitySource === 'brreg') coverage.push('brreg')
   if (contact.phone || contact.email || contact.address || contact.city) coverage.push('contact_data')
+  if (contactProvider && contactProvider.status && contactProvider.status !== 'no_match') coverage.push('contact_provider')
   if (contact.website || website.auditStatus || website.contactability || website.topEvidence) coverage.push('website_contact_profile')
   if (workflow.status || workflow.queue || workflow.updatedAt || Array.isArray(workflow.activities) && workflow.activities.length) coverage.push('workflow')
   return Array.from(new Set(coverage))
