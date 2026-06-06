@@ -384,6 +384,8 @@ async function main() {
   assert(lower.includes('applyworkflowdefaults'), 'Workflow save should apply practical follow-up defaults')
   assert(lower.includes('mobile-call-bar') && lower.includes('data-next-visible-lead'), 'Mobile call desk should keep call and next actions reachable')
   assert(lower.includes('call-session-panel') && lower.includes('data-workflow-action="no_answer"'), 'Selected lead should expose a desktop call session with direct outcomes')
+  assert(lower.includes('verification-guidance-panel') && lower.includes('sjekk dette før ringing') && lower.includes('etter sjekk: flytt leaden til ring nå'), 'Verify-first leads should explain the seller verification task')
+  assert(lower.includes('data-run-verify-enrich') && lower.includes('call if checked'), 'Verify-first leads should make Verify & Enrich primary while keeping manual call access')
   assert(lower.includes('seller next action') && lower.includes('called / done') && lower.includes('data-workflow-action="mark_called"'), 'Selected lead should expose direct save-and-advance seller outcomes')
   assert(lower.includes('outcome and next action') && lower.includes('workflow-next-action'), 'Selected lead workflow should keep next action visible for interested/follow-up leads')
   assert(appJs.includes("const preferredQueues = ['follow_up_today', 'call_now'"), 'Follow-up today should become the first queue when due')

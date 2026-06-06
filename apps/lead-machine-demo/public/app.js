@@ -575,10 +575,20 @@ function currentCallCard(lead, index, reason, queueCount, queueId) {
       ${phoneLink(phone)}
       <button type="button" class="queue-select" data-index="${index}">Inspect</button>
     </div>
+    ${queueVerificationPanel(lead, index, queueId)}
     ${quickActionsHtml(index, 'queue')}
   </article>`
 }
 
+
+function queueVerificationPanel(lead, index, queueId) {
+  if ((normalizeWorkQueue(queueId) || leadWorkQueue(lead)) !== 'verify_first') return ''
+  const guidance = verificationGuidance(lead)
+  return '<section class="verify-queue-guidance">' +
+    '<div><strong>' + escapeHtml(guidance.primary.title) + '</strong><span>' + escapeHtml(guidance.primary.note) + '</span></div>' +
+    '<button type="button" data-run-verify-enrich data-index="' + escapeAttr(String(index)) + '">Verify & Enrich</button>' +
+  '</section>'
+}
 
 function quickActionsHtml(index, variant = 'full') {
   const actions = variant === 'queue'
@@ -1210,6 +1220,7 @@ function renderDetail(lead) {
         </div>
       </div>
       ${callSessionPanel(lead, command)}
+      ${verificationGuidancePanel(lead)}
       ${sellerDeskCards(lead, command, { includeDetails: false })}
       <div class="instant-decision-grid">
         ${commandMetric('Do this now', salesEdge.label, salesEdge.note)}
@@ -1331,11 +1342,15 @@ function callSessionPanel(lead, command) {
   const phone = lead.contact?.phone || lead.phone || ''
   const callHref = phoneHref(phone)
   const queue = leadWorkQueue(lead)
+  const verifyFirst = queue === 'verify_first'
   const queueCount = workQueueLeads(state.result?.leadPacks || [], queue).length
   return '<section class="call-session-panel queue-row" aria-label="Call session">' +
     '<div class="call-session-copy"><p class="eyebrow">Seller next action</p><h3>' + escapeHtml(workQueueLabel(queue)) + ' · ' + escapeHtml(String(queueCount)) + ' leads</h3><p>' + escapeHtml(command.nextActionNote || callReadiness(lead).note) + '</p></div>' +
     '<div class="call-session-actions">' +
-      (callHref ? '<a class="call-session-button primary" href="' + escapeAttr(callHref) + '">Call now</a>' : '<span class="call-session-button disabled">No phone</span>') +
+      (verifyFirst
+        ? '<button type="button" class="call-session-button primary" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verify & Enrich</button>'
+        : (callHref ? '<a class="call-session-button primary" href="' + escapeAttr(callHref) + '">Call now</a>' : '<span class="call-session-button disabled">No phone</span>')) +
+      (verifyFirst && callHref ? '<a class="call-session-button" href="' + escapeAttr(callHref) + '">Call if checked</a>' : '') +
       '<button type="button" class="call-session-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">No answer</button>' +
       '<button type="button" class="call-session-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interested</button>' +
       '<button type="button" class="call-session-button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Called / done</button>' +
@@ -1350,10 +1365,13 @@ function mobileCallBar(lead) {
   const phone = contact.phone || lead.phone || ''
   const callHref = phoneHref(phone)
   const name = company.displayName || lead.companyName || 'Selected lead'
+  const verifyFirst = leadWorkQueue(lead) === 'verify_first'
   return '<aside class="mobile-call-bar queue-row" aria-label="Mobile call actions">' +
     '<div class="mobile-call-main"><strong>' + escapeHtml(name) + '</strong><span>' + escapeHtml(phone || workQueueLabel(leadWorkQueue(lead))) + '</span></div>' +
     '<div class="mobile-call-actions">' +
-    (callHref ? '<a class="mobile-call-button primary" href="' + escapeAttr(callHref) + '">Ring</a>' : '<span class="mobile-call-button disabled">Ingen tlf</span>') +
+    (verifyFirst
+      ? '<button type="button" class="mobile-call-button primary" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verify</button>'
+      : (callHref ? '<a class="mobile-call-button primary" href="' + escapeAttr(callHref) + '">Ring</a>' : '<span class="mobile-call-button disabled">Ingen tlf</span>')) +
     '<button type="button" class="mobile-call-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ingen svar</button>' +
     '<button type="button" class="mobile-call-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interessert</button>' +
     '<button type="button" class="mobile-call-button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ferdig</button>' +
@@ -1367,6 +1385,58 @@ function queueGuidanceNote(lead = {}) {
   const actualQueue = workQueueLabel(leadWorkQueue(lead))
   const recommendedQueue = workQueueLabel(quality.recommendedQueue)
   return '<p class="queue-guidance-note">System suggests ' + escapeHtml(recommendedQueue) + '; current workflow stays ' + escapeHtml(actualQueue) + ' until you change it.</p>'
+}
+
+function verificationGuidancePanel(lead) {
+  if (leadWorkQueue(lead) !== 'verify_first') return ''
+  const guidance = verificationGuidance(lead)
+  return '<section class="verification-guidance-panel">' +
+    '<div class="verification-guidance-head"><div><p class="eyebrow">Må verifiseres</p><h3>Sjekk dette før ringing</h3><small>' + escapeHtml(guidance.summary) + '</small></div>' +
+    '<button type="button" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verify & Enrich</button></div>' +
+    '<div class="verification-task-grid">' + guidance.tasks.map((task) => (
+      '<div class="verification-task"><strong>' + escapeHtml(task.title) + '</strong><span>' + escapeHtml(task.note) + '</span></div>'
+    )).join('') + '</div>' +
+    '<p class="verification-guidance-note">Etter sjekk: flytt leaden til Ring nå hvis den stemmer, eller Ikke relevant hvis matchen er feil.</p>' +
+  '</section>'
+}
+
+function verificationGuidance(lead = {}) {
+  const quality = queueQualityForLead(lead) || {}
+  const blockers = normalizeList(quality.blockers)
+  const warnings = normalizeList(quality.warnings)
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const sourceQuality = lead.sourceQuality || {}
+  const tasks = []
+  const add = (key, title, note) => {
+    if (tasks.some((task) => task.key === key)) return
+    tasks.push({ key, title, note })
+  }
+
+  if (blockers.includes('contact_missing')) add('contact', 'Finn kontaktvei', 'Telefon mangler eller er ikke trygg nok til å prioritere.')
+  if (blockers.includes('phone_format_not_norwegian')) add('phone', 'Sjekk telefonnummer', 'Nummeret ser ikke ut som et norsk bedriftsnummer.')
+  if (blockers.includes('location_conflict')) add('location', 'Avklar lokasjon', 'Stedet konflikter med søket eller kilden.')
+  if (blockers.includes('location_needs_review')) add('location', 'Bekreft riktig by/sted', 'Ikke behandle dette som et eksakt lokalt treff før sted er sjekket.')
+  if (blockers.includes('location_missing')) add('location', 'Finn brukbar lokasjon', 'Systemet mangler trygg adresse eller by.')
+  if (blockers.includes('candidate_org_number') || company.candidateOrganizationNumber && !company.organizationNumber || String(company.matchStatus || '').toLowerCase() === 'manual_verify') {
+    add('identity', 'Bekreft org.nr/navn', company.candidateOrganizationNumber ? 'Brreg har kandidat, men selger bør sjekke at firmaet er riktig.' : 'Identiteten er ikke sikker nok til å prioritere blindt.')
+  }
+  if (blockers.includes('identity_not_confirmed') || String(company.matchStatus || '').toLowerCase() === 'no_match') {
+    add('identity', 'Bekreft firmaidentitet', 'Google fant leaden, men Brreg er ikke bekreftet.')
+  }
+  if (blockers.includes('source_fusion_verify_first')) add('proof', 'Sjekk proof/caution', 'Source Fusion anbefaler verifisering før leaden prioriteres.')
+  if (String(sourceQuality.verticalMatchStatus || '').toLowerCase() === 'weak') add('category', 'Sjekk kategori', 'Kategorimatchen er svak; kontroller at dette faktisk er riktig bransje.')
+  if (String(sourceQuality.verticalMatchStatus || '').toLowerCase() === 'broad') add('category', 'Bekreft bransjematch', 'Lead er funnet via bredt søkeord; sjekk at den passer markedet.')
+  if (!tasks.length && warnings.includes('org_not_confirmed_but_callable')) add('identity', 'Ringbar, men org.nr mangler', 'Telefon og sted ser brukbart ut, men org.nr er ikke bekreftet.')
+  if (!tasks.length && contact.phone) add('proof', 'Rask proof-sjekk', 'Telefon finnes; sjekk identitet/sted før du bruker tid på samtalen.')
+  if (!tasks.length) add('proof', 'Rask proof-sjekk', 'Se over identitet, kontakt og lokasjon før du prioriterer leaden.')
+
+  const topTasks = tasks.slice(0, 3)
+  return {
+    primary: topTasks[0],
+    tasks: topTasks,
+    summary: topTasks.map((task) => task.title).join(' · '),
+  }
 }
 
 function nextLeadDisabledAttr() {
@@ -2269,6 +2339,16 @@ document.addEventListener('click', (event) => {
   const nextVisibleButton = event.target.closest('[data-next-visible-lead]')
   if (nextVisibleButton) {
     selectNextVisibleLead()
+    return
+  }
+  const verifyEnrichButton = event.target.closest('[data-run-verify-enrich]')
+  if (verifyEnrichButton) {
+    const index = Number(verifyEnrichButton.dataset.index ?? state.selectedIndex)
+    if (Number.isFinite(index) && state.result?.leadPacks?.[index]) {
+      state.selectedIndex = index
+      state.selectedLeadId = leadId(state.result.leadPacks[index], index)
+    }
+    runSelectedDeepQualification(verifyEnrichButton)
     return
   }
   if (event.target && event.target.id === 'runDeepQualification') {
