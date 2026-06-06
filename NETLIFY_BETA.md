@@ -1,4 +1,4 @@
-# Netlify Hosted Friend Beta
+# Netlify Hosted Beta
 
 This is the hosted path for two invited colleagues to try the Lead Machine seller desk from a browser.
 

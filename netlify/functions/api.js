@@ -641,7 +641,7 @@ function hostedHealth(state) {
   return {
     status: 'ok',
     product: 'lead-machine-hosted-seller-desk',
-    version: 'netlify-friend-beta-v1',
+    version: 'netlify-beta-v1',
     beta: true,
     hosted: true,
     localOnly: false,

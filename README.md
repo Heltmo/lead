@@ -11,7 +11,7 @@ Lead Machine is the seller desk product: sellers search for a market, review ran
 - `core/seller-fit`: interprets each lead based on what the seller sells.
 - `core/source-fusion`: combines Brreg, Google/contact data, seller fit, and workflow context into Proof & Confidence.
 - `core/osint`: narrow public-evidence summary for one selected lead.
-- `netlify/functions/api.js`: hosted friend-beta API for shared notes/follow-ups.
+- `netlify/functions/api.js`: hosted beta API for shared notes/follow-ups.
 
 Removed from the main repo path: browser-audit tooling, old orchestration queues, static demo generation, campaign/demo runners, website-redesign opportunity modules, and landing-page test scaffolding.
 
@@ -24,18 +24,18 @@ npm run dev
 
 Open `http://127.0.0.1:8787`.
 
-## Friend Beta
+## Beta
 
 Before sharing with testers:
 
 ```bash
 cd /home/xman/webconsult
 npm run netlify:check
-./verifications/verify-friend-beta-readiness.sh
+./verifications/verify-beta-preflight.sh
 ./verifications/verify-netlify-hosted-beta.sh
 ```
 
-Use `FRIEND_BETA_READINESS.md` for the test script, `NETLIFY_BETA.md` for Netlify deployment, `SELLER_WORK_QUEUES_V1.md` for workflow rules, and `SOURCE_FUSION_V1.md` for Proof & Confidence rules.
+Use `BETA_PREFLIGHT_CHECKLIST.md` before sessions, `BETA_TEST_PLAN_001.md` and `BETA_TEST_SCRIPT_INTERNAL.md` for tester tasks, `BETA_FEEDBACK_FORM.md` for notes, `BETA_KNOWN_LIMITATIONS.md` for boundaries, and `NETLIFY_BETA.md` for deployment.
 
 ## Boundary
 

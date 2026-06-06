@@ -14,16 +14,16 @@ and run the existing Lead Machine flow from a browser.
 
 It is not a full SaaS app yet. It has no auth, hosted database, CRM integration, billing, email connection, or telephony backend. It keeps recent searches, workflow state, notes, and activity history in a local SQLite workspace so the seller can continue work after reloads.
 
-## Friend Beta Preflight
+## Beta Preflight
 
 Before giving the product to friends, run:
 
 ```bash
 cd /home/xman/webconsult
-./verifications/verify-friend-beta-readiness.sh
+./verifications/verify-beta-preflight.sh
 ```
 
-Use [FRIEND_BETA_READINESS.md](../../FRIEND_BETA_READINESS.md) as the testing script. The app has no auth yet, so do not expose it on the open internet.
+Use [BETA_PREFLIGHT_CHECKLIST.md](../../BETA_PREFLIGHT_CHECKLIST.md) before sessions and [BETA_TEST_SCRIPT_INTERNAL.md](../../BETA_TEST_SCRIPT_INTERNAL.md) for the internal test path. The local app has no auth, so do not expose it on the open internet.
 ## Run Locally
 
 ```bash
@@ -42,13 +42,7 @@ For live Google Places runs, add this to `.env`:
 GOOGLE_PLACES_API_KEY=your-google-places-key
 ```
 
-Optional Proff enrichment can be enabled for selected-lead Deep enrichment:
-
-```bash
-PROFF_API_KEY=your-proff-api-key
-```
-
-If `PROFF_API_KEY` is missing, the Proff module stays disabled and the run continues.
+Proff is not required for beta testing. Leave `PROFF_API_KEY` unset unless you are explicitly testing optional economy context.
 
 
 Open:
@@ -86,20 +80,20 @@ The profession selector is a controlled list of supported verticals. The locatio
 - `frisør Tromsø`
 - `eiendomsmeglere i Oslo`
 
-## Fast Scan vs Deep Enrich
+## Fast Scan vs Verify & Enrich
 
 - `Fast scan` is the default for daily use. It runs broad discovery, location quality, Brreg identity enrichment, Google Places presence, and basic contact context without a full digital presence check.
-- `Deep enrich` upgrades one selected lead with enrichment modules. V1 refreshes Brreg/company identity, contactability, seller fit summary, digital presence status when a website exists, optional Proff/economy when a confirmed org.nr exists, and OSINT-lite public evidence from already collected business data. It does not run browser audits or contact-page scraping.
+- `Verify & Enrich` upgrades one selected lead with enrichment modules. V1 refreshes Brreg/company identity, contactability, seller fit summary, digital presence status when a website exists, optional Proff/economy when a confirmed org.nr exists, and OSINT-lite public evidence from already collected business data. It does not run browser audits or contact-page scraping.
 - Use Fast scan for 10-25 candidate scans, then enrich only the leads where extra context is worth the wait.
 
 Recommended workflow:
 
 1. Run `Fast scan` to scan a market quickly.
 2. Review phone, location, Brreg identity, website presence, rating/reviews, and source warnings.
-3. Use `Enrich selected lead` on one promising candidate. This enriches only the selected lead and replaces that card while the rest of the list stays as Fast candidates.
+3. Use `Verify & Enrich` on one promising candidate. This enriches only the selected lead and replaces that card while the rest of the list stays as Fast candidates.
 4. Export the lead pack once the lead has enough context for seller review.
 
-Fast results are candidates, not final verdicts. Deep enrichment is per lead: it upgrades one selected candidate with extra modules without rerunning the full search. Digital presence check is only one enrichment module and is skipped cleanly when no website exists. A contactable, active, correctly located company can still be a useful B2B lead even when digital presence is not the main opportunity.
+Fast results are candidates, not final verdicts. Verify & Enrich is per lead: it upgrades one selected candidate with extra modules without rerunning the full search. Digital presence check is only one enrichment module and is skipped cleanly when no website exists. A contactable, active, correctly located company can still be a useful B2B lead even when digital presence is not the main opportunity.
 
 ## What It Does
 
@@ -124,13 +118,13 @@ The frontend displays:
 - a neutral Call Brief card with best first contact, company fit, verification status, main risk, next action, and source confidence
 - a compact Seller Desk V2 layer with company identity, contactability, market proof, and action/risk
 - secondary qualification, verification, source intelligence, and raw source data collapsed below the decision layer
-- per-lead Deep enrichment that updates only the selected company card
+- per-lead Verify & Enrich that updates only the selected company card
 - evidence and caution
 - export links
 
 ## OSINT Public Evidence V1
 
-Selected-lead Deep enrichment now attaches an OSINT public evidence snapshot. V1 does not run broad scraping across every search result; it normalizes public business evidence already available from Brreg/company identity, Google Places, digital presence checks, ranking evidence, and source-quality fields for the one lead the seller chose to enrich.
+Selected-lead Verify & Enrich now attaches an OSINT public evidence snapshot. V1 does not run broad scraping across every search result; it normalizes public business evidence already available from Brreg/company identity, Google Places, digital presence checks, ranking evidence, and source-quality fields for the one lead the seller chose to enrich.
 
 The lead detail shows OSINT as evidence groups: company identity, contactability, digital presence, market proof, recent activity, and risk / verify. Each signal carries source context, timestamp, confidence, and either a source URL or a reason the source URL is unavailable. CSV exports include summary counts and top signal/risk fields, while JSON keeps the structured OSINT object.
 
@@ -203,7 +197,7 @@ No prepared pitch text, email templates, or automated outreach are included. The
 - Uses local server only.
 - Balanced runs can return Brreg identity rows without a Google key, but Google Places presence enrichment requires `GOOGLE_PLACES_API_KEY`.
 - Brreg firmaprofil uses `core/company-profile` automatically to enrich org.nr/legal identity conservatively because company identity is core seller context.
-- Fast mode treats website URLs as unverified until Deep confirms they are real and relevant. If no website exists, Deep still refreshes identity/contactability and marks digital presence check as skipped.
+- Fast mode treats website URLs as unverified until Verify & Enrich confirms they are real and relevant. If no website exists, Deep still refreshes identity/contactability and marks digital presence check as skipped.
 - The Brreg panel shows confirmed org.nr only for strong matches. Uncertain results stay as candidate org.nr/manual verify with legal name, organization form, address, municipality, NACE, employees, status, match confidence, warnings, and candidate records when available.
 - Economy/Proff is optional. It remains `disabled` until `PROFF_API_KEY` exists, runs only for confirmed org.nr, and does not affect lead scoring.
 - Run folders are local and ignored by git.
@@ -222,9 +216,9 @@ Searches now run as Fast scan by default from the top search bar. The seller sho
 
 Repeated Brreg/company-profile lookups use the local `.cache/company-profile/` file cache. Successful non-error matches are reused across runs for speed; failed Brreg lookups are not cached, so a later run can retry.
 
-## Deep Enrichment Roadmap
+## Verify & Enrich Roadmap
 
-Deep is now the selected-lead intelligence layer, not just a digital check button. V1 attaches module statuses for identity, contactability, digital presence, seller summary, and disabled future modules. The intended module stack is:
+Verify & Enrich is now the selected-lead intelligence layer, not just a digital check button. V1 attaches module statuses for identity, contactability, digital presence, seller summary, and disabled future modules. The intended module stack is:
 
 - digital presence status and source evidence
 - deeper Brreg verification and candidate handling

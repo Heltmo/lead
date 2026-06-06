@@ -349,14 +349,14 @@ function buildBetaHealth({ workspaceStore, savedSearchesStore }) {
   return {
     status: "ok",
     product: "lead-machine-local-seller-desk",
-    version: "friend-beta-v1",
+    version: "beta-preflight-v1",
     beta: true,
     localOnly: true,
     sourceGuard: readiness.sourceGuard,
     workspace: readiness.workspace,
     guardrails: readiness.guardrails,
     limits: [
-      "No auth or hosted workspace yet.",
+      "No auth in local app; hosted beta uses one shared workspace.",
       "No email sending, telephony, CRM sync, or outreach automation.",
       "Do not expose this local server on the open internet.",
       "Use workspace export before and after friend testing.",

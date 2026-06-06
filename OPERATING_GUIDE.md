@@ -20,12 +20,12 @@ npm run dev
 
 Open `http://127.0.0.1:8787`.
 
-## Hosted Friend Beta
+## Hosted Beta
 
 ```bash
 cd /home/xman/webconsult
 npm run netlify:check
-./verifications/verify-friend-beta-readiness.sh
+./verifications/verify-beta-preflight.sh
 ./verifications/verify-netlify-hosted-beta.sh
 ```
 
