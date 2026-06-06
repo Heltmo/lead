@@ -8,6 +8,7 @@ const { findNaceForIndustry } = require('./normalizers/naceMapping')
 const { validateWebsiteReachability } = require('./normalizers/websiteReachability')
 const { parseLocationIntent, applyLocationQuality, normalizeSearchScope } = require('./normalizers/locationQuality')
 const { isNorwayFirstCandidate } = require('./normalizers/countryGuard')
+const { classifyVerticalCandidate, termsForDiscoveryIndustry } = require('../vertical-taxonomy/verticalTaxonomy')
 
 async function discoverLocalBusinesses(options) {
   if (!options || (!options.sourceFile && !options.sourceFiles && !options.provider)) throw new Error('sourceFile, sourceFiles, or provider is required for discovery')
@@ -133,6 +134,10 @@ function formatHandoffCandidate(candidate, report = {}) {
     locationWarnings: candidate.locationWarnings || [],
     fallbackUsed: Boolean(candidate.fallbackUsed),
     locationQuality: candidate.locationQuality || null,
+    verticalMatchStatus: candidate.verticalMatchStatus || '',
+    verticalMatchedTerm: candidate.verticalMatchedTerm || '',
+    verticalMatchReasons: candidate.verticalMatchReasons || [],
+    verticalMatchWarnings: candidate.verticalMatchWarnings || [],
     discoveryQuality: candidate.discoveryQuality || null,
     discoveryConfidence: candidate.discoveryConfidence || '',
     identitySource: candidate.identitySource || '',
@@ -173,7 +178,18 @@ function shouldIncludeInFastLeadPack(candidate = {}) {
 
 function applyIndustryQuality(candidate = {}, context = {}) {
   const relevance = buildIndustryRelevance(candidate, context)
-  const next = { ...candidate, industryMatchStatus: relevance.status, industryMatchReasons: relevance.reasons }
+  const vertical = relevance.vertical || null
+  const next = {
+    ...candidate,
+    industryMatchStatus: relevance.status,
+    industryMatchReasons: relevance.reasons,
+    ...(vertical ? {
+      verticalMatchStatus: vertical.status,
+      verticalMatchReasons: vertical.reasons || [],
+      verticalMatchedTerm: vertical.matchedTerm || '',
+      verticalMatchWarnings: vertical.warnings || [],
+    } : {}),
+  }
   if (relevance.matches) return next
   return {
     ...next,
@@ -187,6 +203,13 @@ function buildIndustryRelevance(candidate = {}, context = {}) {
   if (!canonicalIndustry) return { matches: true, status: 'unknown', reasons: ['no_industry_constraint'] }
   const terms = industryTermsFor(canonicalIndustry, context.industryTerms)
   if (!terms.length) return { matches: true, status: 'unknown', reasons: ['no_industry_terms'] }
+  const vertical = classifyVerticalCandidate(candidate, context)
+  if (vertical && vertical.matches) {
+    return { matches: true, status: vertical.status === 'weak' ? 'weak' : 'relevant', reasons: vertical.reasons, vertical }
+  }
+  if (vertical && (vertical.warnings || []).includes('vertical_exclusion')) {
+    return { matches: false, status: 'mismatch', reasons: vertical.reasons, vertical }
+  }
   const expectedNace = findNaceForIndustry({ canonicalIndustry, industry: context.industry, query: context.query }).map((item) => item.code)
   const naceCode = String(candidate.naceCode || '').trim()
   if (naceCode && expectedNace.some((code) => naceCode === code || naceCode.startsWith(code + '.'))) return { matches: true, status: 'relevant', reasons: ['nace_match'] }
@@ -206,7 +229,7 @@ function buildIndustryRelevance(candidate = {}, context = {}) {
 }
 
 function industryTermsFor(canonicalIndustry, rawTerms = []) {
-  const base = [canonicalIndustry, ...(rawTerms || [])]
+  const base = [canonicalIndustry, ...(rawTerms || []), ...termsForDiscoveryIndustry(canonicalIndustry)]
   const extras = {
     lawyer: ['advokat', 'advokater', 'advokatfirma', 'juridisk', 'lawyer', 'law firm', 'attorney'],
     plumber: ['rørlegger', 'rorlegger', 'rørleggere', 'vvs', 'bad', 'varme', 'plumber'],
@@ -279,7 +302,10 @@ function buildDiscoveryQuality(candidate = {}) {
   if (candidate.identitySource === 'brreg' || candidate.sourceType === 'officialRegistry') { score += 8; reasons.push('official_registry') }
   if (candidate.naceCode) { score += 5; reasons.push('nace_available') }
   if (candidate.employees !== '' && candidate.employees != null) { score += 4; reasons.push('employees_available') }
-  if (candidate.industryMatchStatus === 'relevant') { score += 8; reasons.push('industry_relevant') }
+  if (candidate.verticalMatchStatus === 'exact' || candidate.verticalMatchStatus === 'synonym') { score += 8; reasons.push('vertical_' + candidate.verticalMatchStatus) }
+  else if (candidate.verticalMatchStatus === 'broad') { score += 4; reasons.push('vertical_broad'); warnings.push('vertical_broad_match') }
+  else if (candidate.verticalMatchStatus === 'weak') warnings.push('vertical_weak_match')
+  else if (candidate.industryMatchStatus === 'relevant') { score += 8; reasons.push('industry_relevant') }
   if (candidate.industryMatchStatus === 'mismatch') warnings.push('industry_mismatch')
   if (candidate.auditEligible === false && candidate.auditExclusionReason !== 'missing_website_for_audit') warnings.push('not_audit_eligible')
 
@@ -328,7 +354,16 @@ function toSummary(report) {
     handoffReadyCandidates: report.candidates.filter((candidate) => shouldIncludeInHandoff(candidate)).length,
     fastEligibleCandidates: report.candidates.filter((candidate) => shouldIncludeInFastLeadPack(candidate)).length,
     discoveryCoverage: report.discoveryCoverage,
+    verticalMatchCounts: countBy(report.candidates, 'verticalMatchStatus'),
   }
+}
+
+function countBy(items = [], field) {
+  return (Array.isArray(items) ? items : []).reduce((acc, item) => {
+    const key = item?.[field] || 'unknown'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
 }
 
 function normalizeSourceFiles(value) {

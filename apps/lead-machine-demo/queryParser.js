@@ -1,17 +1,6 @@
-const VERTICALS = [
-  { terms: ['rørlegger', 'rørleggere', 'rorlegger', 'rorleggere'], canonical: 'rørlegger' },
-  { terms: ['advokat', 'advokater'], canonical: 'advokat' },
-  { terms: ['tannlege', 'tannleger'], canonical: 'tannlege' },
-  { terms: ['elektriker', 'elektrikere'], canonical: 'elektriker' },
-  { terms: ['regnskapsfører', 'regnskapsførere', 'regnskapsforer', 'regnskapsforere'], canonical: 'regnskapsfører' },
-  { terms: ['fysioterapeut', 'fysioterapeuter'], canonical: 'fysioterapeut' },
-  { terms: ['restaurant', 'restauranter'], canonical: 'restaurant' },
-  { terms: ['bilverksted', 'bilverksteder', 'verksted', 'verksteder'], canonical: 'bilverksted' },
-  { terms: ['frisør', 'frisører', 'frisor', 'frisorer'], canonical: 'frisør' },
-  { terms: ['eiendomsmegler', 'eiendomsmeglere', 'megler', 'meglere'], canonical: 'eiendomsmegler' },
-  { terms: ['paintball'], canonical: 'paintball' },
-  { terms: ['escape room', 'escape rooms', 'escaperoom', 'escapreroom', 'rømningsrom', 'romningsrom', 'rømningsspill', 'romningsspill'], canonical: 'escape room' },
-]
+const { demoVerticals } = require('../../core/vertical-taxonomy/verticalTaxonomy')
+
+const VERTICALS = demoVerticals()
 
 const KNOWN_LOCATIONS = [
   'Oslo', 'Bergen', 'Trondheim', 'Stavanger', 'Kristiansand', 'Drammen', 'Fredrikstad', 'Sarpsborg', 'Moss', 'Halden',

@@ -1,4 +1,29 @@
-const industries = require('./industries.json')
+const baseIndustries = require('./industries.json')
+const { discoveryVerticalEntries, termsForDiscoveryIndustry } = require('../../vertical-taxonomy/verticalTaxonomy')
+
+const industries = mergeVerticalIndustries(baseIndustries)
+
+function mergeVerticalIndustries(base = {}) {
+  const merged = { ...base }
+  for (const entry of discoveryVerticalEntries()) {
+    const existingKey = Object.keys(merged).find((key) => normalize(merged[key]?.canonical) === normalize(entry.canonical))
+    const key = existingKey || slugKey(entry.canonical)
+    const existing = merged[key] || {}
+    merged[key] = {
+      ...existing,
+      canonical: existing.canonical || entry.canonical,
+      norwegian: unique([...(existing.norwegian || []), ...(entry.norwegian || [])]),
+      english: unique([...(existing.english || []), ...(entry.english || [])]),
+      queryTerms: unique([...(existing.queryTerms || []), ...(entry.queryTerms || [])]),
+      searchPatterns: existing.searchPatterns || entry.searchPatterns,
+    }
+  }
+  return merged
+}
+
+function slugKey(value = '') {
+  return normalize(value).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'vertical'
+}
 
 function parseIndustryQuery(query = '') {
   const originalQuery = String(query || '').trim().replace(/\s+/g, ' ')
@@ -44,7 +69,7 @@ function parseAdjacentIndustryLocation(query) {
 
 function expandQueries({ originalQuery, location, industryTerms, entry }) {
   const patterns = entry?.searchPatterns || ['{term} {location}', '{term} i {location}', '{location} {term}']
-  const terms = industryTerms || []
+  const terms = entry?.queryTerms?.length ? unique([...entry.queryTerms, ...(industryTerms || [])]) : (industryTerms || [])
   const queries = [originalQuery]
   for (const term of terms) {
     if (!term) continue
@@ -88,7 +113,7 @@ function looseTermMatch(value, term) {
 }
 
 function allIndustryTerms(entry) {
-  return unique([entry.canonical, ...(entry.english || []), ...(entry.norwegian || [])].filter(Boolean))
+  return unique([entry.canonical, ...(entry.english || []), ...(entry.norwegian || []), ...(entry.queryTerms || []), ...termsForDiscoveryIndustry(entry.canonical)].filter(Boolean))
 }
 
 function taxonomyTerms() {

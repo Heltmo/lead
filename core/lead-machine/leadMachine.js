@@ -111,6 +111,8 @@ function buildLeadMachineSummary({ runId, query, provider, maxResults, searchSco
     totalExcludedByLocation,
     locationQualityCounts,
     discoveryCoverage: leadPackSummary.discoveryCoverage || discovery.discoveryCoverage || {},
+    verticalMatchCounts: leadPackSummary.verticalMatchCounts || countLeadPackVerticalMatches(leadPacks),
+    expandedQueries: discovery.expandedQueries || [],
     callPriorityCounts,
     lowSupply,
     fallbackAvailable,
@@ -223,6 +225,10 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
       fallbackUsed: Boolean(candidate.fallbackUsed),
       discoveryQuality: candidate.discoveryQuality || null,
       discoveryConfidence: candidate.discoveryConfidence || null,
+      verticalMatchStatus: candidate.verticalMatchStatus || null,
+      verticalMatchedTerm: candidate.verticalMatchedTerm || null,
+      verticalMatchReasons: Array.isArray(candidate.verticalMatchReasons) ? candidate.verticalMatchReasons : [],
+      verticalMatchWarnings: Array.isArray(candidate.verticalMatchWarnings) ? candidate.verticalMatchWarnings : [],
       identitySource: candidate.identitySource || null,
       presenceSource: candidate.presenceSource || candidate.provenance?.provider || null,
     },
@@ -248,6 +254,14 @@ function compareLeadPacksByCity(a = {}, b = {}) {
   const phoneDiff = Number(Boolean(b.contact?.phone || b.phone)) - Number(Boolean(a.contact?.phone || a.phone))
   if (phoneDiff) return phoneDiff
   return String(a.company?.displayName || a.companyName || '').localeCompare(String(b.company?.displayName || b.companyName || ''))
+}
+
+function countLeadPackVerticalMatches(leadPacks = []) {
+  return (Array.isArray(leadPacks) ? leadPacks : []).reduce((acc, lead) => {
+    const key = lead.sourceQuality?.verticalMatchStatus || 'unknown'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
 }
 
 function countLeadPackCities(leadPacks = []) {
@@ -403,6 +417,8 @@ function buildFastLeadPackSummary({ outputDir, query, runId, discovery, leadPack
     recommendedExpansion: discovery.searchSupply?.recommendedExpansion || null,
     locationQualityCounts: discovery.locationQuality?.counts || {},
     discoveryCoverage: discovery.discoveryCoverage || {},
+    verticalMatchCounts: countLeadPackVerticalMatches(leadPacks),
+    expandedQueries: discovery.expandedQueries || [],
     marketSweep: Boolean(discovery.provider?.sweep?.enabled),
     marketSweepCities: discovery.provider?.sweep?.cities || [],
     marketSweepPerCityLimit: discovery.provider?.sweep?.perCity || null,
@@ -452,10 +468,13 @@ function buildFastLeadPacksCsv(leadPacks) {
     marketSweep: pack.sourceQuality.marketSweep ? 'yes' : 'no',
     marketSweepCity: pack.sourceQuality.marketSweepCity,
     locationMatchStatus: pack.sourceQuality.locationMatchStatus,
+    verticalMatchStatus: pack.sourceQuality.verticalMatchStatus,
+    verticalMatchedTerm: pack.sourceQuality.verticalMatchedTerm,
+    verticalMatchReasons: (pack.sourceQuality.verticalMatchReasons || []).join('|'),
     sourceQuery: pack.meta.sourceQuery,
     mode: pack.meta.mode,
   }))
-  return renderCsv(rows, ['rank', 'callPriority', 'leadClass', 'opportunityType', 'companyDisplayName', 'legalName', 'candidateLegalName', 'organizationNumber', 'candidateOrganizationNumber', 'organizationForm', 'registeredAddress', 'municipality', 'unitType', 'naceCode', 'naceDescription', 'employees', 'registrationDate', 'activeStatus', 'sourceUrl', 'matchStatus', 'matchConfidence', 'website', 'phone', 'email', 'address', 'city', 'placeId', 'rating', 'reviewCount', 'auditStatus', 'contactability', 'whyRanked', 'caution', 'economyStatus', 'identitySource', 'presenceSource', 'searchScope', 'marketSweep', 'marketSweepCity', 'locationMatchStatus', 'sourceQuery', 'mode'])
+  return renderCsv(rows, ['rank', 'callPriority', 'leadClass', 'opportunityType', 'companyDisplayName', 'legalName', 'candidateLegalName', 'organizationNumber', 'candidateOrganizationNumber', 'organizationForm', 'registeredAddress', 'municipality', 'unitType', 'naceCode', 'naceDescription', 'employees', 'registrationDate', 'activeStatus', 'sourceUrl', 'matchStatus', 'matchConfidence', 'website', 'phone', 'email', 'address', 'city', 'placeId', 'rating', 'reviewCount', 'auditStatus', 'contactability', 'whyRanked', 'caution', 'economyStatus', 'identitySource', 'presenceSource', 'searchScope', 'marketSweep', 'marketSweepCity', 'locationMatchStatus', 'verticalMatchStatus', 'verticalMatchedTerm', 'verticalMatchReasons', 'sourceQuery', 'mode'])
 }
 
 function renderCsv(rows, columns) {

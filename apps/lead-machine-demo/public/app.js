@@ -9,6 +9,16 @@ const PROFESSIONS = [
   { label: 'Bilverksted', value: 'bilverksted' },
   { label: 'Frisør', value: 'frisør' },
   { label: 'Eiendomsmegler', value: 'eiendomsmegler' },
+  { label: 'Personlig trener', value: 'personlig trener' },
+  { label: 'Hudpleie', value: 'hudpleie' },
+  { label: 'Treningssenter', value: 'treningssenter' },
+  { label: 'Massasje', value: 'massasje' },
+  { label: 'Skjønnhetsklinikk', value: 'skjønnhetsklinikk' },
+  { label: 'Kjøreskole', value: 'kjøreskole' },
+  { label: 'Vaktmester', value: 'vaktmester' },
+  { label: 'Vindusvask', value: 'vindusvask' },
+  { label: 'Båtservice', value: 'båtservice' },
+  { label: 'Fotograf', value: 'fotograf' },
 ]
 
 const LOCATIONS = [
@@ -583,7 +593,7 @@ function renderLeads(visibleLeads) {
   const total = state.result?.leadPacks?.length || 0
   updateFilterSummary(visibleLeads.length, total)
   if (!visibleLeads.length) {
-    els.leadCards.innerHTML = '<div class="empty-state">No leads match these filters.</div>'
+    els.leadCards.innerHTML = '<div class="empty-state">' + escapeHtml(emptyLeadsMessage(total)) + '</div>'
     return
   }
   let previousCity = ''
@@ -599,7 +609,7 @@ function renderLeads(visibleLeads) {
     return `
       ${cityHeading}
       <button class="lead-card ${id === state.selectedLeadId ? 'active' : ''}" type="button" data-index="${index}" data-id="${escapeAttr(id)}">
-        <div class="badge-row">${badge(callReadiness(lead).key)}${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
+        <div class="badge-row">${badge(callReadiness(lead).key)}${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${verticalMatchBadge(lead)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
         <p class="queue-action"><strong>Next:</strong> <span class="sales-edge-action ${escapeAttr(salesEdge.key)}">${escapeHtml(salesEdge.label)}</span></p>
@@ -614,6 +624,13 @@ function renderLeads(visibleLeads) {
     renderAll()
     focusLeadDetail({ block: 'nearest' })
   }))
+}
+
+function emptyLeadsMessage(total) {
+  if (total) return 'No leads match these filters.'
+  const expanded = state.result?.summary?.expandedQueries || []
+  if (expanded.length > 1) return 'No direct results found for this vertical/location. Try regional scope or broader terms.'
+  return 'No leads found. Try a location, regional scope, or broader terms.'
 }
 
 function cityCountLabel(city) {
@@ -1005,6 +1022,12 @@ function sellerRecommendedActionScore(lead) {
   return { contact: 90, verify: 35, review: 10, skip: -200 }[sellerRecommendedAction(lead)] || 0
 }
 
+function verticalMatchBadge(lead) {
+  const status = lead?.sourceQuality?.verticalMatchStatus
+  if (!status || status === 'unknown') return ''
+  return badge('vertical_' + status)
+}
+
 function sellerFitBadge(lead) {
   const fit = String(lead.sellerFit?.sellerFit || '').toLowerCase()
   if (!fit) return ''
@@ -1168,7 +1191,7 @@ function renderDetail(lead) {
             <h2>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h2>
           </div>
           <p class="muted">${escapeHtml(company.legalName || 'Legal name unknown')}</p>
-          <div class="badge-row instant-badges">${badge(callReadiness(lead).key)}${sourceFusionBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
+          <div class="badge-row instant-badges">${badge(callReadiness(lead).key)}${sourceFusionBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${verticalMatchBadge(lead)}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
         </div>
         <div class="instant-call-box">
           <span>Best contact</span>
@@ -1240,6 +1263,8 @@ function renderDetail(lead) {
         ])}
         ${sourceCard('Discovery quality', discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown', [
           ['Score', discoveryQuality.score == null ? 'unknown' : `${discoveryQuality.score}/100`],
+          ['Vertical match', readable(sourceQuality.verticalMatchStatus || 'unknown')],
+          ['Matched term', sourceQuality.verticalMatchedTerm || 'unknown'],
           ['Reasons', (discoveryQuality.reasons || []).slice(0, 3).map(humanize).join(', ') || 'unknown'],
           ['Warnings', (discoveryQuality.warnings || []).slice(0, 3).map(humanize).join(', ') || 'none'],
         ])}
@@ -1280,6 +1305,8 @@ function renderDetail(lead) {
       ['Sales ease', readable(ranking.salesEase || 'unknown')],
       ['Pain score', ranking.painScore ?? 'unknown'],
       ['Location', readable(sourceQuality.locationMatchStatus || 'unknown')],
+      ['Vertical match', readable(sourceQuality.verticalMatchStatus || 'unknown')],
+      ['Matched term', sourceQuality.verticalMatchedTerm || 'unknown'],
       ['Economy', readable(economy.status || 'not_enabled')],
       ['Discovery confidence', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown')],
       ['Identity source', sourceQuality.identitySource || company.source || 'unknown'],
@@ -2572,7 +2599,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg ikke bekreftet', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed', ready_to_call: 'Ready to call', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Needs contact', follow_up_due: 'Follow-up due', later: 'Later', skip: 'Skip', queue_change: 'Queue change', follow_up_set: 'Follow-up set', contact_attempt: 'Contact attempt', status_change: 'Status change', note: 'Note', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Exact location', nearby: 'Nearby location', fallback: 'Regional fallback', conflict: 'Conflict', confirmed: 'Confirmed company', candidate: 'Candidate org.nr', unknown: 'Unknown', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Contact data', contact_provider: 'Contact provider', website_contact_profile: 'Website/contact profile', workflow: 'Workflow' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg ikke bekreftet', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed', ready_to_call: 'Ready to call', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Needs contact', follow_up_due: 'Follow-up due', later: 'Later', skip: 'Skip', queue_change: 'Queue change', follow_up_set: 'Follow-up set', contact_attempt: 'Contact attempt', status_change: 'Status change', note: 'Note', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Exact location', nearby: 'Nearby location', fallback: 'Regional fallback', conflict: 'Conflict', confirmed: 'Confirmed company', candidate: 'Candidate org.nr', unknown: 'Unknown', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Contact data', contact_provider: 'Contact provider', website_contact_profile: 'Website/contact profile', workflow: 'Workflow', vertical_exact: 'Exact category', vertical_synonym: 'Related category', vertical_broad: 'Broad category', vertical_weak: 'Weak category', synonym: 'Related', broad: 'Broad' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {

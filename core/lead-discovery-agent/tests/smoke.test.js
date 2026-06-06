@@ -17,6 +17,10 @@ async function main() {
   assertQuery('regnskapsfører Sarpsborg', 'accountant', 'Sarpsborg', 'accounting firm Sarpsborg')
   assertQuery('escapreroom', 'escape room', '', 'escape room')
   assertQuery('paintball', 'paintball', '', 'paintball')
+  assertQuery('personlig trener i Kristiansand', 'personal trainer', 'Kristiansand', 'PT Kristiansand')
+  assertQuery('Kristiansand personlig trener', 'personal trainer', 'Kristiansand', 'treningssenter personlig trener Kristiansand')
+  assertQuery('hudpleie i Halden', 'skin care', 'Halden', 'hudklinikk Halden')
+  assertQuery('Halden hudpleie', 'skin care', 'Halden', 'spa Halden')
   assertTarget('https://haldentannlegene.no', 'directBusiness', true)
   assertTarget('https://www.legelisten.no/tannleger/Viken/Halden', 'directory', false)
   assertTarget('https://www.1881.no/tannlege/tannlege-oestfold/tannlege-halden', 'directory', false)
@@ -241,6 +245,109 @@ async function main() {
   assert(googleRows[0].address.includes('Halden'), 'Google Places handoff should preserve address')
   assert(googleRows[0].placeId === 'places/norfloss', 'Google Places handoff should preserve place id')
   assert(googleRows[0].locationMatchStatus === 'exact_location', 'Google Places handoff should preserve location match status')
+
+  const verticalPlacesFixture = path.join(root, 'vertical-taxonomy-google-places.mock-results.json')
+  fs.writeFileSync(verticalPlacesFixture, JSON.stringify({
+    places: [
+      {
+        id: 'places/halden-hudklinikk',
+        displayName: { text: 'Halden Hudklinikk' },
+        websiteUri: 'https://halden-hudklinikk.example',
+        nationalPhoneNumber: '+47 69 10 10 10',
+        formattedAddress: 'Hudgata 1, 1771 Halden, Norway',
+        types: ['beauty_salon'],
+        query: 'hudklinikk Halden'
+      },
+      {
+        id: 'places/halden-hudklinikk-duplicate',
+        displayName: { text: 'Halden Hudklinikk avd sentrum' },
+        websiteUri: 'https://www.halden-hudklinikk.example/kontakt',
+        nationalPhoneNumber: '+47 69 10 10 10',
+        formattedAddress: 'Hudgata 1, 1771 Halden, Norway',
+        types: ['beauty_salon'],
+        query: 'hudpleie Halden'
+      },
+      {
+        id: 'places/halden-spa',
+        displayName: { text: 'Halden Spa' },
+        websiteUri: 'https://halden-spa.example',
+        nationalPhoneNumber: '+47 69 11 11 11',
+        formattedAddress: 'Spagata 2, 1771 Halden, Norway',
+        types: ['spa'],
+        query: 'spa Halden'
+      },
+      {
+        id: 'places/halden-frisor',
+        displayName: { text: 'Halden Frisør' },
+        websiteUri: 'https://halden-frisor.example',
+        nationalPhoneNumber: '+47 69 12 12 12',
+        formattedAddress: 'Hårgata 3, 1771 Halden, Norway',
+        types: ['hair_care'],
+        query: 'beauty salon Halden'
+      }
+    ],
+  }, null, 2))
+  const skinCareReport = await discoverLocalBusinesses({
+    query: 'hudpleie i Halden',
+    provider: 'google-places',
+    mockResultsPath: verticalPlacesFixture,
+    maxResults: 6,
+    validate: false,
+  })
+  assert(skinCareReport.expandedQueries.includes('hudklinikk Halden'), 'hudpleie search should expand to hudklinikk')
+  assert(skinCareReport.expandedQueries.includes('spa Halden'), 'hudpleie search should expand to spa')
+  assert(skinCareReport.candidates.length === 3, 'expanded skin care queries should dedupe duplicate companies')
+  assert(skinCareReport.candidates.some((candidate) => candidate.verticalMatchStatus === 'exact'), 'hudpleie results should include exact vertical match')
+  assert(skinCareReport.candidates.some((candidate) => candidate.verticalMatchStatus === 'broad'), 'hudpleie results should include broad vertical match')
+  const hairOnly = skinCareReport.candidates.find((candidate) => candidate.businessName === 'Halden Frisør')
+  assert(hairOnly.verticalMatchStatus === 'weak', 'hair-only match should stay weak for hudpleie')
+  assert(shouldIncludeInFastLeadPack(hairOnly) === true, 'weak but contactable broad beauty lead can remain available for seller review')
+
+  const personalTrainerFixture = path.join(root, 'personal-trainer-google-places.mock-results.json')
+  fs.writeFileSync(personalTrainerFixture, JSON.stringify({
+    places: [
+      {
+        id: 'places-pt-kristiansand',
+        displayName: { text: 'PT Studio Kristiansand' },
+        websiteUri: 'https://pt-studio-kristiansand.example',
+        nationalPhoneNumber: '+47 38 00 00 00',
+        formattedAddress: 'Treningsgata 1, 4610 Kristiansand, Norway',
+        types: ['gym'],
+        query: 'PT Kristiansand'
+      },
+      {
+        id: 'places-fresh-fitness',
+        displayName: { text: 'Fresh Fitness Kristiansand' },
+        websiteUri: 'https://fresh-fitness-kristiansand.example',
+        nationalPhoneNumber: '+47 38 01 01 01',
+        formattedAddress: 'Gymgata 2, 4610 Kristiansand, Norway',
+        types: ['gym'],
+        query: 'treningssenter personlig trener Kristiansand'
+      },
+      {
+        id: 'places-hundetrener',
+        displayName: { text: 'Kristiansand Hundetrener' },
+        websiteUri: 'https://hundetrener-kristiansand.example',
+        nationalPhoneNumber: '+47 38 02 02 02',
+        formattedAddress: 'Hundegata 3, 4610 Kristiansand, Norway',
+        types: ['point_of_interest'],
+        query: 'personlig trener Kristiansand'
+      }
+    ],
+  }, null, 2))
+  const personalTrainerReport = await discoverLocalBusinesses({
+    query: 'personlig trener i Kristiansand',
+    provider: 'google-places',
+    mockResultsPath: personalTrainerFixture,
+    maxResults: 6,
+    validate: false,
+  })
+  assert(personalTrainerReport.expandedQueries.includes('PT Kristiansand'), 'personal trainer search should expand to PT')
+  assert(personalTrainerReport.expandedQueries.includes('personal trainer Kristiansand'), 'personal trainer search should expand to English term')
+  assert(personalTrainerReport.candidates.some((candidate) => candidate.verticalMatchStatus === 'broad'), 'personal trainer should keep gym broad matches')
+  const dogTrainer = personalTrainerReport.candidates.find((candidate) => candidate.businessName === 'Kristiansand Hundetrener')
+  assert(dogTrainer.industryMatchStatus === 'mismatch', 'hundetrener should be a vertical mismatch for personal trainer')
+  assert(shouldIncludeInFastLeadPack(dogTrainer) === false, 'hundetrener should not become a seller lead for personal trainer')
 
 
   const broadNorwayPlacesFixture = path.join(root, 'broad-norway-google-places.mock-results.json')
