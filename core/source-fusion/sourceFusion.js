@@ -156,6 +156,11 @@ function locationConfidenceFor({ sourceQuality, warnings, conflicts, proofReason
     addUnique(riskReasons, 'Location conflict must be resolved before using this lead.')
     return 'conflict'
   }
+  if (clean(sourceQuality.requestedLocation)) {
+    addUnique(warnings, 'Requested location is not confirmed for this lead.')
+    addUnique(riskReasons, 'Location should be verified before treating this as a local lead.')
+    return 'fallback'
+  }
   addUnique(warnings, 'Location confidence is unknown.')
   return 'unknown'
 }

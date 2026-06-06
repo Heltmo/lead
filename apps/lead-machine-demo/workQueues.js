@@ -161,7 +161,11 @@ function queueQualityFacts(lead = {}, workflow = {}) {
   if (quality.confirmedOrg) reasons.push('confirmed_org_number')
   if (quality.candidateOrg) blockers.push('candidate_org_number')
   if (quality.exactLocation) reasons.push('exact_location')
-  if (quality.locationFallback) warnings.push('location_needs_review')
+  if (quality.candidateLocation) reasons.push('candidate_location_available')
+  if (!quality.confirmedOrg && !quality.candidateOrg && quality.hasPhone && quality.exactLocation) warnings.push('org_not_confirmed_but_callable')
+  if (quality.locationNeedsReview) blockers.push('location_needs_review')
+  else if (quality.locationFallback) warnings.push('location_needs_review')
+  if (quality.locationMissing) blockers.push('location_missing')
   if (quality.foreignPhone) blockers.push('phone_format_not_norwegian')
   if (quality.severeLocationRisk) blockers.push('location_conflict')
   if (quality.severeIdentityRisk && !quality.confirmedOrg) blockers.push('identity_not_confirmed')
@@ -209,15 +213,21 @@ function leadQueueQuality(lead = {}, context = {}) {
   const locationStatus = String(context.locationStatus !== undefined ? context.locationStatus : sourceQuality.locationMatchStatus || '').toLowerCase()
   const confirmedOrg = Boolean(company.organizationNumber)
   const candidateOrg = Boolean(company.candidateOrganizationNumber)
+  const requestedLocation = Boolean(sourceQuality.requestedLocation)
+  const candidateLocation = Boolean(sourceQuality.candidateLocation || sourceQuality.marketSweepCity || contact.city || contact.address || lead.address || company.registeredAddress)
   const exactLocation = locationStatus === 'exact_location' || locationConfidence === 'exact'
-  const locationFallback = locationStatus === 'regional_fallback' || locationConfidence === 'fallback' || locationConfidence === 'unknown'
+  const locationFallback = locationStatus === 'regional_fallback' || locationConfidence === 'fallback'
+  const locationUnknown = locationStatus === 'unknown' || locationConfidence === 'unknown'
+  const locationMissing = !exactLocation && !candidateLocation
+  const locationNeedsReview = locationFallback || requestedLocation && (locationUnknown || locationMissing)
+  const usableLocation = exactLocation || candidateLocation && !locationNeedsReview
   const identityUnknown = identityConfidence === 'unknown' && !candidateOrg && !confirmedOrg
   const severeIdentityRisk = ['no_match', 'error'].includes(matchStatus) || identityUnknown
   const severeLocationRisk = ['out_of_area', 'conflict', 'location_conflict'].includes(locationStatus) || locationConfidence === 'conflict'
   const foreignPhone = Boolean(phone) && !isLikelyNorwegianPhone(phone)
-  const trustedToCall = hasPhone && !foreignPhone && !severeLocationRisk && (confirmedOrg || exactLocation || trustAction === 'call' || (candidateOrg && ['strong', 'good'].includes(fit) && !locationFallback) || (action === 'contact' && !identityUnknown && !locationFallback))
-  const needsVerifyBeforeCall = !hasPhone || foreignPhone || severeLocationRisk || severeIdentityRisk && !confirmedOrg || trustAction === 'verify_first' && !trustedToCall || contactConfidence === 'weak'
-  return { hasPhone, confirmedOrg, candidateOrg, exactLocation, locationFallback, identityUnknown, severeIdentityRisk, severeLocationRisk, foreignPhone, trustedToCall, needsVerifyBeforeCall }
+  const trustedToCall = hasPhone && !foreignPhone && !severeLocationRisk && (exactLocation || trustAction === 'call' || confirmedOrg && usableLocation || candidateOrg && ['strong', 'good'].includes(fit) && usableLocation || action === 'contact' && !identityUnknown && usableLocation)
+  const needsVerifyBeforeCall = !hasPhone || foreignPhone || severeLocationRisk || locationNeedsReview || locationMissing || severeIdentityRisk && !confirmedOrg || trustAction === 'verify_first' && !trustedToCall || contactConfidence === 'weak'
+  return { hasPhone, confirmedOrg, candidateOrg, requestedLocation, candidateLocation, exactLocation, locationFallback, locationUnknown, locationMissing, locationNeedsReview, usableLocation, identityUnknown, severeIdentityRisk, severeLocationRisk, foreignPhone, trustedToCall, needsVerifyBeforeCall }
 }
 
 function isLikelyNorwegianPhone(value) {

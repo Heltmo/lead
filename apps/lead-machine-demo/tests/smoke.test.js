@@ -16,6 +16,10 @@ async function main() {
   const confirmedFallbackLead = { sellerFit: { sellerFit: 'good', recommendedAction: 'verify' }, contact: { phone: '98849599' }, company: { organizationNumber: '891592752', matchStatus: 'exact_match' }, sourceQuality: { locationMatchStatus: 'regional_fallback' }, sourceFusion: { recommendedTrustAction: 'verify_first', identityConfidence: 'confirmed', contactConfidence: 'good', locationConfidence: 'fallback' } }
   const foreignPhoneLead = { sellerFit: { sellerFit: 'good', recommendedAction: 'contact' }, contact: { phone: '(614) 412-5372' }, company: {}, sourceQuality: { locationMatchStatus: 'regional_fallback' } }
   const verifyLead = { sellerFit: { sellerFit: 'review', recommendedAction: 'verify' }, contact: {}, company: { candidateOrganizationNumber: '999111222', matchStatus: 'manual_verify' }, sourceQuality: { locationMatchStatus: 'regional_fallback' } }
+  const exactPhoneNoBrregLead = { sellerFit: { sellerFit: 'good', recommendedAction: 'contact' }, contact: { phone: '98849599', city: 'Halden' }, company: { matchStatus: 'not_run' }, sourceQuality: { locationMatchStatus: 'exact_location', requestedLocation: 'Halden', candidateLocation: 'Halden' }, sourceFusion: { recommendedTrustAction: 'review', identityConfidence: 'unknown', contactConfidence: 'good', locationConfidence: 'exact' } }
+  const confirmedPhoneUnknownSpecificLocationLead = { sellerFit: { sellerFit: 'good', recommendedAction: 'contact' }, contact: { phone: '98849599' }, company: { organizationNumber: '999888777', matchStatus: 'exact_match' }, sourceQuality: { locationMatchStatus: 'unknown', requestedLocation: 'Halden' }, sourceFusion: { recommendedTrustAction: 'review', identityConfidence: 'confirmed', contactConfidence: 'good', locationConfidence: 'unknown' } }
+  const confirmedPhoneBroadLocatedLead = { sellerFit: { sellerFit: 'good', recommendedAction: 'contact' }, contact: { phone: '98849599', city: 'Oslo' }, company: { organizationNumber: '999888777', matchStatus: 'exact_match' }, sourceQuality: { locationMatchStatus: 'unknown', requestedLocation: '', candidateLocation: 'Oslo', marketSweepCity: 'Oslo' }, sourceFusion: { recommendedTrustAction: 'review', identityConfidence: 'confirmed', contactConfidence: 'good', locationConfidence: 'unknown' } }
+  const confirmedPhoneNoLocationLead = { sellerFit: { sellerFit: 'good', recommendedAction: 'contact' }, contact: { phone: '98849599' }, company: { organizationNumber: '999888777', matchStatus: 'exact_match' }, sourceQuality: { locationMatchStatus: 'unknown' }, sourceFusion: { recommendedTrustAction: 'review', identityConfidence: 'confirmed', contactConfidence: 'good', locationConfidence: 'unknown' } }
   assert(workflowForLead(strongLead, {}, 'strong::1').queue === 'call_now', 'strong/good contact-ready lead should enter call_now')
   assert(workflowForLead(phoneReadyReviewLead, {}, 'review-phone::1').queue === 'call_now', 'exact phone-ready review leads should stay callable while showing verification caution')
   assert(workflowForLead(fallbackCandidateLead, {}, 'fallback-candidate::1').queue === 'verify_first', 'candidate identity with fallback location should verify before calling')
@@ -23,6 +27,10 @@ async function main() {
   assert(workflowForLead(foreignPhoneLead, {}, 'foreign-phone::1').queue === 'verify_first', 'non-Norwegian phone-like leads should not enter call_now')
   assert(isLikelyNorwegianPhone('988 49 599') && !isLikelyNorwegianPhone('(614) 412-5372'), 'phone quality should separate Norwegian phone numbers from foreign formats')
   assert(workflowForLead(verifyLead, {}, 'verify::1').queue === 'verify_first', 'missing-contact verify lead should enter verify_first')
+  assert(workflowForLead(exactPhoneNoBrregLead, {}, 'exact-no-brreg::1').queue === 'call_now', 'phone plus exact location should be callable even when org.nr is not confirmed')
+  assert(workflowForLead(confirmedPhoneUnknownSpecificLocationLead, {}, 'confirmed-specific-unknown-location::1').queue === 'verify_first', 'confirmed org plus phone should verify first when requested location is unknown')
+  assert(workflowForLead(confirmedPhoneBroadLocatedLead, {}, 'confirmed-broad-located::1').queue === 'call_now', 'broad Norway lead with confirmed org, phone, and candidate city can be callable')
+  assert(workflowForLead(confirmedPhoneNoLocationLead, {}, 'confirmed-no-location::1').queue === 'verify_first', 'confirmed org plus phone without usable location should verify first')
   assert(normalizeWorkflow({ response: 'no_answer' }, { today: '2026-06-02', now: '2026-06-02T09:00:00.000Z' }).queue === 'no_answer', 'no_answer without due date should move to no_answer and get a later follow-up')
   assert(normalizeWorkflow({ response: 'no_answer', followUpDate: '2026-06-02' }, { today: '2026-06-02' }).queue === 'follow_up_today', 'no_answer with follow-up today should appear in follow_up_today')
   assert(normalizeWorkflow({ response: 'interested' }).queue === 'interested', 'interested outcome should move to interested')
@@ -37,6 +45,10 @@ async function main() {
   assert(workflowForLead(fallbackCandidateLead, { queue: 'call_now' }, 'manual::1').queue === 'call_now', 'manual workflow queue should not be overwritten by recommendation')
   const dueQueueQuality = buildQueueQuality(strongLead, { followUpDate: '2026-06-05' }, { now: '2026-06-05T09:00:00.000Z', today: '2026-06-05' })
   assert(dueQueueQuality.recommendedQueue === 'follow_up_today', 'follow-up due should override new-call recommendation')
+  const exactNoBrregQuality = buildQueueQuality(exactPhoneNoBrregLead, {}, { now: '2026-06-05T09:00:00.000Z', today: '2026-06-05' })
+  assert(exactNoBrregQuality.recommendedQueue === 'call_now' && exactNoBrregQuality.warnings.includes('org_not_confirmed_but_callable'), 'queueQuality should explain callable leads without confirmed org.nr')
+  const unknownSpecificQuality = buildQueueQuality(confirmedPhoneUnknownSpecificLocationLead, {}, { now: '2026-06-05T09:00:00.000Z', today: '2026-06-05' })
+  assert(unknownSpecificQuality.recommendedQueue === 'verify_first' && unknownSpecificQuality.blockers.includes('location_needs_review'), 'queueQuality should block specific-location leads when location is unknown')
 
   const fusedStrongLead = evaluateSourceFusion(strongLead)
   assert(['strong', 'good'].includes(fusedStrongLead.leadConfidence), 'source fusion should trust confirmed phone-ready leads')

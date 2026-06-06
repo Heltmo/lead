@@ -987,15 +987,21 @@ function leadQueueQuality(lead = {}, context = {}) {
   const locationStatus = String(context.locationStatus ?? sourceQuality.locationMatchStatus ?? '').toLowerCase()
   const confirmedOrg = Boolean(company.organizationNumber)
   const candidateOrg = Boolean(company.candidateOrganizationNumber)
+  const requestedLocation = Boolean(sourceQuality.requestedLocation)
+  const candidateLocation = Boolean(sourceQuality.candidateLocation || sourceQuality.marketSweepCity || lead.contact?.city || lead.contact?.address || lead.address || company.registeredAddress)
   const exactLocation = locationStatus === 'exact_location' || locationConfidence === 'exact'
-  const locationFallback = locationStatus === 'regional_fallback' || locationConfidence === 'fallback' || locationConfidence === 'unknown'
+  const locationFallback = locationStatus === 'regional_fallback' || locationConfidence === 'fallback'
+  const locationUnknown = locationStatus === 'unknown' || locationConfidence === 'unknown'
+  const locationMissing = !exactLocation && !candidateLocation
+  const locationNeedsReview = locationFallback || requestedLocation && (locationUnknown || locationMissing)
+  const usableLocation = exactLocation || candidateLocation && !locationNeedsReview
   const identityUnknown = identityConfidence === 'unknown' && !candidateOrg && !confirmedOrg
   const severeIdentityRisk = ['no_match', 'error'].includes(matchStatus) || identityUnknown
   const severeLocationRisk = ['out_of_area', 'conflict', 'location_conflict'].includes(locationStatus) || locationConfidence === 'conflict'
   const foreignPhone = Boolean(phone) && !isLikelyNorwegianPhone(phone)
-  const trustedToCall = hasPhone && !foreignPhone && !severeLocationRisk && (confirmedOrg || exactLocation || trustAction === 'call' || (candidateOrg && ['strong', 'good'].includes(fit) && !locationFallback) || (sellerAction === 'contact' && !identityUnknown && !locationFallback))
-  const needsVerifyBeforeCall = !hasPhone || foreignPhone || severeLocationRisk || severeIdentityRisk && !confirmedOrg || trustAction === 'verify_first' && !trustedToCall || contactConfidence === 'weak'
-  return { hasPhone, confirmedOrg, candidateOrg, exactLocation, locationFallback, identityUnknown, severeIdentityRisk, severeLocationRisk, foreignPhone, trustedToCall, needsVerifyBeforeCall }
+  const trustedToCall = hasPhone && !foreignPhone && !severeLocationRisk && (exactLocation || trustAction === 'call' || confirmedOrg && usableLocation || candidateOrg && ['strong', 'good'].includes(fit) && usableLocation || sellerAction === 'contact' && !identityUnknown && usableLocation)
+  const needsVerifyBeforeCall = !hasPhone || foreignPhone || severeLocationRisk || locationNeedsReview || locationMissing || severeIdentityRisk && !confirmedOrg || trustAction === 'verify_first' && !trustedToCall || contactConfidence === 'weak'
+  return { hasPhone, confirmedOrg, candidateOrg, requestedLocation, candidateLocation, exactLocation, locationFallback, locationUnknown, locationMissing, locationNeedsReview, usableLocation, identityUnknown, severeIdentityRisk, severeLocationRisk, foreignPhone, trustedToCall, needsVerifyBeforeCall }
 }
 
 function isLikelyNorwegianPhone(value) {
@@ -2476,7 +2482,8 @@ function sourceFusionForLead(lead = {}) {
   const hasWebsite = Boolean(contact.website || lead.website)
   const identityConfidence = company.organizationNumber ? 'confirmed' : company.candidateOrganizationNumber || ['manual_verify', 'weak_match'].includes(String(company.matchStatus || '').toLowerCase()) ? 'manual_verify' : 'unknown'
   const contactConfidence = hasPhone && (hasEmail || hasWebsite) ? 'strong' : hasPhone ? 'good' : hasEmail || hasWebsite ? 'review' : 'weak'
-  const locationConfidence = sourceQuality.locationMatchStatus === 'exact_location' ? 'exact' : sourceQuality.locationMatchStatus === 'regional_fallback' ? 'fallback' : sourceQuality.locationMatchStatus === 'out_of_area' ? 'conflict' : 'unknown'
+  const requestedLocation = Boolean(sourceQuality.requestedLocation)
+  const locationConfidence = sourceQuality.locationMatchStatus === 'exact_location' ? 'exact' : sourceQuality.locationMatchStatus === 'regional_fallback' ? 'fallback' : sourceQuality.locationMatchStatus === 'out_of_area' ? 'conflict' : requestedLocation ? 'fallback' : 'unknown'
   const sellerFit = String(lead.sellerFit?.sellerFit || 'unknown').toLowerCase()
   const recommendedTrustAction = contactConfidence === 'weak' ? 'skip' : identityConfidence === 'manual_verify' || ['fallback', 'conflict', 'unknown'].includes(locationConfidence) ? 'verify_first' : ['strong', 'good'].includes(sellerFit) ? 'call' : 'review'
   return {
