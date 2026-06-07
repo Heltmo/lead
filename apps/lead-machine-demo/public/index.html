@@ -70,39 +70,39 @@
           <summary>Filter / sort lead list</summary>
           <div class="lead-controls-body">
             <div class="queue-presets" aria-label="Queue presets">
-              <button type="button" class="queue-preset" data-queue-preset="callNow">Call now</button>
-              <button type="button" class="queue-preset" data-queue-preset="verify">Needs verification</button>
-              <button type="button" class="queue-preset" data-queue-preset="followUp">Follow-ups</button>
-              <button type="button" class="queue-preset" data-queue-preset="interested">Interested</button>
+              <button type="button" class="queue-preset" data-queue-preset="callNow">Ring nå</button>
+              <button type="button" class="queue-preset" data-queue-preset="verify">Må verifiseres</button>
+              <button type="button" class="queue-preset" data-queue-preset="followUp">Oppfølging</button>
+              <button type="button" class="queue-preset" data-queue-preset="interested">Interessert</button>
             </div>
-            <label><span>Sort</span><select id="leadSort">
-              <option value="callQueue" selected>Call queue first</option>
+            <label><span>Sorter</span><select id="leadSort">
+              <option value="callQueue" selected>Kø først</option>
               <option value="city">By / marked først</option>
-              <option value="sellerFit">Seller fit first</option>
-              <option value="best">Best first</option>
-              <option value="phone">Phone first</option>
-              <option value="confirmed">Confirmed org.nr</option>
+              <option value="sellerFit">Beste selgerfit</option>
+              <option value="best">Beste først</option>
+              <option value="phone">Telefon først</option>
+              <option value="confirmed">Bekreftet org.nr</option>
               <option value="reviews">Google reviews</option>
-              <option value="employees">Employees</option>
-              <option value="discovery">Discovery confidence</option>
-              <option value="followUp">Follow-up due</option>
+              <option value="employees">Ansatte</option>
+              <option value="discovery">Treffsikkerhet</option>
+              <option value="followUp">Oppfølging først</option>
             </select></label>
             <div class="filter-chips" aria-label="Lead filters">
-              <label><input type="checkbox" class="lead-filter" value="phone"> Phone</label>
-              <label><input type="checkbox" class="lead-filter" value="confirmed"> Confirmed org.nr</label>
-              <label><input type="checkbox" class="lead-filter" value="candidate"> Candidate org.nr</label>
-              <label><input type="checkbox" class="lead-filter" value="website"> Website</label>
-              <label><input type="checkbox" class="lead-filter" value="exact"> Exact location</label>
-              <label><input type="checkbox" class="lead-filter" value="needsDeep"> Needs enrichment</label>
-              <label><input type="checkbox" class="lead-filter" value="brregIssue"> Brreg issue</label>
-              <label><input type="checkbox" class="lead-filter" value="notContacted"> Not contacted</label>
-              <label><input type="checkbox" class="lead-filter" value="contacted"> Contacted</label>
-              <label><input type="checkbox" class="lead-filter" value="followUpDue"> Follow-up due</label>
-              <label><input type="checkbox" class="lead-filter" value="interested"> Interested</label>
+              <label><input type="checkbox" class="lead-filter" value="phone"> Telefon</label>
+              <label><input type="checkbox" class="lead-filter" value="confirmed"> Bekreftet org.nr</label>
+              <label><input type="checkbox" class="lead-filter" value="candidate"> Kandidat org.nr</label>
+              <label><input type="checkbox" class="lead-filter" value="website"> Nettside</label>
+              <label><input type="checkbox" class="lead-filter" value="exact"> Riktig sted</label>
+              <label><input type="checkbox" class="lead-filter" value="needsDeep"> Trenger sjekk</label>
+              <label><input type="checkbox" class="lead-filter" value="brregIssue"> Brreg-varsel</label>
+              <label><input type="checkbox" class="lead-filter" value="notContacted"> Ikke kontaktet</label>
+              <label><input type="checkbox" class="lead-filter" value="contacted"> Kontaktet</label>
+              <label><input type="checkbox" class="lead-filter" value="followUpDue"> Oppfølging</label>
+              <label><input type="checkbox" class="lead-filter" value="interested"> Interessert</label>
               <label><input type="checkbox" class="lead-filter" value="strongEnough"> Skjul svake/usikre</label>
             </div>
-            <button type="button" id="clearLeadFilters">Clear filters</button>
-            <p id="leadFilterSummary" class="filter-summary">No filters applied.</p>
+            <button type="button" id="clearLeadFilters">Nullstill filter</button>
+            <p id="leadFilterSummary" class="filter-summary">Ingen filter valgt.</p>
           </div>
         </details>
         <div id="leadCards"></div>

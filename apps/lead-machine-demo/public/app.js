@@ -72,11 +72,11 @@ function withBetaToken(url) {
 }
 
 const QUICK_WORKFLOW_ACTIONS = [
-  { id: 'mark_called', label: 'Called / done', shortLabel: 'Done', tone: 'neutral' },
-  { id: 'no_answer', label: 'No answer', shortLabel: 'No answer', tone: 'warning' },
-  { id: 'interested', label: 'Interested', shortLabel: 'Interested', tone: 'positive' },
-  { id: 'not_relevant', label: 'Not relevant', shortLabel: 'Skip', tone: 'negative' },
-  { id: 'archive', label: 'Archive', tone: 'neutral' },
+  { id: 'mark_called', label: 'Ferdig', shortLabel: 'Ferdig', tone: 'neutral' },
+  { id: 'no_answer', label: 'Ingen svar', shortLabel: 'Ingen svar', tone: 'warning' },
+  { id: 'interested', label: 'Interessert', shortLabel: 'Interessert', tone: 'positive' },
+  { id: 'not_relevant', label: 'Ikke relevant', shortLabel: 'Hopp over', tone: 'negative' },
+  { id: 'archive', label: 'Arkiv', tone: 'neutral' },
 ]
 
 
@@ -775,7 +775,7 @@ function workQueueReason(lead, queueId) {
   const workflow = lead.workflow || {}
   const queue = normalizeWorkQueue(queueId) || leadWorkQueue(lead)
   if (queue === 'follow_up_today') return followUpQueueReason(lead)
-  if (queue === 'no_answer') return workflow.followUpDate ? 'Ingen svar · next ' + workflow.followUpDate : 'Ingen svar · call again later'
+  if (queue === 'no_answer') return workflow.followUpDate ? 'Ingen svar · neste ' + workflow.followUpDate : 'Ingen svar · ring igjen senere'
   if (queue === 'interested') return workflow.nextAction || 'Interessert lead needs next action'
   if (queue === 'verify_first') return callReadiness(lead).note || 'Verify before call'
   if (queue === 'not_relevant') return 'Removed from active calling'
@@ -1203,45 +1203,14 @@ function renderDetail(lead) {
   const salesEdge = salesEdgeAction(lead)
   els.leadDetail.innerHTML = `
     <section class="instant-lead-view">
-      <div class="instant-lead-main">
-        <div class="instant-lead-title">
-          <p class="eyebrow">Selected lead</p>
-          <div class="lead-name-line">
-            <h2>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h2>
-          </div>
-          <p class="muted">${escapeHtml(company.legalName || 'Legal name unknown')}</p>
-          <div class="badge-row instant-badges">${badge(callReadiness(lead).key)}${sourceFusionBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(brregStatusLabel(company))}${verticalMatchBadge(lead)}${badge(sourceQuality.locationMatchStatus)}${fastBadge(lead)}</div>
-        </div>
-        <div class="instant-call-box">
-          <span>Best contact</span>
-          ${titlePhone(contact.phone || lead.phone)}
-          <small>${escapeHtml(command.bestContactNote)}</small>
-          <div class="lead-header-actions">
-            ${phoneHref(contact.phone || lead.phone) ? `<a class="call-now primary-call" href="${escapeAttr(phoneHref(contact.phone || lead.phone))}">Call now</a>` : ''}
-            <button type="button" id="nextLeadButton" class="next-lead-button" ${nextLeadDisabledAttr()}>Next lead</button>
-          </div>
-        </div>
-      </div>
-      ${callSessionPanel(lead, command)}
-      ${verificationGuidancePanel(lead)}
-      ${sellerDeskCards(lead, command, { includeDetails: false })}
-      <div class="instant-decision-grid">
-        ${commandMetric('Do this now', salesEdge.label, salesEdge.note)}
-        ${commandMetric('Verify before use', command.mainRisk, command.mainRiskNote)}
-        ${commandMetric('Company identity', command.verification, command.verificationNote)}
-        ${commandMetric('Business type', command.businessType, command.businessTypeNote)}
-      </div>
+      ${sellerFlowPanel(lead, command, salesEdge)}
     </section>
 
     ${mobileCallBar(lead)}
 
     ${workflowPanel(lead)}
 
-    ${sellerDeskCards(lead, command, { includeTop: false })}
-
-    ${sellerCommandCard(command)}
-
-    ${osintPanel(lead)}
+    ${leadInfoDetails(lead, command)}
 
     <section class="detail-tools">
       <details class="detail-tool">
@@ -1341,6 +1310,58 @@ function renderDetail(lead) {
   if (nextButton) nextButton.addEventListener('click', selectNextVisibleLead)
 }
 
+function sellerFlowPanel(lead, command, salesEdge) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const sourceQuality = lead.sourceQuality || {}
+  const phone = contact.phone || lead.phone || ''
+  const callHref = phoneHref(phone)
+  const queue = leadWorkQueue(lead)
+  const verifyFirst = queue === 'verify_first'
+  const query = state.result?.parsedQuery?.normalizedQuery || state.result?.summary?.query || 'Søk'
+  const city = leadCity(lead)
+  const category = sourceQuality.verticalMatchedTerm || businessActivityLabel(company) || company.naceDescription || 'Kategori ukjent'
+  const primaryAction = verifyFirst
+    ? '<button type="button" class="seller-flow-primary" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verify & Enrich</button>'
+    : (callHref ? '<a class="seller-flow-primary" href="' + escapeAttr(callHref) + '">Ring nå</a>' : '<span class="seller-flow-primary disabled">Ingen telefon</span>')
+  const secondaryCall = verifyFirst && callHref ? '<a class="seller-flow-secondary" href="' + escapeAttr(callHref) + '">Ring hvis sjekket</a>' : ''
+  const proof = verificationShortLabel(lead)
+  return '<div class="seller-flow-hero queue-row">' +
+    '<div class="seller-flow-top"><div class="seller-flow-title"><p class="eyebrow">Valgt lead</p><h2>' + escapeHtml(company.displayName || lead.companyName || 'Unknown company') + '</h2><small>' + escapeHtml(company.legalName || city || 'Legal name unknown') + '</small><div class="badge-row instant-badges">' + badge(queue) + sourceFusionBadge(lead) + badge(brregStatusLabel(company)) + fastBadge(lead) + '</div></div>' +
+    '<div class="seller-flow-contact"><span>Telefon</span>' + titlePhone(phone) + '<small>' + escapeHtml(command.bestContactNote) + '</small><button type="button" id="nextLeadButton" class="next-lead-button" ' + nextLeadDisabledAttr() + '>Neste lead</button></div></div>' +
+    '<div class="seller-flow-steps" aria-label="Seller flow">' +
+      '<section class="seller-flow-step"><span>1. Søk</span><strong>' + escapeHtml(city) + '</strong><small>' + escapeHtml(query + ' · ' + category) + '</small></section>' +
+      '<section class="seller-flow-step seller-flow-step-main"><span>2. Ring</span><strong>' + escapeHtml(workQueueLabel(queue)) + '</strong><small>' + escapeHtml(salesEdge.note || callReadiness(lead).note) + '</small><div class="seller-flow-actions">' + primaryAction + secondaryCall + '</div></section>' +
+      '<section class="seller-flow-step"><span>3. Noter</span><strong>Logg utfall</strong><small>Velg Ingen svar, Interessert eller Ferdig. Skriv kort notat og sett oppfølging under.</small></section>' +
+    '</div>' +
+    '<div class="seller-flow-outcomes">' + quickActionsHtml(state.selectedIndex, 'queue') + '</div>' +
+    (verifyFirst ? verificationGuidancePanel(lead) : '') +
+    '<div class="seller-flow-info-strip">' +
+      sellerFlowInfoItem('Kontakt', phone || 'Mangler', phone ? 'Direkte telefon tilgjengelig' : 'Finn kontaktvei') +
+      sellerFlowInfoItem('Firma', companyIdValue(company), companyIdNote(company)) +
+      sellerFlowInfoItem('Sted', city, readable(sourceQuality.locationMatchStatus || 'unknown')) +
+      sellerFlowInfoItem('Proof', proof.title, proof.note) +
+    '</div>' +
+  '</div>'
+}
+
+function sellerFlowInfoItem(label, value, note) {
+  return '<div class="seller-flow-info-item"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(String(value || 'Ukjent')) + '</strong><small>' + escapeHtml(String(note || '')) + '</small></div>'
+}
+
+function verificationShortLabel(lead = {}) {
+  const guidance = verificationGuidance(lead)
+  const fusion = sourceFusionForLead(lead)
+  if (leadWorkQueue(lead) === 'verify_first') return { title: guidance.primary.title, note: guidance.primary.note }
+  return { title: trustActionLabel(fusion.recommendedTrustAction || fusion.leadConfidence || 'review'), note: sourceFusionFooter(fusion) }
+}
+
+function leadInfoDetails(lead, command) {
+  return '<details class="detail-tool lead-info-collapse"><summary>Info om lead</summary>' +
+    '<div class="lead-info-body">' + sellerDeskCards(lead, command, { includeDetails: false }) + sellerDeskCards(lead, command, { includeTop: false }) + sellerCommandCard(command) + osintPanel(lead) + '</div>' +
+  '</details>'
+}
+
 function callSessionPanel(lead, command) {
   const phone = lead.contact?.phone || lead.phone || ''
   const callHref = phoneHref(phone)
@@ -1352,12 +1373,12 @@ function callSessionPanel(lead, command) {
     '<div class="call-session-actions">' +
       (verifyFirst
         ? '<button type="button" class="call-session-button primary" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verify & Enrich</button>'
-        : (callHref ? '<a class="call-session-button primary" href="' + escapeAttr(callHref) + '">Call now</a>' : '<span class="call-session-button disabled">No phone</span>')) +
+        : (callHref ? '<a class="call-session-button primary" href="' + escapeAttr(callHref) + '">Ring nå</a>' : '<span class="call-session-button disabled">No phone</span>')) +
       (verifyFirst && callHref ? '<a class="call-session-button" href="' + escapeAttr(callHref) + '">Call if checked</a>' : '') +
-      '<button type="button" class="call-session-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">No answer</button>' +
-      '<button type="button" class="call-session-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interested</button>' +
-      '<button type="button" class="call-session-button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Called / done</button>' +
-      '<button type="button" class="call-session-button negative" data-workflow-action="not_relevant" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Not relevant</button>' +
+      '<button type="button" class="call-session-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ingen svar</button>' +
+      '<button type="button" class="call-session-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interessert</button>' +
+      '<button type="button" class="call-session-button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ferdig</button>' +
+      '<button type="button" class="call-session-button negative" data-workflow-action="not_relevant" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ikke relevant</button>' +
       '<button type="button" class="call-session-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Next lead</button>' +
     '</div></section>'
 }
@@ -1467,17 +1488,18 @@ function workflowPanel(lead) {
   const callHref = phoneHref(phone)
   const savedText = workflow.updatedAt ? `Saved ${escapeHtml(workflow.updatedAt)}` : 'Not saved yet'
   const lastContacted = workflow.lastContactedAt ? formatActivityTime(workflow.lastContactedAt) : 'Not contacted yet'
-  const nextFollowUp = workflow.nextFollowUpAt || workflow.followUpDate || 'Not set'
+  const nextFollowUp = workflow.nextFollowUpAt || workflow.followUpDate || 'Ikke satt'
   return `<section class="workflow-panel compact-workflow-panel seller-next-panel">
     <div class="workflow-head compact-workflow-head">
       <div>
-        <p class="eyebrow">Lead workflow</p>
-        <h3>Outcome and next action</h3>
+        <p class="eyebrow">Steg 3</p>
+        <h3>Tekst og oppfølging</h3>
+        <p class="note-procedure">Skriv kort hva som skjedde, velg utfall og sett neste dato.</p>
       </div>
       <div class="workflow-head-actions">
         ${badge(currentQueue)}
         ${badge(workflow.status || 'new')}
-        ${callHref ? '<a class="call-now compact-call" href="' + escapeAttr(callHref) + '">Call now</a>' : ''}
+        ${callHref ? '<a class="call-now compact-call" href="' + escapeAttr(callHref) + '">Ring nå</a>' : ''}
       </div>
     </div>
     <div class="workflow-state-strip seller-next-state">
@@ -1489,10 +1511,10 @@ function workflowPanel(lead) {
     <form id="workflowForm" class="workflow-form compact-workflow-form seller-next-form">
       <input type="hidden" name="queue" value="${escapeAttr(currentQueue)}">
       <input type="hidden" name="status" value="${escapeAttr(workflow.status || 'new')}">
-      <label><span>Outcome</span><select name="response">${workflowOptions(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'], workflow.response)}</select></label>
-      <label><span>Follow-up date</span><input type="date" name="followUpDate" value="${escapeAttr(workflow.followUpDate || workflow.nextFollowUpAt || '')}"></label>
-      <label class="workflow-next-action"><span>Next action</span><input name="nextAction" value="${escapeAttr(workflow.nextAction || '')}" placeholder="call again / book meeting / send info"></label>
-      <label class="workflow-notes compact-notes"><span>Note</span><textarea name="notes" rows="3" placeholder="Short call note">${escapeHtml(formatWorkflowNotes(workflow.notes || ''))}</textarea></label>
+      <label><span>Utfall</span><select name="response">${workflowOptions(['', 'no_answer', 'no_response', 'negative', 'neutral', 'interested', 'meeting_booked'], workflow.response)}</select></label>
+      <label><span>Oppfølging</span><input type="date" name="followUpDate" value="${escapeAttr(workflow.followUpDate || workflow.nextFollowUpAt || '')}"></label>
+      <label class="workflow-next-action"><span>Neste handling</span><input name="nextAction" value="${escapeAttr(workflow.nextAction || '')}" placeholder="ring igjen / send info / book møte"></label>
+      <label class="workflow-notes compact-notes"><span>Kort notat</span><textarea name="notes" rows="3" placeholder="Kort notat etter samtalen">${escapeHtml(formatWorkflowNotes(workflow.notes || ''))}</textarea></label>
       <input type="hidden" name="contacted" value="${escapeAttr(String(Boolean(workflow.contacted)))}">
       <input type="hidden" name="channel" value="${escapeAttr(workflow.channel || '')}">
       <input type="hidden" name="personReached" value="${escapeAttr(workflow.personReached || '')}">
@@ -1500,9 +1522,9 @@ function workflowPanel(lead) {
       <input type="hidden" name="owner" value="${escapeAttr(workflow.owner || '')}">
       <input type="hidden" name="lastContactedAt" value="${escapeAttr(workflow.lastContactedAt || '')}">
       <input type="hidden" name="archivedAt" value="${escapeAttr(workflow.archivedAt || '')}">
-      <div class="workflow-actions compact-save"><small>${savedText}</small><button type="submit" data-save-note>Save note</button><button type="button" class="secondary-action" data-archive-lead>Archive</button></div>
+      <div class="workflow-actions compact-save"><small>${savedText}</small><button type="submit" data-save-note>Lagre</button><button type="button" class="secondary-action" data-archive-lead>Arkiv</button></div>
       <details class="workflow-more">
-        <summary>More logging fields</summary>
+        <summary>Flere felt</summary>
         <div class="workflow-form workflow-form-more">
           <label><span>Queue</span><select name="queueMore" data-workflow-sync="queue">${workflowQueueOptions(currentQueue)}</select></label>
           <label><span>Status</span><select name="statusMore" data-workflow-sync="status">${workflowOptions(['new', 'reviewed', 'contacted', 'follow_up', 'interested', 'rejected'], workflow.status)}</select></label>
@@ -1544,7 +1566,7 @@ function activitySummary(activity = {}) {
 }
 
 function workflowOptions(values, selected) {
-  return values.map((value) => `<option value="${escapeAttr(value)}" ${String(value) === String(selected || '') ? 'selected' : ''}>${escapeHtml(value ? readable(value) : 'Not set')}</option>`).join('')
+  return values.map((value) => `<option value="${escapeAttr(value)}" ${String(value) === String(selected || '') ? 'selected' : ''}>${escapeHtml(value ? readable(value) : 'Ikke satt')}</option>`).join('')
 }
 
 function workflowQueueOptions(selected) {
@@ -1572,9 +1594,9 @@ async function saveWorkflow(event) {
   const originalButtonText = saveButton ? saveButton.textContent : ''
   if (saveButton) {
     saveButton.disabled = true
-    saveButton.textContent = 'Saving...'
+    saveButton.textContent = 'Lagrer...'
   }
-  if (saveText) saveText.textContent = 'Saving note...'
+  if (saveText) saveText.textContent = 'Lagrer notat...'
   formElement.querySelectorAll('[data-workflow-sync]').forEach((field) => {
     const target = formElement.elements[field.dataset.workflowSync]
     if (target) target.value = field.value
@@ -1601,7 +1623,7 @@ async function saveWorkflow(event) {
       notes: form.get('notes'),
     }
     applyWorkflowDefaults(workflow)
-    setStatus('saving note...', 'running')
+    setStatus('lagrer notat...', 'running')
     const response = await apiFetch('/api/workflow', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -1627,7 +1649,7 @@ async function saveWorkflow(event) {
     formElement.dataset.saving = ''
     if (saveButton) {
       saveButton.disabled = false
-      saveButton.textContent = originalButtonText || 'Save note'
+      saveButton.textContent = originalButtonText || 'Lagre'
     }
   }
 }
@@ -1657,14 +1679,14 @@ function applyWorkflowDefaults(workflow) {
     workflow.lastContactedAt = workflow.lastContactedAt || now
   }
   if (workflow.followUpDate) workflow.nextFollowUpAt = workflow.followUpDate
-  if (needsNoAnswerFollowUp && (!workflow.nextAction || workflow.nextAction === 'review')) workflow.nextAction = 'call again'
-  if (needsInterestedFollowUp && (!workflow.nextAction || workflow.nextAction === 'review')) workflow.nextAction = 'follow up interested lead'
+  if (needsNoAnswerFollowUp && (!workflow.nextAction || workflow.nextAction === 'review')) workflow.nextAction = 'ring igjen'
+  if (needsInterestedFollowUp && (!workflow.nextAction || workflow.nextAction === 'review')) workflow.nextAction = 'følg opp interessert lead'
   return workflow
 }
 
 function noteSaveErrorMessage(error) {
   const detail = error && error.message ? String(error.message) : 'Note save failed'
-  if (/fetch|network|load failed/i.test(detail)) return 'Could not save - local server is not running. Restart it and try again.'
+  if (/fetch|network|load failed/i.test(detail)) return 'Kunne ikke lagre - lokal server kjører ikke. Start den på nytt og prøv igjen.'
   return 'Could not save - ' + detail
 }
 
@@ -2372,8 +2394,8 @@ async function runWorkflowQuickAction(button) {
   state.selectedLeadId = leadId(lead, index)
   const originalText = button.textContent
   button.disabled = true
-  button.textContent = 'Saving...'
-  setStatus(`saving note: ${originalText}`, 'running')
+  button.textContent = 'Lagrer...'
+  setStatus(`lagrer: ${originalText}`, 'running')
   try {
     const response = await apiFetch('/api/workflow', {
       method: 'POST',
@@ -2410,8 +2432,8 @@ function applyWorkflowQuickActionDraft(button) {
   if (!workflow) return setStatus('failed: unknown quick action', 'failed')
   setWorkflowFormValues(form, workflow)
   const saveText = form.querySelector('.workflow-actions small')
-  if (saveText) saveText.textContent = 'Draft only - click Save note to log it'
-  setStatus('note draft updated - click Save note to log it', 'running')
+  if (saveText) saveText.textContent = 'Utkast - klikk Lagre for å logge'
+  setStatus('notatutkast oppdatert - klikk Lagre for å logge', 'running')
 }
 
 function readWorkflowDraft(form, current = {}) {
@@ -2475,11 +2497,11 @@ function buildQuickWorkflow(action, current = {}) {
   const tomorrow = isoDateOffset(1)
   const nextWeek = isoDateOffset(7)
   if (action === 'mark_called') return { ...base, status: 'contacted', queue: 'archived', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: base.response || 'neutral', followUpDate: '', nextFollowUpAt: '', nextAction: 'done' }
-  if (action === 'no_answer') return { ...base, status: 'follow_up', queue: 'no_answer', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'no_answer', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: 'call again' }
-  if (action === 'interested') return { ...base, status: 'interested', queue: 'interested', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'interested', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: base.nextAction && base.nextAction !== 'review' ? base.nextAction : 'follow up interested lead', outcome: base.outcome || 'interested' }
+  if (action === 'no_answer') return { ...base, status: 'follow_up', queue: 'no_answer', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'no_answer', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: 'ring igjen' }
+  if (action === 'interested') return { ...base, status: 'interested', queue: 'interested', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'interested', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: base.nextAction && base.nextAction !== 'review' ? base.nextAction : 'følg opp interessert lead', outcome: base.outcome || 'interested' }
   if (action === 'not_relevant') return { ...base, status: 'rejected', queue: 'not_relevant', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'negative', followUpDate: '', nextFollowUpAt: '', nextAction: 'do not contact', outcome: 'not relevant' }
-  if (action === 'follow_up_tomorrow') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: 'follow up tomorrow' }
-  if (action === 'follow_up_next_week') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: nextWeek, nextFollowUpAt: nextWeek, nextAction: 'follow up next week' }
+  if (action === 'follow_up_tomorrow') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: 'følg opp i morgen' }
+  if (action === 'follow_up_next_week') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: nextWeek, nextFollowUpAt: nextWeek, nextAction: 'følg opp neste uke' }
   if (action === 'archive') return { ...base, queue: 'archived', archivedAt: base.archivedAt || now, nextAction: 'archived' }
   return null
 }
