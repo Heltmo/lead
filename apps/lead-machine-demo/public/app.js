@@ -298,10 +298,13 @@ function renderReadiness(result) {
   const workspace = readiness.workspace || defaultWorkspace(readiness, savedSearches)
   const savedCount = workspace.savedSearchCount || savedSearches.length || 0
   const noteCount = workspace.workflowLeadCount || 0
-  els.readiness.innerHTML = '<section class="saved-market-panel">' +
-    '<div class="saved-market-head"><div><p class="eyebrow">Saved markets</p><h2>Return to useful searches</h2><small>' + escapeHtml(String(savedCount) + ' saved searches · ' + String(noteCount) + ' leads with notes') + '</small></div><button type="button" class="quiet-export" data-workspace-export>Download test data</button></div>' +
-    (savedSearches.length ? '<div class="saved-searches saved-search-management">' + savedSearches.map(savedSearchButton).join('') + '</div>' : '<p class="readiness-note">Saved searches appear here after the first run.</p>') +
-  '</section>' + marketSweepPanel(result)
+  const savedSearchList = savedSearches.length
+    ? '<div class="saved-searches saved-search-management">' + savedSearches.map(savedSearchButton).join('') + '</div>'
+    : '<p class="readiness-note">Lagrede søk dukker opp etter første kjøring.</p>'
+  els.readiness.innerHTML = '<details class="saved-market-panel saved-market-panel-compact">' +
+    '<summary class="saved-market-summary"><div><p class="eyebrow">Lagrede søk</p><h2>' + escapeHtml(String(savedCount) + ' søk') + '</h2><small>' + escapeHtml(String(noteCount) + ' leads med notater') + '</small></div><span class="saved-market-open">Åpne</span></summary>' +
+    '<div class="saved-market-body"><div class="saved-market-tools"><button type="button" class="quiet-export" data-workspace-export>Last ned testdata</button></div>' + savedSearchList + '</div>' +
+  '</details>' + marketSweepPanel(result)
 }
 
 

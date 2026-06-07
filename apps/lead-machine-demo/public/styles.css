@@ -304,20 +304,26 @@ a { color: var(--blue); }
 @media (max-width: 620px) { .osint-summary { grid-template-columns: 1fr; } }
 
 .readiness-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 0; overflow: hidden; }
-.saved-market-panel { display: grid; gap: 10px; padding: 12px; }
-.saved-market-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.saved-market-head h2 { margin: 0; font-size: 18px; line-height: 1.2; }
-.saved-market-head small, .readiness-note { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.35; }
-.quiet-export { min-height: 38px; border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 8px 11px; font-weight: 850; cursor: pointer; white-space: nowrap; }
+.saved-market-panel { border-bottom: 1px solid var(--line); background: #fbfcfb; }
+.saved-market-panel-compact { display: block; }
+.saved-market-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; padding: 10px 12px; cursor: pointer; list-style: none; }
+.saved-market-summary::-webkit-details-marker { display: none; }
+.saved-market-summary h2 { margin: 0; font-size: 16px; line-height: 1.15; }
+.saved-market-summary small, .readiness-note { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.saved-market-open { flex: 0 0 auto; border: 1px solid #b8c8c0; border-radius: 999px; background: #fff; color: var(--green); padding: 5px 9px; font-size: 12px; font-weight: 900; }
+.saved-market-panel[open] .saved-market-open { background: var(--green-soft); border-color: var(--green); }
+.saved-market-body { display: grid; gap: 8px; padding: 0 12px 12px; }
+.saved-market-tools { display: flex; justify-content: flex-end; }
+.quiet-export { min-height: 34px; border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 7px 10px; font-weight: 850; cursor: pointer; white-space: nowrap; }
 .quiet-export:hover, .quiet-export:focus-visible { border-color: var(--green); background: var(--green-soft); outline: none; }
-.saved-searches { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 7px; align-items: stretch; }
+.saved-searches { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 7px; align-items: stretch; max-height: 230px; overflow: auto; padding-right: 2px; }
 .saved-search-button { display: grid; gap: 2px; min-height: 44px; border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 7px 9px; text-align: left; cursor: pointer; min-width: 0; }
 .saved-search-button:hover, .saved-search-button:focus-visible { border-color: var(--green); background: var(--green-soft); outline: none; }
 .saved-search-button strong { font-size: 13px; line-height: 1.2; }
 .saved-search-button small { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .badge.disabled_optional, .badge.optional_disabled, .badge.cost_guarded, .badge.local_json, .badge.not_configured { background: #edf1ef; color: #44524b; }
 .badge.available_optional, .badge.optional_enabled, .badge.enabled_metered, .badge.metered_enabled { background: var(--green-soft); color: var(--green); }
-@media (max-width: 900px) { .saved-market-head { align-items: stretch; flex-direction: column; } .quiet-export { justify-self: start; } }
+@media (max-width: 900px) { .saved-market-summary { align-items: stretch; } .saved-market-tools { justify-content: flex-start; } .quiet-export { justify-self: start; } }
 
 .call-focus-strip { display: grid; grid-template-columns: repeat(4, minmax(170px, 1fr)); gap: 8px; margin: 10px 0 12px; }
 .call-focus-strip .command-metric { background: #fff; border-color: #c7e5d6; }
@@ -383,9 +389,10 @@ a { color: var(--blue); }
   .summary-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px; }
   .metric { min-height: 58px; padding: 9px; }
 
-  .saved-market-panel { padding: 10px; gap: 8px; }
-  .saved-market-head h2 { font-size: 17px; }
-  .saved-searches { grid-template-columns: 1fr; }
+  .saved-market-summary { min-height: 50px; padding: 9px 10px; }
+  .saved-market-summary h2 { font-size: 15px; }
+  .saved-market-body { padding: 0 10px 10px; }
+  .saved-searches { grid-template-columns: 1fr; max-height: 260px; }
   .saved-search-actions { justify-content: stretch; }
   .saved-search-actions button { flex: 1 1 auto; min-height: 40px; }
 
