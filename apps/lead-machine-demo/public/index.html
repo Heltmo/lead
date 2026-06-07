@@ -39,10 +39,21 @@
         </datalist>
       </label>
       <input id="provider" type="hidden" value="balanced">
-      <label><span>Hva selger du?</span><select id="sellerIntent"><option value="general_b2b" selected>Generell B2B</option><option value="web_it">Nettsider / IT</option><option value="ads_marketing">Annonser / marketing</option><option value="telecom">Telefoni</option><option value="accounting">Regnskap</option><option value="insurance">Forsikring</option><option value="finance">Finans / factoring</option><option value="recruiting">Rekruttering</option><option value="other">Annet</option></select></label>
       <input id="runMode" type="hidden" value="fast">
       <input id="maxResults" type="hidden" value="25">
-      <label><span>Område</span><select id="searchScope"><option value="regional" selected>Hele Norge</option><option value="strict">Kun sted i søket</option><option value="nearby">Nærområde</option></select></label>
+      <section class="seller-setup-panel" aria-label="Selgeroppsett">
+        <div class="seller-setup-head">
+          <div>
+            <p class="eyebrow">Selgeroppsett</p>
+            <strong id="sellerSetupSummary">Generell B2B · Hele Norge</strong>
+          </div>
+        </div>
+        <label><span>Hva selger du?</span><select id="sellerIntent"><option value="general_b2b" selected>Generell B2B</option><option value="web_it">Nettsider / IT</option><option value="ads_marketing">Annonser / marketing</option><option value="telecom">Telefoni</option><option value="accounting">Regnskap</option><option value="insurance">Forsikring</option><option value="finance">Finans / factoring</option><option value="recruiting">Rekruttering</option><option value="other">Annet</option></select></label>
+        <label><span>Hvor selger du?</span><input id="sellerTerritory" type="text" placeholder="Hele Norge, Oslo, Viken" autocomplete="off"></label>
+        <label class="seller-setup-wide"><span>God kunde</span><textarea id="idealCustomer" rows="2" placeholder="lokale bedrifter, direkte telefon, 2-20 ansatte"></textarea></label>
+        <label class="seller-setup-wide"><span>Ikke prioriter</span><textarea id="disqualifiers" rows="2" placeholder="ingen telefon, feil område, privatpersoner"></textarea></label>
+        <label><span>Område</span><select id="searchScope"><option value="regional" selected>Hele Norge</option><option value="strict">Kun sted i søket</option><option value="nearby">Nærområde</option></select></label>
+      </section>
       <input id="companyProfile" type="hidden" value="true">
       <button id="runButton" type="button">Kjør søk</button>
       <div class="search-help">

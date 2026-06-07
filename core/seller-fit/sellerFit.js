@@ -10,8 +10,9 @@ const SELLER_INTENTS = new Set([
   'other',
 ])
 
-function evaluateSellerFit(lead = {}, sellerIntent = 'general_b2b') {
+function evaluateSellerFit(lead = {}, sellerIntent = 'general_b2b', sellerProfile = {}) {
   const intent = normalizeSellerIntent(sellerIntent)
+  const profile = normalizeSellerProfile(sellerProfile)
   const company = lead.company || {}
   const contact = lead.contact || {}
   const places = lead.places || {}
@@ -33,6 +34,7 @@ function evaluateSellerFit(lead = {}, sellerIntent = 'general_b2b') {
   const fast = isFastLead(lead)
   const digitalRisk = hasDigitalRisk(lead)
   const economyAvailable = economy.status === 'success' || economy.revenue != null || economy.profit != null
+  const leadText = searchableLeadText(lead)
 
   let score = 0
   const fitReasons = []
@@ -67,6 +69,33 @@ function evaluateSellerFit(lead = {}, sellerIntent = 'general_b2b') {
   if (employees >= 10) {
     score += 1
     fitReasons.push('meaningful company size')
+  }
+
+  if (profile.territory) {
+    importantSignals.push('seller geography is part of this search setup')
+    const geographyMatch = firstMatchingKeyword(leadText, profile.territoryKeywords)
+    if (geographyMatch) {
+      score += 1
+      fitReasons.push('matches seller geography: ' + geographyMatch)
+    }
+  }
+
+  if (profile.goodCustomer) {
+    importantSignals.push('good-customer hints are part of this seller setup')
+    const goodCustomerMatch = firstMatchingKeyword(leadText, profile.goodCustomerKeywords)
+    if (goodCustomerMatch) {
+      score += 2
+      fitReasons.push('matches good-customer hint: ' + goodCustomerMatch)
+    }
+  }
+
+  if (profile.disqualifiers) {
+    importantSignals.push('disqualifiers are part of this seller setup')
+    const disqualifierMatch = firstMatchingKeyword(leadText, profile.disqualifierKeywords)
+    if (disqualifierMatch) {
+      score -= 5
+      riskReasons.push('matches disqualifier: ' + disqualifierMatch)
+    }
   }
 
   if (intent === 'web_it') {
@@ -121,6 +150,7 @@ function evaluateSellerFit(lead = {}, sellerIntent = 'general_b2b') {
 
   return {
     sellerIntent: intent,
+    sellerProfile: publicSellerProfile(profile),
     sellerFit,
     score,
     fitReasons: unique(fitReasons).slice(0, 8),
@@ -148,6 +178,62 @@ function normalizeSellerIntent(value) {
   const normalized = String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
   return SELLER_INTENTS.has(normalized) ? normalized : 'general_b2b'
 }
+
+function normalizeSellerProfile(profile = {}) {
+  const input = profile && typeof profile === 'object' ? profile : {}
+  const territory = limitSetupText(input.territory, 120)
+  const goodCustomer = limitSetupText(input.goodCustomer || input.idealCustomer, 260)
+  const disqualifiers = limitSetupText(input.disqualifiers || input.disqualifier, 260)
+  return {
+    territory,
+    goodCustomer,
+    disqualifiers,
+    territoryKeywords: setupKeywords(territory),
+    goodCustomerKeywords: setupKeywords(goodCustomer),
+    disqualifierKeywords: setupKeywords(disqualifiers),
+  }
+}
+
+function publicSellerProfile(profile = {}) {
+  return {
+    territory: profile.territory || '',
+    goodCustomer: profile.goodCustomer || '',
+    disqualifiers: profile.disqualifiers || '',
+  }
+}
+
+function setupKeywords(value) {
+  return unique(String(value || '')
+    .toLowerCase()
+    .normalize('NFKC')
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 3 && !STOPWORDS.has(item))
+  ).slice(0, 10)
+}
+
+function firstMatchingKeyword(text, keywords = []) {
+  const haystack = String(text || '').toLowerCase()
+  return keywords.find((keyword) => haystack.includes(keyword)) || ''
+}
+
+function searchableLeadText(lead = {}) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const sourceQuality = lead.sourceQuality || {}
+  return [
+    company.displayName, company.legalName, company.candidateLegalName, company.organizationForm, company.registeredAddress,
+    company.municipality, company.naceCode, company.naceDescription, contact.city, contact.address, lead.city, lead.address,
+    sourceQuality.requestedLocation, sourceQuality.candidateLocation, sourceQuality.marketSweepCity, sourceQuality.verticalMatchedTerm,
+    ...(lead.ranking?.whyRanked || []), ...(lead.ranking?.caution || []), ...(lead.website?.topEvidence || []),
+  ].filter(Boolean).join(' ').toLowerCase()
+}
+
+function limitSetupText(value, max) {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max)
+}
+
+const STOPWORDS = new Set(['eller', 'ikke', 'med', 'for', 'som', 'the', 'and', 'but', 'uten', 'har', 'til', 'fra'])
 
 function websiteValue(value) {
   if (!value) return ''
@@ -188,4 +274,4 @@ function unique(values) {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
-module.exports = { evaluateSellerFit, normalizeSellerIntent, SELLER_INTENTS: Array.from(SELLER_INTENTS) }
+module.exports = { evaluateSellerFit, normalizeSellerIntent, normalizeSellerProfile, SELLER_INTENTS: Array.from(SELLER_INTENTS) }

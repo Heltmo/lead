@@ -87,6 +87,10 @@ const els = {
   query: document.getElementById('queryInput'),
   provider: document.getElementById('provider'),
   sellerIntent: document.getElementById('sellerIntent'),
+  sellerTerritory: document.getElementById('sellerTerritory'),
+  idealCustomer: document.getElementById('idealCustomer'),
+  disqualifiers: document.getElementById('disqualifiers'),
+  sellerSetupSummary: document.getElementById('sellerSetupSummary'),
   runMode: document.getElementById('runMode'),
   maxResults: document.getElementById('maxResults'),
   searchScope: document.getElementById('searchScope'),
@@ -111,6 +115,7 @@ const els = {
 }
 
 initStructuredSearch()
+initSellerSetup()
 initOwnerControl()
 els.runButton.addEventListener('click', runSearch)
 els.query.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
@@ -156,6 +161,64 @@ function initStructuredSearch() {
   els.profession.value = 'rørlegger'
 }
 
+function initSellerSetup() {
+  applySellerProfile(readSellerSetup())
+  ;[els.sellerIntent, els.sellerTerritory, els.idealCustomer, els.disqualifiers, els.searchScope].filter(Boolean).forEach((field) => {
+    const eventName = field.tagName === 'SELECT' ? 'change' : 'input'
+    field.addEventListener(eventName, persistSellerSetup)
+  })
+  renderSellerSetupSummary()
+}
+
+function readSellerSetup() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem('leadMachineSellerSetup') || '{}')
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch (_) {
+    return {}
+  }
+}
+
+function currentSellerProfile() {
+  return {
+    territory: setupText(els.sellerTerritory?.value, 120),
+    goodCustomer: setupText(els.idealCustomer?.value, 260),
+    disqualifiers: setupText(els.disqualifiers?.value, 260),
+  }
+}
+
+function applySellerProfile(profile = {}) {
+  if (!profile || typeof profile !== 'object') return
+  if (profile.sellerIntent && els.sellerIntent) els.sellerIntent.value = profile.sellerIntent
+  if (profile.searchScope && els.searchScope) els.searchScope.value = profile.searchScope
+  if (els.sellerTerritory) els.sellerTerritory.value = setupText(profile.territory, 120)
+  if (els.idealCustomer) els.idealCustomer.value = setupText(profile.goodCustomer, 260)
+  if (els.disqualifiers) els.disqualifiers.value = setupText(profile.disqualifiers, 260)
+  renderSellerSetupSummary()
+}
+
+function persistSellerSetup() {
+  const profile = {
+    sellerIntent: els.sellerIntent?.value || 'general_b2b',
+    searchScope: els.searchScope?.value || 'regional',
+    ...currentSellerProfile(),
+  }
+  try { window.localStorage.setItem('leadMachineSellerSetup', JSON.stringify(profile)) } catch (_) {}
+  renderSellerSetupSummary()
+}
+
+function renderSellerSetupSummary() {
+  if (!els.sellerSetupSummary) return
+  const profile = currentSellerProfile()
+  const territory = profile.territory || (els.searchScope?.value === 'regional' ? 'Hele Norge' : 'Sted i søket')
+  const hints = [profile.goodCustomer ? 'god kunde satt' : '', profile.disqualifiers ? 'ikke prioriter satt' : ''].filter(Boolean).join(' · ')
+  els.sellerSetupSummary.textContent = [sellerIntentLabel(els.sellerIntent?.value), territory, hints].filter(Boolean).join(' · ')
+}
+
+function setupText(value, max) {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max)
+}
+
 function initOwnerControl() {
   if (!els.owner) return
   els.owner.value = currentOwner()
@@ -187,7 +250,9 @@ async function loadLatestRun() {
     state.selectedLeadId = null
     if (payload.parsedQuery?.normalizedQuery) els.query.value = payload.parsedQuery.normalizedQuery
     if (payload.summary?.sellerIntent && els.sellerIntent) els.sellerIntent.value = payload.summary.sellerIntent
+    applySellerProfile(payload.summary?.sellerProfile || payload.summary?.sellerIntentProfile || {})
     if (payload.summary?.searchScope && els.searchScope) els.searchScope.value = payload.summary.searchScope
+    persistSellerSetup()
     if (payload.summary?.marketSweep && els.leadSort) els.leadSort.value = 'city'
     selectBestQueueForResult(payload)
     clearStatus()
@@ -225,6 +290,7 @@ async function runSearch() {
         maxResults: Number(els.maxResults.value),
         searchScope: els.searchScope.value,
         sellerIntent: els.sellerIntent?.value || 'general_b2b',
+        sellerProfile: currentSellerProfile(),
         mode: els.runMode.value,
         enrichCompanyProfile: true,
       }),
@@ -484,20 +550,23 @@ async function exportWorkspaceSnapshot() {
 
 function savedSearchButton(search) {
   const key = search.key || [search.query, search.sellerIntent, search.searchScope, search.provider].map((value) => String(value || '').toLowerCase()).join('::')
-  const attrs = 'data-saved-search="' + escapeAttr(search.query || '') + '" data-saved-search-key="' + escapeAttr(key) + '" data-provider="' + escapeAttr(search.provider || 'balanced') + '" data-seller-intent="' + escapeAttr(search.sellerIntent || 'general_b2b') + '" data-search-scope="' + escapeAttr(search.searchScope || 'regional') + '"'
+  const profile = search.sellerProfile || {}
+  const attrs = 'data-saved-search="' + escapeAttr(search.query || '') + '" data-saved-search-key="' + escapeAttr(key) + '" data-provider="' + escapeAttr(search.provider || 'balanced') + '" data-seller-intent="' + escapeAttr(search.sellerIntent || 'general_b2b') + '" data-search-scope="' + escapeAttr(search.searchScope || 'regional') + '" data-seller-territory="' + escapeAttr(profile.territory || '') + '" data-good-customer="' + escapeAttr(profile.goodCustomer || '') + '" data-disqualifiers="' + escapeAttr(profile.disqualifiers || '') + '"'
   const counts = String(search.leadCount || 0) + ' leads · ' + String(search.phoneCount || 0) + ' phone-ready'
   const title = search.label || search.query || 'saved search'
   const pinLabel = search.pinned ? 'Pinned' : 'Pin'
   return '<section class="saved-search-item ' + (search.pinned ? 'pinned' : '') + '">' +
     '<button type="button" class="saved-search-button" ' + attrs + '><strong>' + escapeHtml(title) + '</strong><small>' + escapeHtml(search.query || '') + ' · ' + escapeHtml(sellerIntentLabel(search.sellerIntent)) + ' · ' + escapeHtml(readable(search.searchScope || 'regional')) + ' · ' + escapeHtml(counts) + '</small></button>' +
-    '<div class="saved-search-actions"><button type="button" data-saved-search-pin data-saved-search-key="' + escapeAttr(key) + '" data-pinned="' + String(Boolean(search.pinned)) + '">' + escapeHtml(pinLabel) + '</button><button type="button" data-saved-search-label data-saved-search-key="' + escapeAttr(key) + '" data-current-label="' + escapeAttr(search.label || '') + '">Rename</button><button type="button" class="saved-search-rerun" data-rerun-search="' + escapeAttr(search.query || '') + '" data-provider="' + escapeAttr(search.provider || 'balanced') + '" data-seller-intent="' + escapeAttr(search.sellerIntent || 'general_b2b') + '" data-search-scope="' + escapeAttr(search.searchScope || 'regional') + '">Rerun</button></div>' +
+    '<div class="saved-search-actions"><button type="button" data-saved-search-pin data-saved-search-key="' + escapeAttr(key) + '" data-pinned="' + String(Boolean(search.pinned)) + '">' + escapeHtml(pinLabel) + '</button><button type="button" data-saved-search-label data-saved-search-key="' + escapeAttr(key) + '" data-current-label="' + escapeAttr(search.label || '') + '">Rename</button><button type="button" class="saved-search-rerun" data-rerun-search="' + escapeAttr(search.query || '') + '" data-provider="' + escapeAttr(search.provider || 'balanced') + '" data-seller-intent="' + escapeAttr(search.sellerIntent || 'general_b2b') + '" data-search-scope="' + escapeAttr(search.searchScope || 'regional') + '" data-seller-territory="' + escapeAttr(profile.territory || '') + '" data-good-customer="' + escapeAttr(profile.goodCustomer || '') + '" data-disqualifiers="' + escapeAttr(profile.disqualifiers || '') + '">Rerun</button></div>' +
   '</section>'
 }
 
 function applySavedSearch(button) {
   els.query.value = button.dataset.savedSearch || button.dataset.rerunSearch || ''
   if (els.sellerIntent) els.sellerIntent.value = button.dataset.sellerIntent || 'general_b2b'
+  applySellerProfile({ territory: button.dataset.sellerTerritory || '', goodCustomer: button.dataset.goodCustomer || '', disqualifiers: button.dataset.disqualifiers || '' })
   if (els.searchScope) els.searchScope.value = button.dataset.searchScope || 'regional'
+  persistSellerSetup()
   if (els.provider && button.dataset.provider) els.provider.value = button.dataset.provider
   els.query.focus()
   setStatus('saved search loaded - click Kjør søk to refresh it', '')
@@ -2539,6 +2608,7 @@ async function runSelectedDeepQualification(button) {
         query: state.result?.parsedQuery?.normalizedQuery || els.query.value.trim(),
         lead,
         sellerIntent: els.sellerIntent?.value || state.result?.summary?.sellerIntent || 'general_b2b',
+        sellerProfile: currentSellerProfile(),
         enrichCompanyProfile: true,
       }),
     })

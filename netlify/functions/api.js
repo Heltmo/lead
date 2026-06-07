@@ -16,7 +16,7 @@ const HOSTED_VERIFY_ENRICH_BOUNDARY = {
 const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowActivity, workflowForLead: buildWorkflowForLead, buildQueueQuality, leadMatchesQueue, normalizeQueue } = require('../../apps/lead-machine-demo/workQueues')
 const { parseLeadQuery } = require('../../apps/lead-machine-demo/queryParser')
 const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
-const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-fit/sellerFit')
+const { evaluateSellerFit, normalizeSellerIntent, normalizeSellerProfile } = require('../../core/seller-fit/sellerFit')
 const { buildNorwaySweepRunOptions, NORWAY_SWEEP_MAX_RESULTS } = require('../../core/lead-discovery-agent/providers/norwaySweep')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
@@ -164,6 +164,7 @@ function savedSearchFromRun({ runId, query, leadPacks, summary = {} }) {
     provider: 'hosted-beta-bundled',
     searchScope: summary.searchScope || 'regional',
     sellerIntent: summary.sellerIntent || 'general_b2b',
+    sellerProfile: publicSellerProfile(summary.sellerProfile),
     mode: summary.mode || 'fast',
     maxResults: Number(summary.maxResults || 25),
     leadCount: Array.isArray(leadPacks) ? leadPacks.length : 0,
@@ -207,7 +208,10 @@ async function hostedRunFromEvent(event, state) {
 
   const latest = await bundledLatestRun()
   if (!latest) return { error: 'GOOGLE_PLACES_API_KEY is required for hosted beta searches. Add it in Netlify Environment variables, then redeploy.', statusCode: 400 }
-  const payload = attachHostedStateToRun({ ...latest, parsedQuery, summary: { ...(latest.summary || {}), query: parsedQuery.normalizedQuery } }, state)
+  const sellerIntent = normalizeSellerIntent(body.sellerIntent || latest.summary?.sellerIntent)
+  const sellerProfile = normalizeSellerProfile(body.sellerProfile || latest.summary?.sellerProfile)
+  const leadPacks = attachSellerFitToLeads(latest.leadPacks || [], sellerIntent, sellerProfile)
+  const payload = attachHostedStateToRun({ ...latest, parsedQuery, leadPacks, summary: { ...(latest.summary || {}), query: parsedQuery.normalizedQuery, sellerIntent, sellerProfile: publicSellerProfile(sellerProfile) } }, state)
   const saved = savedSearchFromRun({ runId: payload.runId, query: parsedQuery.normalizedQuery, leadPacks: payload.leadPacks || [], summary: payload.summary || {} })
   state.savedSearches = sortSavedSearches([saved, ...(state.savedSearches || []).filter((item) => savedSearchKey(item) !== saved.key)]).slice(0, 30)
   state.latestRun = { ...payload, savedSearches: state.savedSearches }
@@ -216,6 +220,7 @@ async function hostedRunFromEvent(event, state) {
 
 async function hostedLiveRun({ body, parsedQuery, state }) {
   const sellerIntent = normalizeSellerIntent(body.sellerIntent)
+  const sellerProfile = normalizeSellerProfile(body.sellerProfile)
   const requestedSearchScope = ['strict', 'nearby', 'regional'].includes(body.searchScope) ? body.searchScope : 'regional'
   const sweepPlan = buildNorwaySweepRunOptions({ parsedQuery, searchScope: requestedSearchScope, requestedMaxResults: body.maxResults })
   const searchScope = sweepPlan.searchScope || requestedSearchScope
@@ -238,8 +243,8 @@ async function hostedLiveRun({ body, parsedQuery, state }) {
     perProviderQueryMaxResults: sweepPlan.perProviderQueryMaxResults,
   })
   const leadPackOutputPath = result.leadPackOutputPath || path.join(outputDir, 'lead-packs')
-  const leadPacks = attachHostedStateToLeads(attachSellerFitToLeads(readJsonFile(path.join(leadPackOutputPath, 'lead-packs.json'), []), sellerIntent), state)
-  const summary = { ...(result.summary || {}), query: parsedQuery.normalizedQuery, sellerIntent, provider: 'hosted-live-balanced', mode: 'fast', maxResults, searchScope, includedLeadCount: leadPacks.length, totalLeads: leadPacks.length, marketSweep: Boolean(sweepPlan.marketSweep) }
+  const leadPacks = attachHostedStateToLeads(attachSellerFitToLeads(readJsonFile(path.join(leadPackOutputPath, 'lead-packs.json'), []), sellerIntent, sellerProfile), state)
+  const summary = { ...(result.summary || {}), query: parsedQuery.normalizedQuery, sellerIntent, sellerProfile: publicSellerProfile(sellerProfile), provider: 'hosted-live-balanced', mode: 'fast', maxResults, searchScope, includedLeadCount: leadPacks.length, totalLeads: leadPacks.length, marketSweep: Boolean(sweepPlan.marketSweep) }
   const saved = savedSearchFromRun({ runId, query: parsedQuery.normalizedQuery, leadPacks, summary })
   state.savedSearches = sortSavedSearches([saved, ...(state.savedSearches || []).filter((item) => savedSearchKey(item) !== saved.key)]).slice(0, 30)
   return {
@@ -261,6 +266,7 @@ async function hostedDeepQualifyFromEvent(event, state) {
   const lead = body.lead && typeof body.lead === 'object' ? JSON.parse(JSON.stringify(body.lead)) : null
   if (!lead) return { error: 'Lead is required', statusCode: 400 }
   const sellerIntent = normalizeSellerIntent(body.sellerIntent || lead.sellerFit?.sellerIntent)
+  const sellerProfile = normalizeSellerProfile(body.sellerProfile || lead.sellerFit?.sellerProfile)
   const leadId = lead.workflow?.leadId || findHostedLeadId(state.latestRun, lead)
   const companyProfile = body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false'
     ? null
@@ -287,7 +293,7 @@ async function hostedDeepQualifyFromEvent(event, state) {
     },
   }
   enriched.meta = { ...(enriched.meta || {}), mode: 'deep', enrichmentMode: HOSTED_VERIFY_ENRICH_BOUNDARY.enrichmentMode, capabilityLevel: HOSTED_VERIFY_ENRICH_BOUNDARY.capabilityLevel, enrichedAt: enriched.enrichment.enrichedAt }
-  enriched.sellerFit = evaluateSellerFit(enriched, sellerIntent)
+  enriched.sellerFit = evaluateSellerFit(enriched, sellerIntent, sellerProfile)
   enriched.workflow = buildWorkflowForLead(enriched, { ...(lead.workflow || {}), ...(leadId ? state.workflow.leads[leadId] || {} : {}) }, leadId || hostedLeadId(enriched, 0))
   enriched = attachSourceFusion(enriched)
   replaceHostedLeadInLatestRun(state, lead, enriched)
@@ -442,12 +448,18 @@ function hostedLeadMatches(lead = {}, targetLead = {}, index = 0) {
 
 function digitsOnly(value) { return String(value || '').replace(/\D/g, '') }
 
-function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b') {
+function publicSellerProfile(profile = {}) {
+  const normalized = normalizeSellerProfile(profile)
+  return { territory: normalized.territory, goodCustomer: normalized.goodCustomer, disqualifiers: normalized.disqualifiers }
+}
+
+function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b', sellerProfile = {}) {
   const normalizedSellerIntent = normalizeSellerIntent(sellerIntent)
+  const normalizedSellerProfile = normalizeSellerProfile(sellerProfile)
   return (Array.isArray(leadPacks) ? leadPacks : []).map((lead) => {
     const copy = JSON.parse(JSON.stringify(lead || {}))
-    copy.sellerFit = evaluateSellerFit(copy, normalizedSellerIntent)
-    copy.meta = { ...(copy.meta || {}), sellerIntent: normalizedSellerIntent }
+    copy.sellerFit = evaluateSellerFit(copy, normalizedSellerIntent, normalizedSellerProfile)
+    copy.meta = { ...(copy.meta || {}), sellerIntent: normalizedSellerIntent, sellerProfile: publicSellerProfile(normalizedSellerProfile) }
     return copy
   })
 }

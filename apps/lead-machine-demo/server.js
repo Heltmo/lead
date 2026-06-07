@@ -5,7 +5,7 @@ const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
 const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
 const { enrichProffCompany } = require('../../core/company-profile/proffProvider')
 const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
-const { evaluateSellerFit, normalizeSellerIntent } = require('../../core/seller-fit/sellerFit')
+const { evaluateSellerFit, normalizeSellerIntent, normalizeSellerProfile } = require('../../core/seller-fit/sellerFit')
 const { enrichOsint } = require('../../core/osint/osint')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { buildOpportunityCommandCenter } = require('../../core/opportunity-command-center/opportunityCommandCenter')
@@ -93,6 +93,7 @@ async function handleRun(req, res, context) {
   const maxResults = provider === 'demo-fixture' ? normalizeMaxResults(body.maxResults, 25) : sweepPlan.maxResults
   const mode = ['fast', 'deep'].includes(body.mode) ? body.mode : 'fast'
   const sellerIntent = normalizeSellerIntent(body.sellerIntent)
+  const sellerProfile = normalizeSellerProfile(body.sellerProfile)
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
   const runId = createSafeRunId(parsedQuery.normalizedQuery)
   const outputDir = path.join(context.runsDir, runId)
@@ -117,6 +118,7 @@ async function handleRun(req, res, context) {
       searchScope,
       enrichCompanyProfile,
       sellerIntent,
+      sellerProfile,
       mode,
       outputDir,
       runId,
@@ -132,11 +134,11 @@ async function handleRun(req, res, context) {
   const leadPackSummaryPath = path.join(leadPackOutputPath, 'summary.json')
   const csvPath = path.join(leadPackOutputPath, 'lead-packs.csv')
   const machineSummaryPath = result.summaryPath || path.join(outputDir, 'lead-machine-summary.json')
-  writeSummarySellerIntent(machineSummaryPath, sellerIntent)
-  writeSummarySellerIntent(leadPackSummaryPath, sellerIntent)
-  context.runIndex.set(runId, { outputDir, leadPackOutputPath, csvPath, leadPacksPath, machineSummaryPath, sellerIntent })
+  writeSummarySellerSetup(machineSummaryPath, sellerIntent, sellerProfile)
+  writeSummarySellerSetup(leadPackSummaryPath, sellerIntent, sellerProfile)
+  context.runIndex.set(runId, { outputDir, leadPackOutputPath, csvPath, leadPacksPath, machineSummaryPath, sellerIntent, sellerProfile })
   const savedLeadPacks = readJsonFile(leadPacksPath, [])
-  saveSearchMetadata(context.savedSearchesStore, { runId, query: parsedQuery.normalizedQuery, rawQuery: parsedQuery.rawQuery, provider, searchScope, sellerIntent, mode, maxResults, outputDir, leadPackOutputPath, leadCount: savedLeadPacks.length, phoneCount: savedLeadPacks.filter((lead) => lead.contact && lead.contact.phone || lead.phone).length, interestedCount: 0 })
+  saveSearchMetadata(context.savedSearchesStore, { runId, query: parsedQuery.normalizedQuery, rawQuery: parsedQuery.rawQuery, provider, searchScope, sellerIntent, sellerProfile, mode, maxResults, outputDir, leadPackOutputPath, leadCount: savedLeadPacks.length, phoneCount: savedLeadPacks.filter((lead) => lead.contact && lead.contact.phone || lead.phone).length, interestedCount: 0 })
 
   return json(res, 200, buildRunPayload({
     runId,
@@ -149,6 +151,7 @@ async function handleRun(req, res, context) {
     workflowStore: context.workflowStore,
     savedSearchesStore: context.savedSearchesStore,
     sellerIntent,
+    sellerProfile,
     machineSummaryOverride: result.summary,
   }))
 }
@@ -210,6 +213,7 @@ function saveSearchMetadata(filePath, entry = {}) {
     provider: limitText(entry.provider || 'balanced', 40),
     searchScope: limitText(entry.searchScope || 'regional', 40),
     sellerIntent: normalizeSellerIntent(entry.sellerIntent),
+    sellerProfile: publicSellerProfile(entry.sellerProfile),
     mode: limitText(entry.mode || 'fast', 40),
     maxResults: normalizeMaxResults(entry.maxResults, 25),
     outputDir: limitText(entry.outputDir || '', 300),
@@ -240,6 +244,11 @@ function readSavedSearches(target) {
   return Array.isArray(parsed) ? sortSavedSearches(parsed.map(normalizeSavedSearch).filter(Boolean)).slice(0, 30) : []
 }
 
+function publicSellerProfile(profile = {}) {
+  const normalized = normalizeSellerProfile(profile)
+  return { territory: normalized.territory, goodCustomer: normalized.goodCustomer, disqualifiers: normalized.disqualifiers }
+}
+
 function normalizeSavedSearch(entry = {}) {
   if (!entry || typeof entry !== 'object' || !entry.query) return null
   return {
@@ -249,6 +258,7 @@ function normalizeSavedSearch(entry = {}) {
     provider: limitText(entry.provider || 'balanced', 40),
     searchScope: limitText(entry.searchScope || 'regional', 40),
     sellerIntent: normalizeSellerIntent(entry.sellerIntent),
+    sellerProfile: publicSellerProfile(entry.sellerProfile),
     mode: limitText(entry.mode || 'fast', 40),
     maxResults: normalizeMaxResults(entry.maxResults, 25),
     outputDir: limitText(entry.outputDir || '', 300),
@@ -385,21 +395,22 @@ function buildWorkspaceSummary(workflowStore, savedSearchesStore) {
   }
 }
 
-function writeSummarySellerIntent(filePath, sellerIntent) {
+function writeSummarySellerSetup(filePath, sellerIntent, sellerProfile) {
   const summary = readJsonFile(filePath, null)
   if (!summary || typeof summary !== 'object') return
-  fs.writeFileSync(filePath, JSON.stringify({ ...summary, sellerIntent: normalizeSellerIntent(sellerIntent) }, null, 2))
+  fs.writeFileSync(filePath, JSON.stringify({ ...summary, sellerIntent: normalizeSellerIntent(sellerIntent), sellerProfile: publicSellerProfile(sellerProfile) }, null, 2))
 }
 
-function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, leadPacksPath, leadPackSummaryPath, machineSummaryPath, workflowStore, savedSearchesStore, sellerIntent, machineSummaryOverride }) {
+function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, leadPacksPath, leadPackSummaryPath, machineSummaryPath, workflowStore, savedSearchesStore, sellerIntent, sellerProfile, machineSummaryOverride }) {
   const leadPackSummary = readJsonFile(leadPackSummaryPath, {})
   const machineSummary = machineSummaryOverride || readJsonFile(machineSummaryPath, {})
   const normalizedSellerIntent = normalizeSellerIntent(sellerIntent || machineSummary.sellerIntent || leadPackSummary.sellerIntent)
-  const fittedLeadPacks = attachSellerFitToLeads(readJsonFile(leadPacksPath, []), normalizedSellerIntent)
+  const normalizedSellerProfile = normalizeSellerProfile(sellerProfile || machineSummary.sellerProfile || leadPackSummary.sellerProfile)
+  const fittedLeadPacks = attachSellerFitToLeads(readJsonFile(leadPacksPath, []), normalizedSellerIntent, normalizedSellerProfile)
   const leadPacks = attachQueueQualityToLeads(attachSourceFusionToLeads(attachWorkflowToLeads(attachSourceFusionToLeads(fittedLeadPacks), readWorkflowStore(workflowStore))))
   const normalizedQuery = parsedQuery?.normalizedQuery || machineSummary.query || leadPacks[0]?.meta?.sourceQuery || ''
   const savedSearches = readSavedSearches(savedSearchesStore)
-  const summary = { ...leadPackSummary, ...machineSummary, sellerIntent: normalizedSellerIntent }
+  const summary = { ...leadPackSummary, ...machineSummary, sellerIntent: normalizedSellerIntent, sellerProfile: publicSellerProfile(normalizedSellerProfile) }
   return {
     runId,
     parsedQuery: parsedQuery || { ok: true, rawQuery: normalizedQuery, normalizedQuery },
@@ -448,10 +459,11 @@ async function handleDeepQualify(req, res, context) {
   if (!lead) return json(res, 400, { error: 'Lead is required' })
   const query = String(body.query || lead.meta?.sourceQuery || '').trim() || 'selected lead'
   const sellerIntent = normalizeSellerIntent(body.sellerIntent || lead.sellerFit?.sellerIntent)
+  const sellerProfile = normalizeSellerProfile(body.sellerProfile || lead.sellerFit?.sellerProfile)
   const enrichCompanyProfile = !(body.enrichCompanyProfile === false || body.enrichCompanyProfile === 'false')
-  const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir, sellerIntent })
+  const result = await context.deepQualifier({ lead, query, enrichCompanyProfile, runsDir: context.runsDir, sellerIntent, sellerProfile })
   if (result && result.leadPack) {
-    const fittedLead = attachQueueQualityToLeads(attachSourceFusionToLeads(attachWorkflowToLeads(attachSourceFusionToLeads(attachSellerFitToLeads([result.leadPack], sellerIntent)), readWorkflowStore(context.workflowStore))))[0]
+    const fittedLead = attachQueueQualityToLeads(attachSourceFusionToLeads(attachWorkflowToLeads(attachSourceFusionToLeads(attachSellerFitToLeads([result.leadPack], sellerIntent, sellerProfile)), readWorkflowStore(context.workflowStore))))[0]
     result.leadPack = attachOsintToLead(fittedLead, sellerIntent)
   }
   return json(res, 200, result)
@@ -797,7 +809,7 @@ function deepCaution({ company, websiteStatus, economy }) {
   ].filter(Boolean)
 }
 
-function createDemoFixtureRun({ parsedQuery, maxResults, searchScope, sellerIntent, enrichCompanyProfile, outputDir, runId }) {
+function createDemoFixtureRun({ parsedQuery, maxResults, searchScope, sellerIntent, sellerProfile, enrichCompanyProfile, outputDir, runId }) {
   const fixture = readJsonFile(DEMO_FIXTURE_PATH, null)
   if (!fixture) throw new Error('Demo fixture data is missing')
 
@@ -805,8 +817,8 @@ function createDemoFixtureRun({ parsedQuery, maxResults, searchScope, sellerInte
   fs.mkdirSync(leadPackOutputPath, { recursive: true })
 
   const allLeadPacks = Array.isArray(fixture.leadPacks) ? fixture.leadPacks : []
-  const leadPacks = attachQueueQualityToLeads(attachSourceFusionToLeads(attachSellerFitToLeads(allLeadPacks.slice(0, maxResults).map((lead) => withDemoRunMetadata(lead, parsedQuery, searchScope, enrichCompanyProfile)), sellerIntent)))
-  const summary = buildDemoSummary(fixture.summary || {}, leadPacks, parsedQuery, maxResults, searchScope, sellerIntent, enrichCompanyProfile, outputDir, leadPackOutputPath)
+  const leadPacks = attachQueueQualityToLeads(attachSourceFusionToLeads(attachSellerFitToLeads(allLeadPacks.slice(0, maxResults).map((lead) => withDemoRunMetadata(lead, parsedQuery, searchScope, enrichCompanyProfile)), sellerIntent, sellerProfile)))
+  const summary = buildDemoSummary(fixture.summary || {}, leadPacks, parsedQuery, maxResults, searchScope, sellerIntent, sellerProfile, enrichCompanyProfile, outputDir, leadPackOutputPath)
 
   fs.writeFileSync(path.join(leadPackOutputPath, 'lead-packs.json'), JSON.stringify(leadPacks, null, 2))
   fs.writeFileSync(path.join(leadPackOutputPath, 'lead-packs.csv'), toLeadPackCsv(leadPacks))
@@ -859,7 +871,7 @@ function withDemoRunMetadata(lead, parsedQuery, searchScope, enrichCompanyProfil
   return copy
 }
 
-function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searchScope, sellerIntent, enrichCompanyProfile, outputDir, leadPackOutputPath) {
+function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searchScope, sellerIntent, sellerProfile, enrichCompanyProfile, outputDir, leadPackOutputPath) {
   const priorityCounts = leadPacks.reduce((counts, lead) => {
     const key = String(lead.callPriority || 'unknown').toLowerCase()
     counts[key] = (counts[key] || 0) + 1
@@ -888,6 +900,7 @@ function buildDemoSummary(baseSummary, leadPacks, parsedQuery, maxResults, searc
     provider: 'demo-fixture',
     searchScope,
     sellerIntent: normalizeSellerIntent(sellerIntent),
+    sellerProfile: publicSellerProfile(sellerProfile),
     maxResults,
     sourceRunPath: 'demo-fixture',
     leadPackOutputPath,
@@ -992,7 +1005,7 @@ function handleRunFile(url, res, runIndex, workflowPath) {
   if (!run) return json(res, 404, { error: 'Run not found in this server session' })
   if (file === 'lead-packs.csv' || file === 'call-list.csv') {
     const summary = readJsonFile(run.machineSummaryPath, {})
-    const leads = attachQueueQualityToLeads(attachSourceFusionToLeads(attachWorkflowToLeads(attachSourceFusionToLeads(attachSellerFitToLeads(readJsonFile(run.leadPacksPath, []), run.sellerIntent || summary.sellerIntent)), readWorkflowStore(workflowPath))))
+    const leads = attachQueueQualityToLeads(attachSourceFusionToLeads(attachWorkflowToLeads(attachSourceFusionToLeads(attachSellerFitToLeads(readJsonFile(run.leadPacksPath, []), run.sellerIntent || summary.sellerIntent, run.sellerProfile || summary.sellerProfile)), readWorkflowStore(workflowPath))))
     const csvLeads = file === 'call-list.csv' ? filterCallListLeads(leads, url.searchParams.get('view') || 'all') : leads
     res.writeHead(200, { 'content-type': 'text/csv' })
     res.end(toLeadPackCsv(csvLeads))
@@ -1000,7 +1013,7 @@ function handleRunFile(url, res, runIndex, workflowPath) {
   }
   if (file === 'lead-packs.json') {
     const summary = readJsonFile(run.machineSummaryPath, {})
-    return json(res, 200, attachQueueQualityToLeads(attachSourceFusionToLeads(attachWorkflowToLeads(attachSourceFusionToLeads(attachSellerFitToLeads(readJsonFile(run.leadPacksPath, []), run.sellerIntent || summary.sellerIntent)), readWorkflowStore(workflowPath)))))
+    return json(res, 200, attachQueueQualityToLeads(attachSourceFusionToLeads(attachWorkflowToLeads(attachSourceFusionToLeads(attachSellerFitToLeads(readJsonFile(run.leadPacksPath, []), run.sellerIntent || summary.sellerIntent, run.sellerProfile || summary.sellerProfile)), readWorkflowStore(workflowPath)))))
   }
   if (file === 'summary.json') return serveFile(res, run.machineSummaryPath, 'application/json')
   return json(res, 404, { error: 'Run file not found' })
@@ -1033,12 +1046,13 @@ async function handleWorkflowPost(req, res, workflowPath) {
   return json(res, 200, { workflow })
 }
 
-function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b') {
+function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b', sellerProfile = {}) {
   const normalizedSellerIntent = normalizeSellerIntent(sellerIntent)
+  const normalizedSellerProfile = normalizeSellerProfile(sellerProfile)
   return (Array.isArray(leadPacks) ? leadPacks : []).map((lead) => {
     const copy = JSON.parse(JSON.stringify(lead || {}))
-    copy.sellerFit = evaluateSellerFit(copy, normalizedSellerIntent)
-    copy.meta = { ...(copy.meta || {}), sellerIntent: normalizedSellerIntent }
+    copy.sellerFit = evaluateSellerFit(copy, normalizedSellerIntent, normalizedSellerProfile)
+    copy.meta = { ...(copy.meta || {}), sellerIntent: normalizedSellerIntent, sellerProfile: publicSellerProfile(normalizedSellerProfile) }
     return copy
   })
 }

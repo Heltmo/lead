@@ -28,12 +28,17 @@ button, input, select { font: inherit; }
 .boundary strong { display: block; font-size: 12px; line-height: 1.35; color: rgba(255,255,255,.9); }
 .app-shell { width: 100%; padding: 14px clamp(14px, 3vw, 34px) 34px; display: grid; gap: 14px; }
 .search-panel, .status-panel, .summary-panel, .lead-list, .lead-detail, .export-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
-.search-panel { padding: 12px 14px; display: grid; grid-template-columns: minmax(360px, 1fr) 160px 120px; gap: 10px; align-items: end; }
+.search-panel { padding: 12px 14px; display: grid; grid-template-columns: minmax(320px, 1fr) 120px; gap: 10px; align-items: end; }
 .search-help { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: -2px; }
 .search-panel .search-hint { margin: 0; color: var(--muted); font-size: 13px; }
 .search-examples { display: flex; flex-wrap: wrap; gap: 6px; }
 .search-examples button { height: auto; min-height: 27px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--muted); padding: 4px 9px; font-size: 12px; font-weight: 760; cursor: pointer; }
 .search-examples button:hover, .search-examples button:focus-visible { border-color: var(--green); color: var(--green); background: var(--green-soft); outline: none; }
+.seller-setup-panel { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(170px, .8fr) minmax(170px, .8fr) minmax(220px, 1.1fr) minmax(220px, 1.1fr) minmax(150px, .7fr); gap: 9px; align-items: end; padding: 10px; border: 1px solid #d5e4dc; border-radius: 8px; background: #f8fcfa; }
+.seller-setup-head { align-self: stretch; display: grid; align-items: center; min-height: 42px; padding: 8px 9px; border: 1px solid #d5e4dc; border-radius: 8px; background: #fff; }
+.seller-setup-head strong { display: block; font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+.seller-setup-panel label { min-width: 0; }
+.seller-setup-wide textarea { width: 100%; min-height: 42px; border: 1px solid #b8c8c0; border-radius: 8px; padding: 8px 10px; background: #fff; color: var(--ink); resize: vertical; line-height: 1.25; }
 .search-panel input, .search-panel select { width: 100%; height: 42px; border: 1px solid #b8c8c0; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--ink); }
 .toggle { height: 42px; display: flex; align-items: center; gap: 8px; color: var(--muted); }
 .search-panel button { height: 42px; border: 0; border-radius: 8px; background: var(--green); color: #fff; font-weight: 800; cursor: pointer; }
@@ -225,7 +230,7 @@ a { color: var(--blue); }
 .call-session-button.disabled, .call-session-button:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 900px) { .call-session-panel { grid-template-columns: 1fr; } .call-session-actions { justify-content: stretch; } .call-session-button { flex: 1 1 120px; } }
 
-@media (max-width: 1180px) { .search-panel, .desk-grid, .topbar, .leverage-panel, .command-main, .instant-lead-main, .seller-flow-top, .seller-flow-steps { grid-template-columns: 1fr; } .boundary { justify-content: flex-start; } .summary-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); } .quick-facts, .source-grid, .command-grid, .seller-desk-v2, .lead-brief-grid, .secondary-brief-grid, .module-grid, .instant-decision-grid, .seller-flow-info-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1180px) { .search-panel, .desk-grid, .topbar, .leverage-panel, .command-main, .instant-lead-main, .seller-flow-top, .seller-flow-steps, .seller-setup-panel { grid-template-columns: 1fr; } .boundary { justify-content: flex-start; } .summary-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); } .quick-facts, .source-grid, .command-grid, .seller-desk-v2, .lead-brief-grid, .secondary-brief-grid, .module-grid, .instant-decision-grid, .seller-flow-info-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .app-shell { padding: 12px; } .summary-panel, .quick-facts, .source-grid, .command-grid, .seller-desk-v2, .lead-brief-grid, .secondary-brief-grid, .module-grid, .instant-decision-grid, .seller-flow-info-strip { grid-template-columns: 1fr; } .lead-header-actions { justify-content: flex-start; flex-wrap: wrap; } .qualification-panel { align-items: stretch; flex-direction: column; } .kv { grid-template-columns: 1fr; gap: 2px; } }
 
 .workflow-panel { margin: 12px 0; padding: 12px; border: 1px solid #bfe1cf; border-radius: 8px; background: #f6fbf8; }
