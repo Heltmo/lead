@@ -56,25 +56,29 @@ Run this yourself before testers arrive:
 
 ## Reset And Recovery
 
-There is no dangerous reset button in the seller UI.
+Read [BETA_WORKSPACE_ADMIN.md](BETA_WORKSPACE_ADMIN.md) before any beta reset or recovery work.
 
-Before testing:
+There is no dangerous reset button in the seller UI, and V1 must not add a seller-facing one-click reset/delete control.
 
-- Export the workspace snapshot.
-- Write down the beta URL, token, tester names, and search terms.
+Before testing or resetting:
+
+- Export the workspace snapshot first; `/api/workspace-export` is the source-of-truth snapshot before any reset.
+- Write down the beta URL without exposing the token, tester names, and search terms.
 
 If local test data becomes messy:
 
 1. Stop the local server.
 2. Export any useful snapshot first if possible.
-3. Move or remove .cache/lead-machine-demo/workspace.sqlite.
-4. Restart the local server and rerun smoke tests.
+3. Move or rename `.cache/lead-machine-demo/workspace.sqlite`; do not immediately delete the only copy.
+4. Move or rename legacy/import JSON `.cache/lead-machine-demo/lead-workflow.json` only when you also want to prevent old JSON workflow state from re-importing.
+5. Restart the local server and rerun focused beta checks.
 
 If hosted beta state becomes messy:
 
-1. Export the workspace snapshot from the app.
-2. Treat the shared workspace as test data only.
+1. Export the workspace snapshot from the app or `/api/workspace-export` first.
+2. Treat the hosted beta as one shared beta workspace for invited testers.
 3. Use a fresh Netlify deploy/site or clear the Netlify Blob store from Netlify tooling only after saving the snapshot.
+4. In local Netlify Function tests without Netlify Blobs, remember the function falls back to `/tmp/lead-machine-netlify-beta/hosted-state.json`.
 
 ## Breakage Contact
 

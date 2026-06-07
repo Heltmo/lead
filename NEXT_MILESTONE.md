@@ -68,6 +68,10 @@ Hermes/OpenClaw or any background agent should work quietly behind the seller de
 
 It should not sell, scrape private profiles, generate ready-to-send outreach, call, email, or override seller judgment.
 
+Development agents are separate from product agents. Use Hermes/Codex now as a development loop, documented in `HERMES_CODEX_LOOP.md`, while deferring in-product agents until the seller desk foundation is stronger.
+
+The first later product agent should be a read-only Lead Verifier for one selected lead. It can report missing contact data, identity/contact/source risk, evidence summaries, and a suggested next action. It must not mutate queue, status, notes, owner, or follow-up data without explicit seller approval.
+
 ## Archived / Paused From Main Path
 
 - demo generator

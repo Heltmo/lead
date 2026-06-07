@@ -23,7 +23,8 @@ cd /home/xman/webconsult
 ./verifications/verify-beta-preflight.sh
 ```
 
-Use [BETA_PREFLIGHT_CHECKLIST.md](../../BETA_PREFLIGHT_CHECKLIST.md) before sessions and [BETA_TEST_SCRIPT_INTERNAL.md](../../BETA_TEST_SCRIPT_INTERNAL.md) for the internal test path. The local app has no auth, so do not expose it on the open internet.
+Use [BETA_PREFLIGHT_CHECKLIST.md](../../BETA_PREFLIGHT_CHECKLIST.md) before sessions, [BETA_WORKSPACE_ADMIN.md](../../BETA_WORKSPACE_ADMIN.md) before any local or hosted workspace reset/recovery, and [BETA_TEST_SCRIPT_INTERNAL.md](../../BETA_TEST_SCRIPT_INTERNAL.md) for the internal test path. The local app has no auth, so do not expose it on the open internet.
+
 ## Run Locally
 
 ```bash

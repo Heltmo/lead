@@ -20,6 +20,26 @@ npm run dev
 
 Open `http://127.0.0.1:8787`.
 
+## Development Agent Loop
+
+Use `HERMES_CODEX_LOOP.md` when delegating development work through Hermes and Codex.
+
+The default development loop is:
+
+```text
+Hermes shapes a small ticket
+-> Codex implements the ticket
+-> checks run
+-> Hermes reviews the diff and evidence
+-> Codex fixes targeted failures
+```
+
+Keep this as a development workflow. Do not turn it into broad in-product automation before the seller desk foundation is stable.
+
+## Goal Chain
+
+The ordered implementation path lives in `goals/README.md`. Start Hermes from `/home/xman/webconsult` with `HERMES_START_HERE.md` so `AGENTS.md` and project context are loaded automatically.
+
 ## Hosted Beta
 
 ```bash
@@ -28,6 +48,8 @@ npm run netlify:check
 ./verifications/verify-beta-preflight.sh
 ./verifications/verify-netlify-hosted-beta.sh
 ```
+
+Read `BETA_PREFLIGHT_CHECKLIST.md` before every controlled session and `BETA_WORKSPACE_ADMIN.md` before any local or hosted workspace reset. `/api/workspace-export` is the source-of-truth snapshot before reset/recovery work.
 
 Netlify environment variables:
 

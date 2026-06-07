@@ -9,6 +9,7 @@ test -f BETA_TEST_SCRIPT_INTERNAL.md
 test -f BETA_TEST_PLAN_001.md
 test -f BETA_FEEDBACK_FORM.md
 test -f BETA_KNOWN_LIMITATIONS.md
+test -f BETA_WORKSPACE_ADMIN.md
 test ! -f FRIEND_BETA_READINESS.md
 test ! -f BETA_TEST_CHECKLIST.md
 test ! -f KNOWN_LIMITATIONS.md
@@ -26,6 +27,8 @@ const files = {
   readme: fs.readFileSync('README.md', 'utf8'),
   appReadme: fs.readFileSync('apps/lead-machine-demo/README.md', 'utf8'),
   operating: fs.readFileSync('OPERATING_GUIDE.md', 'utf8'),
+  netlify: fs.readFileSync('NETLIFY_BETA.md', 'utf8'),
+  admin: fs.readFileSync('BETA_WORKSPACE_ADMIN.md', 'utf8'),
 }
 const combined = Object.values(files).join(String.fromCharCode(10))
 const lower = combined.toLowerCase()
@@ -49,6 +52,17 @@ for (const required of [
   'Export or copy data',
   'BETA_FEEDBACK_FORM.md',
   'BETA_KNOWN_LIMITATIONS.md',
+  'BETA_WORKSPACE_ADMIN.md',
+  '/api/workspace-export',
+  'source-of-truth snapshot before any reset',
+  '.cache/lead-machine-demo/workspace.sqlite',
+  '.cache/lead-machine-demo/lead-workflow.json',
+  '/tmp/lead-machine-netlify-beta/hosted-state.json',
+  'Move or rename',
+  'do not immediately delete the only copy',
+  'one shared beta workspace',
+  'Netlify Blobs',
+  'no seller-facing reset button',
 ]) {
   if (!combined.includes(required)) throw new Error('beta preflight missing: ' + required)
 }

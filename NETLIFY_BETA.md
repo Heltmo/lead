@@ -36,6 +36,17 @@ The app stores that token in browser localStorage and sends it with API requests
 - No email sending, CRM sync, telephony backend, outreach automation, or unbounded market scraping.
 - Exports are for beta backup/debugging only.
 
+## Workspace Export And Recovery
+
+Read [BETA_WORKSPACE_ADMIN.md](BETA_WORKSPACE_ADMIN.md) before clearing or replacing hosted beta state.
+
+- `/api/workspace-export` is the source-of-truth snapshot before any reset.
+- Hosted beta uses one shared beta workspace for invited testers, so clearing state affects everyone in the beta session.
+- Netlify deploys persist through the `lead-machine-beta` Netlify Blobs store when available.
+- Local Netlify Function tests without Netlify Blobs fall back to `/tmp/lead-machine-netlify-beta/hosted-state.json`.
+- Clear Netlify Blobs or use a fresh Netlify deploy/site only after the workspace export has been saved outside Netlify.
+- There is no seller-facing reset button; do not add a one-click destructive reset/delete control to the normal seller workflow.
+
 ## Deploy Check
 
 Run locally before deploy:
