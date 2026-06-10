@@ -2,7 +2,7 @@ const assert = require('assert')
 const { evaluateWebsiteSalesFit } = require('../websiteSalesFit')
 
 const ALLOWED_FITS = new Set(['strong', 'review', 'weak'])
-const ALLOWED_TYPES = new Set(['no_website', 'site_unverified', 'weak_site'])
+const ALLOWED_TYPES = new Set(['no_website', 'site_unverified', 'weak_site', 'modern_site'])
 const ALLOWED_ACTIONS = new Set(['call', 'review', 'verify', 'skip'])
 
 function lead(overrides = {}) {
@@ -127,6 +127,25 @@ function lead(overrides = {}) {
     website: { auditStatus: 'not_run', topEvidence: [] },
   }))
   assert(!result.caution.some((item) => item.includes('avdelingsside')), 'own-domain site must not trigger the chain location-page warning')
+}
+
+{
+  const result = evaluateWebsiteSalesFit(lead({
+    contact: { phone: '94 00 71 21', website: 'https://gammelside.no', city: 'Skien' },
+    website: { auditStatus: 'not_run', topEvidence: [], aiAudit: { outdated: 'ja', summary: 'Gammel side uten mobiltilpasning.', topIssues: ['Ikke mobiltilpasset'], missing: [], candidate: 'sterk_kandidat', estimatedEra: 'ca. 2013' } },
+  }))
+  assert(result.websiteSalesFit === 'strong', 'AI-confirmed weak site should make a strong lead')
+  assert(result.websiteLeadType === 'weak_site', 'AI-confirmed weakness should classify weak_site')
+  assert(result.whyWebsiteLead.some((item) => item.includes('Gammel side')), 'AI summary should become the weak-site evidence')
+}
+
+{
+  const result = evaluateWebsiteSalesFit(lead({
+    contact: { phone: '94 00 71 21', website: 'https://nyside.no', city: 'Skien' },
+    website: { auditStatus: 'not_run', topEvidence: [], aiAudit: { outdated: 'nei', summary: 'Moderne og ryddig side.', topIssues: [], missing: [], candidate: 'ikke_kandidat', estimatedEra: 'ca. 2024' } },
+  }))
+  assert(result.websiteSalesFit === 'review', 'AI-confirmed modern site should never be strong')
+  assert(result.websiteLeadType === 'modern_site', 'modern site should be classified modern_site')
 }
 
 console.log('website-sales-fit smoke test passed')

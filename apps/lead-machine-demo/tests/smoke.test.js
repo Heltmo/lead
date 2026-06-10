@@ -567,6 +567,8 @@ async function main() {
   assert(lower.includes('websiteinfoitem'), 'Selected lead info strip should show website found/not-found next to contact')
   assert(lower.includes('salgsåpning for nettsidesalg'), 'Missing website should read as a sales opening in the info strip')
   assert(lower.includes('setupversion'), 'Stored seller setup should migrate once to the website-sales default')
+  assert(lower.includes('data-run-website-audit') && lower.includes('/api/website-audit'), 'Selected lead should offer the AI website check')
+  assert(lower.includes('kjør nettsidesjekk'), 'AI website check should use Norwegian copy')
   assert(lower.includes('data-save-card-note') && lower.includes('notat på kortet'), 'Selected lead should support quick card notes')
   assert(lower.includes('latestleadnote'), 'Lead cards and call focus should surface the latest note')
   assert(lower.includes('data-start-call-focus'), 'UI should offer a start call-focus session button')

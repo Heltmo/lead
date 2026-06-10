@@ -139,6 +139,8 @@ document.addEventListener('click', (event) => {
   if (workspaceExport) { exportWorkspaceSnapshot(); return }
   const cardNoteButton = event.target.closest('[data-save-card-note]')
   if (cardNoteButton) { saveCardNote(cardNoteButton); return }
+  const websiteAuditButton = event.target.closest('[data-run-website-audit]')
+  if (websiteAuditButton) { runWebsiteAudit(websiteAuditButton); return }
 })
 renderCommandCenter(null)
 renderExport(null)
@@ -1051,7 +1053,74 @@ function websiteSalesPanel(lead) {
     ${why.length ? `<ul class="website-sales-why">${why.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
     ${caution.length ? `<ul class="website-sales-caution">${caution.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
     ${deepHint}
+    ${websiteAuditBlock(lead)}
   </section>`
+}
+
+function websiteAuditBlock(lead) {
+  const url = websiteValue(lead.contact?.website || lead.website)
+  if (!url) return ''
+  const audit = lead.website?.aiAudit
+  if (!audit) {
+    return '<div class="website-audit-row"><button type="button" data-run-website-audit>Kjør nettsidesjekk</button><small>AI henter siden og gir en kort vurdering. Koster noen øre per sjekk.</small></div>'
+  }
+  return '<div class="website-audit-result">' +
+    '<p class="website-audit-head"><strong>AI-sjekk:</strong> ' + escapeHtml(audit.summary || '') + '</p>' +
+    '<p class="website-audit-meta">Laget: ' + escapeHtml(audit.estimatedEra || 'ukjent') + ' · Utdatert: ' + escapeHtml(audit.outdated || 'usikkert') + (audit.auditedAt ? ' · sjekket ' + escapeHtml(String(audit.auditedAt).slice(0, 10)) : '') + '</p>' +
+    ((audit.topIssues || []).length ? '<p class="website-audit-list"><strong>Problemer:</strong> ' + escapeHtml(audit.topIssues.join(' · ')) + '</p>' : '') +
+    ((audit.missing || []).length ? '<p class="website-audit-list"><strong>Mangler:</strong> ' + escapeHtml(audit.missing.join(' · ')) + '</p>' : '') +
+    '<button type="button" class="website-audit-rerun" data-run-website-audit>Kjør på nytt</button>' +
+  '</div>'
+}
+
+async function persistLeadNote(lead, index, line) {
+  const current = { ...(lead.workflow || {}) }
+  current.notes = [cleanWorkflowNote(current.notes), line].filter(Boolean).join('\n')
+  current.owner = currentOwner() || current.owner || ''
+  const response = await apiFetch('/api/workflow', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      leadId: lead.workflow?.leadId || leadId(lead, index),
+      runId: state.result?.runId,
+      leadName: lead.company?.displayName || lead.companyName || '',
+      workflow: current,
+    }),
+  })
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || 'Lagring av notat feilet')
+  lead.workflow = payload.workflow
+  syncLeadQueueQuality(lead)
+}
+
+async function runWebsiteAudit(button) {
+  const index = state.selectedIndex
+  const lead = state.result?.leadPacks?.[index]
+  if (!lead) return setStatus('feilet: ingen valgt lead for nettsidesjekk', 'failed')
+  const originalText = button.textContent
+  button.disabled = true
+  button.textContent = 'Sjekker nettsiden...'
+  setStatus('kjører nettsidesjekk med AI...', 'running')
+  try {
+    const response = await apiFetch('/api/website-audit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lead }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Nettsidesjekken feilet')
+    lead.website = { ...(lead.website || {}), aiAudit: payload.audit }
+    if (payload.websiteSalesFit) lead.websiteSalesFit = payload.websiteSalesFit
+    if (payload.audit?.summary) {
+      try { await persistLeadNote(lead, index, 'AI-sjekk: ' + payload.audit.summary) } catch (_) {}
+    }
+    setStatus('nettsidesjekk fullført', '')
+    renderAll()
+  } catch (error) {
+    setStatus('feilet: ' + (error.message || 'nettsidesjekken feilet'), 'failed')
+    button.disabled = false
+    button.textContent = originalText
+  }
 }
 
 function noWebsiteSignal() {

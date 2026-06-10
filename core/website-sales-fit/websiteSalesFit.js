@@ -1,5 +1,5 @@
 const WEBSITE_SALES_FIT = new Set(['strong', 'review', 'weak'])
-const WEBSITE_LEAD_TYPES = new Set(['no_website', 'site_unverified', 'weak_site'])
+const WEBSITE_LEAD_TYPES = new Set(['no_website', 'site_unverified', 'weak_site', 'modern_site'])
 
 // Brreg organization forms that mark public-sector entities.
 const PUBLIC_ORG_FORMS = new Set(['STAT', 'FYLK', 'KOMM', 'ORGL', 'KF', 'FKF', 'SF', 'IKS', 'KIRK'])
@@ -46,10 +46,13 @@ function evaluateWebsiteSalesFit(lead = {}) {
   const exactLocation = locationStatus === 'exact_location'
   const outOfArea = ['out_of_area', 'candidate_appears_outside_requested_location'].includes(locationStatus)
   const denyReason = publicOrChainReason(lead)
-  const weakSiteEvidence = hasWebsite ? firstWeakSiteEvidence(lead) : ''
+  const aiAudit = lead.website?.aiAudit && typeof lead.website.aiAudit === 'object' ? lead.website.aiAudit : null
+  const aiWeakSite = Boolean(aiAudit && (aiAudit.outdated === 'ja' || (aiAudit.topIssues || []).length > 0))
+  const aiModernSite = Boolean(aiAudit && aiAudit.outdated === 'nei' && !(aiAudit.topIssues || []).length)
+  const weakSiteEvidence = hasWebsite ? (aiWeakSite ? String(aiAudit.summary || 'AI-sjekken fant svakheter på siden.') : firstWeakSiteEvidence(lead)) : ''
   const centralLocationPage = hasWebsite && looksLikeCentralLocationPage(websiteUrl, contact.city || lead.city)
 
-  const websiteLeadType = !hasWebsite ? 'no_website' : weakSiteEvidence ? 'weak_site' : 'site_unverified'
+  const websiteLeadType = !hasWebsite ? 'no_website' : weakSiteEvidence ? 'weak_site' : aiModernSite ? 'modern_site' : 'site_unverified'
 
   const whyWebsiteLead = []
   const caution = []
@@ -57,6 +60,7 @@ function evaluateWebsiteSalesFit(lead = {}) {
 
   if (websiteLeadType === 'no_website') whyWebsiteLead.push('Ingen nettside funnet - dette er salgsåpningen.')
   if (websiteLeadType === 'weak_site') whyWebsiteLead.push('Nettsiden viser svakhet: ' + weakSiteEvidence)
+  if (websiteLeadType === 'modern_site') whyWebsiteLead.push('AI-sjekken fant ingen tydelige svakheter - siden ser moderne ut.')
   if (websiteLeadType === 'site_unverified') whyWebsiteLead.push('Nettside finnes, men er ikke vurdert - åpne den og se selv.')
   if (hasPhone) whyWebsiteLead.push('Direkte telefon tilgjengelig.')
   if (googleActivity) whyWebsiteLead.push(googleActivityReason(places))
@@ -91,6 +95,7 @@ function verdictFor(context) {
   if (!hasPhone) return 'weak'
   if (outOfArea) return 'weak'
   if (centralLocationPage) return 'review'
+  if (websiteLeadType === 'modern_site') return 'review'
   if (websiteLeadType === 'site_unverified') return 'review'
   // no_website or weak_site from here: the core website-sales opening.
   if (employees >= 50) return 'review'

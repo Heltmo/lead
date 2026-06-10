@@ -7,6 +7,7 @@ const { enrichProffCompany } = require('../../core/company-profile/proffProvider
 const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { evaluateSellerFit, normalizeSellerIntent, normalizeSellerProfile } = require('../../core/seller-fit/sellerFit')
 const { evaluateWebsiteSalesFit } = require('../../core/website-sales-fit/websiteSalesFit')
+const { auditWebsite } = require('../../core/website-audit/websiteAudit')
 const { enrichOsint } = require('../../core/osint/osint')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { buildOpportunityCommandCenter } = require('../../core/opportunity-command-center/opportunityCommandCenter')
@@ -57,6 +58,7 @@ function createServer(options = {}) {
         await handleLatestRun(res, { runsDir, runIndex, workflowStore, savedSearchesStore })
         return
       }
+      if (req.method === 'POST' && url.pathname === '/api/website-audit') return handleWebsiteAudit(req, res)
       if (req.method === 'POST' && url.pathname === '/api/deep-qualify') {
         await handleDeepQualify(req, res, { deepQualifier, runsDir, workflowStore })
         return
@@ -453,6 +455,23 @@ function findLatestRun(runsDir) {
   }
 }
 
+
+async function handleWebsiteAudit(req, res) {
+  const body = await readJsonBody(req)
+  const lead = body.lead && typeof body.lead === 'object' ? body.lead : null
+  if (!lead) return json(res, 400, { error: 'Lead er påkrevd' })
+  const websiteUrl = selectedWebsiteUrl(lead)
+  if (!websiteUrl) return json(res, 400, { error: 'Leaden har ingen nettside å sjekke - ingen nettside er allerede et sterkt salgssignal' })
+  const result = await auditWebsite({
+    url: websiteUrl,
+    companyName: lead.company?.displayName || lead.companyName || '',
+    city: lead.contact?.city || lead.city || '',
+  })
+  if (!result.ok) return json(res, 502, { error: result.error })
+  const updated = JSON.parse(JSON.stringify(lead))
+  updated.website = { ...(updated.website || {}), aiAudit: result.audit }
+  return json(res, 200, { audit: result.audit, websiteSalesFit: evaluateWebsiteSalesFit(updated), model: result.model, usage: result.usage })
+}
 
 async function handleDeepQualify(req, res, context) {
   const body = await readJsonBody(req)
