@@ -691,7 +691,7 @@ function renderLeads(visibleLeads) {
     return `
       ${cityHeading}
       <button class="lead-card ${id === state.selectedLeadId ? 'active' : ''}" type="button" data-index="${index}" data-id="${escapeAttr(id)}">
-        <div class="badge-row">${badge(callReadiness(lead).key)}${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${verticalMatchBadge(lead)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
+        <div class="badge-row">${websiteSalesBadge(lead)}${badge(callReadiness(lead).key)}${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${verticalMatchBadge(lead)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
         <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
         <p class="queue-action"><strong>Next:</strong> <span class="sales-edge-action ${escapeAttr(salesEdge.key)}">${escapeHtml(salesEdge.label)}</span></p>
@@ -992,6 +992,7 @@ function sellerFitSortScore(lead) {
   const sourceQuality = lead.sourceQuality || {}
   let score = sellerFitValue(lead) * 100
   score += sellerRecommendedActionScore(lead)
+  score += websiteSalesSortScore(lead)
   if (contact.phone || lead.phone) score += 35
   else score -= 60
   if (company.organizationNumber) score += 25
@@ -1120,6 +1121,62 @@ function sellerFitBadge(lead) {
   const fit = String(lead.sellerFit?.sellerFit || '').toLowerCase()
   if (!fit) return ''
   return badge(`${fit}_fit`)
+}
+
+function isWebsiteSalesMode(lead) {
+  const intent = lead?.sellerFit?.sellerIntent || state.result?.summary?.sellerIntent || els.sellerIntent?.value || ''
+  return String(intent) === 'web_it'
+}
+
+function websiteSalesFitLabel(verdict = {}) {
+  const fit = String(verdict.websiteSalesFit || '').toLowerCase()
+  if (fit === 'strong') return 'Sterk nettside-lead'
+  if (fit === 'weak') return 'Svak nettside-lead'
+  if (verdict.websiteLeadType === 'site_unverified') return 'Verifiser nettside'
+  return 'Vurder nettside-lead'
+}
+
+function websiteSalesActionLabel(action) {
+  return { call: 'Ring nå', verify: 'Kjør Deep først', review: 'Vurder først', skip: 'Hopp over' }[String(action || '').toLowerCase()] || ''
+}
+
+function websiteSalesBadge(lead) {
+  const verdict = lead.websiteSalesFit
+  if (!isWebsiteSalesMode(lead) || !verdict || !verdict.websiteSalesFit) return ''
+  const fit = String(verdict.websiteSalesFit).toLowerCase()
+  return `<span class="badge website-sales-${escapeAttr(fit)}">${escapeHtml(websiteSalesFitLabel(verdict))}</span>`
+}
+
+function websiteSalesSortScore(lead) {
+  const verdict = lead.websiteSalesFit
+  if (!isWebsiteSalesMode(lead) || !verdict) return 0
+  const fit = String(verdict.websiteSalesFit || '').toLowerCase()
+  if (fit === 'strong') return 220
+  if (fit === 'weak') return -400
+  return 40
+}
+
+function websiteSalesPanel(lead) {
+  const verdict = lead.websiteSalesFit
+  if (!isWebsiteSalesMode(lead) || !verdict || !verdict.websiteSalesFit) return ''
+  const fit = String(verdict.websiteSalesFit).toLowerCase()
+  const why = normalizeList(verdict.whyWebsiteLead)
+  const caution = normalizeList(verdict.caution)
+  const action = websiteSalesActionLabel(verdict.recommendedAction)
+  const deepHint = verdict.websiteLeadType === 'site_unverified'
+    ? '<p class="website-sales-note">Nettside finnes, men er ikke verifisert. Kjør Deep for å vurdere kvaliteten.</p>'
+    : ''
+  return `<section class="website-sales-panel website-sales-${escapeAttr(fit)}">
+    <div class="website-sales-head"><div><p class="eyebrow">Nettside-salg</p><h3>${escapeHtml(websiteSalesFitLabel(verdict))}</h3></div>${action ? `<span class="badge website-sales-${escapeAttr(fit)}">${escapeHtml(action)}</span>` : ''}</div>
+    ${why.length ? `<ul class="website-sales-why">${why.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
+    ${caution.length ? `<ul class="website-sales-caution">${caution.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
+    ${deepHint}
+  </section>`
+}
+
+function noWebsiteSignal(lead) {
+  if (isWebsiteSalesMode(lead)) return '<span class="no-website-signal">Ingen nettside funnet – salgsåpning</span>'
+  return 'unknown'
 }
 
 function workflowCounts(leads) {
@@ -1275,6 +1332,8 @@ function renderDetail(lead) {
       ${sellerFlowPanel(lead, command, salesEdge)}
     </section>
 
+    ${websiteSalesPanel(lead)}
+
     ${mobileCallBar(lead)}
 
     ${workflowPanel(lead)}
@@ -1396,7 +1455,7 @@ function sellerFlowPanel(lead, command, salesEdge) {
   const secondaryCall = verifyFirst && callHref ? '<a class="seller-flow-secondary" href="' + escapeAttr(callHref) + '">Ring hvis sjekket</a>' : ''
   const proof = verificationShortLabel(lead)
   return '<div class="seller-flow-hero queue-row">' +
-    '<div class="seller-flow-top"><div class="seller-flow-title"><p class="eyebrow">Valgt lead</p><h2>' + escapeHtml(company.displayName || lead.companyName || 'Unknown company') + '</h2><small>' + escapeHtml(company.legalName || city || 'Legal name unknown') + '</small><div class="badge-row instant-badges">' + badge(queue) + sourceFusionBadge(lead) + badge(brregStatusLabel(company)) + fastBadge(lead) + '</div></div>' +
+    '<div class="seller-flow-top"><div class="seller-flow-title"><p class="eyebrow">Valgt lead</p><h2>' + escapeHtml(company.displayName || lead.companyName || 'Unknown company') + '</h2><small>' + escapeHtml(company.legalName || city || 'Legal name unknown') + '</small><div class="badge-row instant-badges">' + websiteSalesBadge(lead) + badge(queue) + sourceFusionBadge(lead) + badge(brregStatusLabel(company)) + fastBadge(lead) + '</div></div>' +
     '<div class="seller-flow-contact"><span>Telefon</span>' + titlePhone(phone) + '<small>' + escapeHtml(command.bestContactNote) + '</small><button type="button" id="nextLeadButton" class="next-lead-button" ' + nextLeadDisabledAttr() + '>Neste lead</button></div></div>' +
     '<div class="seller-flow-steps" aria-label="Seller flow">' +
       '<section class="seller-flow-step"><span>1. Søk</span><strong>' + escapeHtml(city) + '</strong><small>' + escapeHtml(query + ' · ' + category) + '</small></section>' +
@@ -1922,7 +1981,7 @@ function sellerDeskCards(lead, command, options = {}) {
   const contactRows = [
     ['Phone', phoneLink(contact.phone || lead.phone || 'unknown')],
     ['Email', contact.email || lead.email || 'unknown'],
-    ['Website', websiteUrl ? link(websiteUrl) : 'unknown'],
+    ['Website', websiteUrl ? link(websiteUrl) : noWebsiteSignal(lead)],
     ['Address', locationText],
   ]
   const marketRows = [

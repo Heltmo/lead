@@ -6,6 +6,7 @@ const { enrichCompanyProfile } = require('../../core/company-profile/companyProf
 const { enrichProffCompany } = require('../../core/company-profile/proffProvider')
 const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { evaluateSellerFit, normalizeSellerIntent, normalizeSellerProfile } = require('../../core/seller-fit/sellerFit')
+const { evaluateWebsiteSalesFit } = require('../../core/website-sales-fit/websiteSalesFit')
 const { enrichOsint } = require('../../core/osint/osint')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { buildOpportunityCommandCenter } = require('../../core/opportunity-command-center/opportunityCommandCenter')
@@ -1052,6 +1053,7 @@ function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b', sellerP
   return (Array.isArray(leadPacks) ? leadPacks : []).map((lead) => {
     const copy = JSON.parse(JSON.stringify(lead || {}))
     copy.sellerFit = evaluateSellerFit(copy, normalizedSellerIntent, normalizedSellerProfile)
+    copy.websiteSalesFit = evaluateWebsiteSalesFit(copy)
     copy.meta = { ...(copy.meta || {}), sellerIntent: normalizedSellerIntent, sellerProfile: publicSellerProfile(normalizedSellerProfile) }
     return copy
   })

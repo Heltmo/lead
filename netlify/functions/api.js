@@ -17,6 +17,7 @@ const { defaultWorkflow, normalizeWorkflow, normalizeActivities, createWorkflowA
 const { parseLeadQuery } = require('../../apps/lead-machine-demo/queryParser')
 const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
 const { evaluateSellerFit, normalizeSellerIntent, normalizeSellerProfile } = require('../../core/seller-fit/sellerFit')
+const { evaluateWebsiteSalesFit } = require('../../core/website-sales-fit/websiteSalesFit')
 const { buildNorwaySweepRunOptions, NORWAY_SWEEP_MAX_RESULTS } = require('../../core/lead-discovery-agent/providers/norwaySweep')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
@@ -294,6 +295,7 @@ async function hostedDeepQualifyFromEvent(event, state) {
   }
   enriched.meta = { ...(enriched.meta || {}), mode: 'deep', enrichmentMode: HOSTED_VERIFY_ENRICH_BOUNDARY.enrichmentMode, capabilityLevel: HOSTED_VERIFY_ENRICH_BOUNDARY.capabilityLevel, enrichedAt: enriched.enrichment.enrichedAt }
   enriched.sellerFit = evaluateSellerFit(enriched, sellerIntent, sellerProfile)
+  enriched.websiteSalesFit = evaluateWebsiteSalesFit(enriched)
   enriched.workflow = buildWorkflowForLead(enriched, { ...(lead.workflow || {}), ...(leadId ? state.workflow.leads[leadId] || {} : {}) }, leadId || hostedLeadId(enriched, 0))
   enriched = attachSourceFusion(enriched)
   replaceHostedLeadInLatestRun(state, lead, enriched)
@@ -459,6 +461,7 @@ function attachSellerFitToLeads(leadPacks, sellerIntent = 'general_b2b', sellerP
   return (Array.isArray(leadPacks) ? leadPacks : []).map((lead) => {
     const copy = JSON.parse(JSON.stringify(lead || {}))
     copy.sellerFit = evaluateSellerFit(copy, normalizedSellerIntent, normalizedSellerProfile)
+    copy.websiteSalesFit = evaluateWebsiteSalesFit(copy)
     copy.meta = { ...(copy.meta || {}), sellerIntent: normalizedSellerIntent, sellerProfile: publicSellerProfile(normalizedSellerProfile) }
     return copy
   })
