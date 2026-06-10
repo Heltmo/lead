@@ -155,7 +155,11 @@ function initStructuredSearch() {
 }
 
 function initSellerSetup() {
-  applySellerProfile(readSellerSetup())
+  const stored = readSellerSetup()
+  const needsWebsiteSalesMigration = stored.setupVersion !== 2
+  if (needsWebsiteSalesMigration) stored.sellerIntent = 'web_it'
+  applySellerProfile(stored)
+  if (needsWebsiteSalesMigration) persistSellerSetup()
   ;[els.sellerIntent, els.sellerTerritory, els.idealCustomer, els.disqualifiers, els.searchScope].filter(Boolean).forEach((field) => {
     const eventName = field.tagName === 'SELECT' ? 'change' : 'input'
     field.addEventListener(eventName, persistSellerSetup)
@@ -192,7 +196,8 @@ function applySellerProfile(profile = {}) {
 
 function persistSellerSetup() {
   const profile = {
-    sellerIntent: els.sellerIntent?.value || 'general_b2b',
+    setupVersion: 2,
+    sellerIntent: els.sellerIntent?.value || 'web_it',
     searchScope: els.searchScope?.value || 'regional',
     ...currentSellerProfile(),
   }
@@ -1052,7 +1057,7 @@ function websiteSalesActionLabel(action) {
 
 function websiteSalesBadge(lead) {
   const verdict = lead.websiteSalesFit
-  if (!isWebsiteSalesMode(lead) || !verdict || !verdict.websiteSalesFit) return ''
+  if (!verdict || !verdict.websiteSalesFit) return ''
   const fit = String(verdict.websiteSalesFit).toLowerCase()
   return `<span class="badge website-sales-${escapeAttr(fit)}">${escapeHtml(websiteSalesFitLabel(verdict))}</span>`
 }
@@ -1068,7 +1073,7 @@ function websiteSalesSortScore(lead) {
 
 function websiteSalesPanel(lead) {
   const verdict = lead.websiteSalesFit
-  if (!isWebsiteSalesMode(lead) || !verdict || !verdict.websiteSalesFit) return ''
+  if (!verdict || !verdict.websiteSalesFit) return ''
   const fit = String(verdict.websiteSalesFit).toLowerCase()
   const why = normalizeList(verdict.whyWebsiteLead)
   const caution = normalizeList(verdict.caution)
@@ -1084,9 +1089,8 @@ function websiteSalesPanel(lead) {
   </section>`
 }
 
-function noWebsiteSignal(lead) {
-  if (isWebsiteSalesMode(lead)) return '<span class="no-website-signal">Ingen nettside funnet – salgsåpning</span>'
-  return 'unknown'
+function noWebsiteSignal() {
+  return '<span class="no-website-signal">Ingen nettside funnet – salgsåpning</span>'
 }
 
 function workflowCounts(leads) {
@@ -1376,6 +1380,7 @@ function sellerFlowPanel(lead, command, salesEdge) {
     (verifyFirst ? verificationGuidancePanel(lead) : '') +
     '<div class="seller-flow-info-strip">' +
       sellerFlowInfoItem('Kontakt', phone || 'Mangler', phone ? 'Direkte telefon tilgjengelig' : 'Finn kontaktvei') +
+      websiteInfoItem(lead) +
       sellerFlowInfoItem('Firma', companyIdValue(company), companyIdNote(company)) +
       sellerFlowInfoItem('Sted', city, readable(sourceQuality.locationMatchStatus || 'unknown')) +
       sellerFlowInfoItem('Proof', proof.title, proof.note) +
@@ -1385,6 +1390,16 @@ function sellerFlowPanel(lead, command, salesEdge) {
 
 function sellerFlowInfoItem(label, value, note) {
   return '<div class="seller-flow-info-item"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(String(value || 'Ukjent')) + '</strong><small>' + escapeHtml(String(note || '')) + '</small></div>'
+}
+
+function websiteInfoItem(lead) {
+  const url = websiteValue(lead.contact?.website || lead.website)
+  const verdict = lead.websiteSalesFit || {}
+  if (!url) {
+    return '<div class="seller-flow-info-item website-info-positive"><span>Nettside</span><strong>Ingen funnet</strong><small>Salgsåpning for nettsidesalg</small></div>'
+  }
+  const note = verdict.websiteLeadType === 'weak_site' ? 'Svak nettside - se nettside-dommen' : 'Funnet, men uverifisert - kjør Deep ved behov'
+  return '<div class="seller-flow-info-item website-info"><span>Nettside</span><strong><a href="' + escapeAttr(url) + '" target="_blank" rel="noreferrer" title="' + escapeAttr(url) + '">' + escapeHtml(displayUrl(url)) + '</a></strong><small>' + escapeHtml(note) + '</small></div>'
 }
 
 function verificationShortLabel(lead = {}) {
@@ -2018,7 +2033,7 @@ function sellerDeskCards(lead, command, options = {}) {
   const contactRows = [
     ['Phone', phoneLink(contact.phone || lead.phone || 'unknown')],
     ['Email', contact.email || lead.email || 'unknown'],
-    ['Website', websiteUrl ? link(websiteUrl) : noWebsiteSignal(lead)],
+    ['Website', websiteUrl ? link(websiteUrl) : noWebsiteSignal()],
     ['Address', locationText],
   ]
   const marketRows = [

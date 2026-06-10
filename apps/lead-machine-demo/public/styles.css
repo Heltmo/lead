@@ -534,6 +534,9 @@ a { color: var(--blue); }
 .badge.website-sales-review { background: var(--amber); color: #fff; }
 .badge.website-sales-weak { background: var(--red); color: #fff; }
 .no-website-signal { color: var(--green); font-weight: 800; }
+.seller-flow-info-item.website-info-positive strong { color: var(--green); }
+.seller-flow-info-item.website-info strong a { color: var(--ink); text-decoration: underline; overflow-wrap: anywhere; }
+.seller-flow-info-item.website-info strong a:hover, .seller-flow-info-item.website-info strong a:focus-visible { color: var(--green); outline: none; }
 
 .start-call-focus { margin-left: auto; min-height: 38px; border: 1px solid var(--green); border-radius: 999px; background: var(--green); color: #fff; padding: 7px 14px; font-weight: 900; cursor: pointer; }
 .start-call-focus:hover, .start-call-focus:focus-visible { background: #0b6848; outline: none; }
