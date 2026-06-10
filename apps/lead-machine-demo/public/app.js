@@ -137,6 +137,8 @@ document.addEventListener('click', (event) => {
   if (commandLeadButton) { selectCommandLead(commandLeadButton.dataset.commandLeadId || ''); return }
   const workspaceExport = event.target.closest('[data-workspace-export]')
   if (workspaceExport) { exportWorkspaceSnapshot(); return }
+  const cardNoteButton = event.target.closest('[data-save-card-note]')
+  if (cardNoteButton) { saveCardNote(cardNoteButton); return }
 })
 renderCommandCenter(null)
 renderExport(null)
@@ -309,6 +311,7 @@ function selectBestQueueForResult(result) {
 function renderAll() {
   const leads = state.result?.leadPacks || []
   const visibleLeads = getVisibleLeads(leads)
+  syncSelectedLeadToActiveCallFocus(visibleLeads)
   if (visibleLeads.length) {
     const selectedStillVisible = visibleLeads.some(({ id }) => id === state.selectedLeadId)
     if (!state.selectedLeadId || !selectedStillVisible) state.selectedLeadId = visibleLeads[0].id
@@ -536,6 +539,7 @@ function renderLeads(visibleLeads) {
         <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'telefon ukjent')}</p>
         <p class="queue-action"><strong>Next:</strong> <span class="sales-edge-action ${escapeAttr(salesEdge.key)}">${escapeHtml(salesEdge.label)}</span></p>
         <p class="card-signal">${escapeHtml(primarySignal)}</p>
+        ${latestLeadNote(lead) ? '<p class="card-note">Notat: ' + escapeHtml(latestLeadNote(lead).length > 70 ? latestLeadNote(lead).slice(0, 67) + '...' : latestLeadNote(lead)) + '</p>' : ''}
         <p class="card-meta">${escapeHtml(formatRating(places))} · ${escapeHtml(workflowCardNote(lead))}</p>
       </button>
     `
@@ -948,6 +952,62 @@ function sellerFitBadge(lead) {
   return badge(`${fit}_fit`)
 }
 
+function leadNoteLines(lead) {
+  return cleanWorkflowNote(lead?.workflow?.notes || '').split('\n').map((line) => line.trim()).filter(Boolean)
+}
+
+function latestLeadNote(lead) {
+  const lines = leadNoteLines(lead)
+  return lines[lines.length - 1] || ''
+}
+
+function leadNotePanel(lead) {
+  const lines = leadNoteLines(lead)
+  const latest = lines[lines.length - 1] || ''
+  return '<section class="lead-note-panel">' +
+    '<div class="lead-note-head"><p class="eyebrow">Notat på kortet</p>' + (lines.length > 1 ? '<small>' + escapeHtml(String(lines.length)) + ' notater - se alle under Tekst og oppfølging</small>' : '') + '</div>' +
+    (latest ? '<p class="lead-note-latest">' + escapeHtml(latest) + '</p>' : '<p class="lead-note-latest lead-note-empty">Ingen notater ennå. Skriv f.eks. hvem som har vurdert nettsiden.</p>') +
+    '<div class="lead-note-add"><input id="cardNoteInput" type="text" placeholder="F.eks. nettsiden er vurdert - gammel meny, ingen kontaktskjema" autocomplete="off"><button type="button" data-save-card-note>Lagre notat</button></div>' +
+  '</section>'
+}
+
+async function saveCardNote(button) {
+  const input = document.getElementById('cardNoteInput')
+  const text = String(input?.value || '').trim()
+  const lead = state.result?.leadPacks?.[state.selectedIndex]
+  if (!lead) return setStatus('feilet: ingen valgt lead for notat', 'failed')
+  if (!text) { input?.focus(); return }
+  const owner = currentOwner()
+  const line = owner ? owner + ': ' + text : text
+  const current = { ...(lead.workflow || {}) }
+  current.notes = [cleanWorkflowNote(current.notes), line].filter(Boolean).join('\n')
+  current.owner = owner || current.owner || ''
+  button.disabled = true
+  setStatus('lagrer notat...', 'running')
+  try {
+    const response = await apiFetch('/api/workflow', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        leadId: lead.workflow?.leadId || leadId(lead, state.selectedIndex),
+        runId: state.result?.runId,
+        leadName: lead.company?.displayName || lead.companyName || '',
+        workflow: current,
+      }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Lagring av notat feilet')
+    lead.workflow = payload.workflow
+    syncLeadQueueQuality(lead)
+    setStatus('notat lagret', '')
+    renderAll()
+  } catch (error) {
+    setStatus('feilet: ' + (error.message || 'lagring av notat'), 'failed')
+  } finally {
+    button.disabled = false
+  }
+}
+
 function websiteSalesFitLabel(verdict = {}) {
   const fit = String(verdict.websiteSalesFit || '').toLowerCase()
   if (fit === 'strong') return 'Sterk nettside-lead'
@@ -1161,6 +1221,8 @@ function renderDetail(lead) {
 
     ${websiteSalesPanel(lead)}
 
+    ${leadNotePanel(lead)}
+
     ${mobileCallBar(lead)}
 
     ${workflowPanel(lead)}
@@ -1263,6 +1325,13 @@ function renderDetail(lead) {
   `
   const nextButton = document.getElementById('nextLeadButton')
   if (nextButton) nextButton.addEventListener('click', selectNextVisibleLead)
+  const cardNoteInput = document.getElementById('cardNoteInput')
+  if (cardNoteInput) cardNoteInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    const saveButton = document.querySelector('[data-save-card-note]')
+    if (saveButton) saveCardNote(saveButton)
+  })
 }
 
 function sellerFlowPanel(lead, command, salesEdge) {
@@ -1446,24 +1515,79 @@ function selectNextVisibleLead() {
 
 function startCallFocus() {
   state.selectedQueue = 'call_now'
-  state.callFocus = { skippedIds: [], logged: { no_answer: 0, interested: 0, mark_called: 0, not_relevant: 0 } }
+  state.callFocus = { skippedIds: [], logged: { no_answer: 0, interested: 0, mark_called: 0, not_relevant: 0 }, lastActiveId: '', lastActiveIndex: 0 }
   renderAll()
 }
 
 function exitCallFocus() {
+  const returnEntry = callFocusReturnEntry()
   state.callFocus = null
+  if (returnEntry) {
+    state.selectedQueue = leadWorkQueue(returnEntry.lead)
+    state.selectedIndex = returnEntry.index
+    state.selectedLeadId = returnEntry.id
+  }
   renderAll()
+  if (returnEntry) focusLeadDetail({ block: 'start' })
 }
 
-function callFocusLeads() {
+function callFocusLeads(visibleLeads) {
   if (!state.callFocus) return []
-  return getVisibleLeads(state.result?.leadPacks || [])
+  const leads = Array.isArray(visibleLeads) ? visibleLeads : getVisibleLeads(state.result?.leadPacks || [])
+  return leads
     .filter(({ lead }) => leadWorkQueue(lead) === 'call_now')
     .filter(({ id }) => !state.callFocus.skippedIds.includes(id))
 }
 
+function syncSelectedLeadToActiveCallFocus(visibleLeads) {
+  const entry = callFocusLeads(visibleLeads)[0]
+  if (!entry) return null
+  rememberCallFocusEntry(entry)
+  return entry
+}
+
+function rememberCallFocusEntry(entry) {
+  if (!state.callFocus || !entry) return
+  state.callFocus.lastActiveId = entry.id
+  state.callFocus.lastActiveIndex = entry.index
+  state.selectedIndex = entry.index
+  state.selectedLeadId = entry.id
+}
+
+function callFocusReturnEntry() {
+  if (!state.callFocus) return null
+  const active = callFocusLeads()[0]
+  if (active) {
+    rememberCallFocusEntry(active)
+    return active
+  }
+  const leads = state.result?.leadPacks || []
+  const lastId = state.callFocus.lastActiveId
+  if (lastId) {
+    const foundIndex = leads.findIndex((lead, index) => leadId(lead, index) === lastId)
+    if (foundIndex >= 0) return { lead: leads[foundIndex], index: foundIndex, id: lastId }
+  }
+  const lastIndex = Number(state.callFocus.lastActiveIndex)
+  if (Number.isInteger(lastIndex) && leads[lastIndex]) {
+    return { lead: leads[lastIndex], index: lastIndex, id: leadId(leads[lastIndex], lastIndex) }
+  }
+  return null
+}
+
 function callFocusLoggedCount() {
   return Object.values(state.callFocus?.logged || {}).reduce((sum, count) => sum + Number(count || 0), 0)
+}
+
+function callFocusWebsiteAction(lead) {
+  const url = websiteValue(lead.contact?.website || lead.website)
+  if (!url) {
+    return '<div class="call-focus-website missing"><span>Nettside</span><strong>Ingen nettside funnet</strong><small>Salgsåpning for nettsidesalg</small></div>'
+  }
+  const verdict = lead.websiteSalesFit || {}
+  const note = verdict.websiteLeadType === 'site_unverified' ? 'Sjekk nettsiden før du vurderer leaden' : 'Åpne og vurder nettsiden'
+  return '<a class="call-focus-website" href="' + escapeAttr(url) + '" target="_blank" rel="noreferrer" title="' + escapeAttr(url) + '">' +
+    '<span>Nettside</span><strong>' + escapeHtml(displayUrl(url)) + '</strong><small>' + escapeHtml(note) + '</small>' +
+  '</a>'
 }
 
 function renderCallFocus() {
@@ -1508,7 +1632,9 @@ function renderCallFocus() {
     (callHref
       ? '<a class="call-focus-phone" href="' + escapeAttr(callHref) + '">' + escapeHtml(phone) + '</a><a class="call-focus-call" href="' + escapeAttr(callHref) + '">Ring nå</a>'
       : '<p class="call-focus-phone disabled">Ingen telefon</p>') +
+    callFocusWebsiteAction(lead) +
     websiteSalesPanel(lead) +
+    (latestLeadNote(lead) ? '<p class="call-focus-last-note">Siste notat: ' + escapeHtml(latestLeadNote(lead)) + '</p>' : '') +
     '<label class="call-focus-note"><span>Kort notat (valgfritt, lagres med utfallet)</span><textarea id="callFocusNote" rows="2" placeholder="Hva skjedde i samtalen?"></textarea></label>' +
     '<div class="call-focus-outcomes">' +
       '<button type="button" class="call-focus-outcome warning" data-call-focus-outcome="no_answer">Ingen svar</button>' +
@@ -1523,6 +1649,7 @@ function renderCallFocus() {
 async function runCallFocusOutcome(action, button) {
   const entry = callFocusLeads()[0]
   if (!entry || !state.callFocus) return
+  rememberCallFocusEntry(entry)
   const lead = entry.lead
   const note = String(document.getElementById('callFocusNote')?.value || '').trim()
   const current = { ...(lead.workflow || {}) }
@@ -1559,8 +1686,9 @@ async function runCallFocusOutcome(action, button) {
 function skipCallFocusLead() {
   const entry = callFocusLeads()[0]
   if (!entry || !state.callFocus) return
+  rememberCallFocusEntry(entry)
   state.callFocus.skippedIds.push(entry.id)
-  renderCallFocus()
+  renderAll()
 }
 
 document.addEventListener('keydown', (event) => {

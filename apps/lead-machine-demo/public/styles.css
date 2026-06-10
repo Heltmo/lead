@@ -506,6 +506,19 @@ a { color: var(--blue); }
 .seller-flow-info-item.website-info strong a { color: var(--ink); text-decoration: underline; overflow-wrap: anywhere; }
 .seller-flow-info-item.website-info strong a:hover, .seller-flow-info-item.website-info strong a:focus-visible { color: var(--green); outline: none; }
 
+.lead-note-panel { border: 1px solid #d5e4dc; border-radius: 12px; background: #f8fcfa; padding: 10px 14px; margin: 10px 0; display: grid; gap: 6px; }
+.lead-note-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.lead-note-head small { color: var(--muted); font-size: 12px; }
+.lead-note-latest { margin: 0; font-size: 14px; line-height: 1.4; }
+.lead-note-empty { color: var(--muted); }
+.lead-note-add { display: flex; gap: 8px; }
+.lead-note-add input { flex: 1 1 auto; height: 40px; border: 1px solid #b8c8c0; border-radius: 8px; padding: 0 11px; background: #fff; color: var(--ink); min-width: 0; }
+.lead-note-add button { flex: 0 0 auto; min-height: 40px; border: 1px solid var(--green); border-radius: 8px; background: var(--green); color: #fff; padding: 7px 13px; font-weight: 850; cursor: pointer; }
+.lead-note-add button:hover, .lead-note-add button:focus-visible { background: #0b6848; outline: none; }
+.card-note { grid-column: 1; margin: 0; color: var(--muted); font-size: 12px; font-style: italic; overflow-wrap: anywhere; }
+.call-focus-last-note { margin: 0; color: var(--muted); font-size: 13px; font-style: italic; }
+@media (max-width: 620px) { .lead-note-add { flex-direction: column; } .lead-note-add button { width: 100%; } }
+
 .start-call-focus { margin-left: auto; min-height: 38px; border: 1px solid var(--green); border-radius: 999px; background: var(--green); color: #fff; padding: 7px 14px; font-weight: 900; cursor: pointer; }
 .start-call-focus:hover, .start-call-focus:focus-visible { background: #0b6848; outline: none; }
 .start-call-focus[disabled] { border-color: var(--line); background: #edf1ef; color: var(--muted); cursor: not-allowed; }
@@ -522,6 +535,13 @@ body.call-focus-open { overflow: hidden; }
 .call-focus-phone.disabled { color: var(--muted); margin: 0; }
 .call-focus-call { display: grid; place-items: center; min-height: 52px; border-radius: 12px; background: var(--green); color: #fff; font-size: 18px; font-weight: 900; text-decoration: none; }
 .call-focus-call:hover, .call-focus-call:focus-visible { background: #0b6848; outline: none; }
+.call-focus-website { display: grid; gap: 2px; border: 1px solid #b8c8c0; border-radius: 8px; background: #f8fbfa; color: var(--ink); padding: 10px 12px; text-decoration: none; }
+.call-focus-website:hover, .call-focus-website:focus-visible { border-color: var(--green); background: var(--green-soft); outline: none; }
+.call-focus-website span { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.call-focus-website strong { overflow-wrap: anywhere; font-size: 15px; line-height: 1.25; }
+.call-focus-website small { color: var(--muted); font-size: 12px; }
+.call-focus-website.missing { border-color: var(--green); background: var(--green-soft); }
+.call-focus-website.missing strong { color: var(--green); }
 .call-focus-card .website-sales-panel { margin: 0; }
 .call-focus-note span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; }
 .call-focus-note textarea { width: 100%; min-height: 48px; border: 1px solid #b8c8c0; border-radius: 8px; padding: 8px 10px; background: #fff; color: var(--ink); resize: vertical; line-height: 1.3; }
