@@ -189,3 +189,12 @@ Pass for current queue behavior. The sampled searches show the intended split: e
 - `personlig trener i Kristiansand` returned only one included lead and it lacked phone, so queue behavior passed but supply should be watched in beta.
 - Broad `regnskapsfører` produced many verify-first/archived leads due unknown location confidence and identity/contact uncertainty; this is acceptable for current rules but should be reviewed with testers.
 - Current QA used live Google Places through the local beta server; exact counts may vary over time.
+
+## Regelendring 2026-06-10: sterk nettside-lead er ringbar
+
+En lead med `websiteSalesFit: strong` går nå til Ring nå selv om Source Fusion
+anbefaler verifisering. Begrunnelse: strong krever allerede telefon, eksakt
+stedstreff, aktivt firma og ikke kjede/offentlig - da er Brreg-bekreftelse ikke
+verdt å blokkere samtalen for i nettsidesalg-MVP-en. Harde stoppere gjelder
+fortsatt: manglende/utenlandsk telefon og alvorlig stedskonflikt går alltid til
+Må verifiseres.

@@ -413,7 +413,8 @@ function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, le
   const leadPacks = attachQueueQualityToLeads(attachSourceFusionToLeads(attachWorkflowToLeads(attachSourceFusionToLeads(fittedLeadPacks), readWorkflowStore(workflowStore))))
   const normalizedQuery = parsedQuery?.normalizedQuery || machineSummary.query || leadPacks[0]?.meta?.sourceQuery || ''
   const savedSearches = readSavedSearches(savedSearchesStore)
-  const summary = { ...leadPackSummary, ...machineSummary, sellerIntent: normalizedSellerIntent, sellerProfile: publicSellerProfile(normalizedSellerProfile) }
+  const providerErrors = readProviderErrors(outputDir)
+  const summary = { ...leadPackSummary, ...machineSummary, sellerIntent: normalizedSellerIntent, sellerProfile: publicSellerProfile(normalizedSellerProfile), providerErrors }
   return {
     runId,
     parsedQuery: parsedQuery || { ok: true, rawQuery: normalizedQuery, normalizedQuery },
@@ -434,6 +435,15 @@ function buildRunPayload({ runId, parsedQuery, outputDir, leadPackOutputPath, le
     commandCenter: buildOpportunityCommandCenter({ leadPacks, savedSearches, summary }),
     savedSearches,
     leadPacks,
+  }
+}
+
+function readProviderErrors(outputDir) {
+  try {
+    const discovery = JSON.parse(fs.readFileSync(path.join(outputDir, 'discovery', 'discovery-summary.json'), 'utf8'))
+    return Array.isArray(discovery?.provider?.errors) ? discovery.provider.errors : []
+  } catch (_) {
+    return []
   }
 }
 

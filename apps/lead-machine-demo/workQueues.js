@@ -139,9 +139,12 @@ function recommendedQueueForLead(lead = {}, workflow = {}, options = {}) {
   const quality = leadQueueQuality(lead, { company, contact, sourceQuality, sourceFusion, action, fit, hasPhone, matchStatus, locationStatus, trustAction, identityConfidence, contactConfidence, locationConfidence })
 
   if (action === 'skip' || trustAction === 'skip') return 'archived'
-  if (trustAction === 'verify_first') return 'verify_first'
   if (!quality.hasPhone) return 'verify_first'
   if (quality.foreignPhone || quality.severeLocationRisk) return 'verify_first'
+  // Sterk nettside-lead krever allerede telefon, eksakt sted og ikke kjede/offentlig -
+  // da skal selgeren få ringe selv om identiteten ikke er Brreg-bekreftet ennå.
+  if (String(lead.websiteSalesFit?.websiteSalesFit || '').toLowerCase() === 'strong') return 'call_now'
+  if (trustAction === 'verify_first') return 'verify_first'
   if (quality.trustedToCall) return 'call_now'
   if (quality.needsVerifyBeforeCall) return 'verify_first'
   return 'verify_first'

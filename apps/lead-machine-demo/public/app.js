@@ -289,7 +289,9 @@ async function runSearch() {
     state.result = payload
     if (payload.summary?.marketSweep && els.leadSort) els.leadSort.value = 'city'
     selectBestQueueForResult(payload)
-    clearStatus()
+    const providerError = friendlyProviderError(payload.summary?.providerErrors)
+    if (providerError && !(payload.leadPacks || []).length) setStatus(providerError, 'failed')
+    else clearStatus()
     renderAll()
   } catch (error) {
     setStatus(`failed: ${error.message || 'Run failed'}`, 'failed')
@@ -556,9 +558,20 @@ function renderLeads(visibleLeads) {
 
 function emptyLeadsMessage(total) {
   if (total) return 'Ingen leads matcher disse filtrene.'
+  const providerError = friendlyProviderError(state.result?.summary?.providerErrors)
+  if (providerError) return providerError
   const expanded = state.result?.summary?.expandedQueries || []
   if (expanded.length > 1) return 'Ingen direkte treff for denne bransjen/stedet. Prøv Hele Norge eller bredere søkeord.'
   return 'Ingen leads funnet. Prøv et sted, Hele Norge eller bredere søkeord.'
+}
+
+function friendlyProviderError(errors) {
+  const list = Array.isArray(errors) ? errors.filter(Boolean) : []
+  if (!list.length) return ''
+  const joined = list.join(' · ')
+  if (/429/.test(joined)) return 'Google Places-kvoten er midlertidig brukt opp (HTTP 429). Vent noen minutter og kjør søket på nytt - dette er ikke et tomt marked.'
+  if (/403|key|denied/i.test(joined)) return 'Google Places avviste nøkkelen (sjekk GOOGLE_PLACES_API_KEY i .env): ' + joined
+  return 'Kilden feilet under søket: ' + joined
 }
 
 function cityCountLabel(city) {
