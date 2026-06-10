@@ -86,7 +86,6 @@ const els = {
   locationOptions: document.getElementById('locationOptions'),
   query: document.getElementById('queryInput'),
   provider: document.getElementById('provider'),
-  sellerIntent: document.getElementById('sellerIntent'),
   sellerTerritory: document.getElementById('sellerTerritory'),
   idealCustomer: document.getElementById('idealCustomer'),
   disqualifiers: document.getElementById('disqualifiers'),
@@ -156,11 +155,9 @@ function initStructuredSearch() {
 
 function initSellerSetup() {
   const stored = readSellerSetup()
-  const needsWebsiteSalesMigration = stored.setupVersion !== 2
-  if (needsWebsiteSalesMigration) stored.sellerIntent = 'web_it'
   applySellerProfile(stored)
-  if (needsWebsiteSalesMigration) persistSellerSetup()
-  ;[els.sellerIntent, els.sellerTerritory, els.idealCustomer, els.disqualifiers, els.searchScope].filter(Boolean).forEach((field) => {
+  if (stored.setupVersion !== 2) persistSellerSetup()
+  ;[els.sellerTerritory, els.idealCustomer, els.disqualifiers, els.searchScope].filter(Boolean).forEach((field) => {
     const eventName = field.tagName === 'SELECT' ? 'change' : 'input'
     field.addEventListener(eventName, persistSellerSetup)
   })
@@ -186,7 +183,6 @@ function currentSellerProfile() {
 
 function applySellerProfile(profile = {}) {
   if (!profile || typeof profile !== 'object') return
-  if (profile.sellerIntent && els.sellerIntent) els.sellerIntent.value = profile.sellerIntent
   if (profile.searchScope && els.searchScope) els.searchScope.value = profile.searchScope
   if (els.sellerTerritory) els.sellerTerritory.value = setupText(profile.territory, 120)
   if (els.idealCustomer) els.idealCustomer.value = setupText(profile.goodCustomer, 260)
@@ -197,7 +193,7 @@ function applySellerProfile(profile = {}) {
 function persistSellerSetup() {
   const profile = {
     setupVersion: 2,
-    sellerIntent: els.sellerIntent?.value || 'web_it',
+    sellerIntent: 'web_it',
     searchScope: els.searchScope?.value || 'regional',
     ...currentSellerProfile(),
   }
@@ -210,7 +206,7 @@ function renderSellerSetupSummary() {
   const profile = currentSellerProfile()
   const territory = profile.territory || (els.searchScope?.value === 'regional' ? 'Hele Norge' : 'Sted i søket')
   const hints = [profile.goodCustomer ? 'god kunde satt' : '', profile.disqualifiers ? 'ikke prioriter satt' : ''].filter(Boolean).join(' · ')
-  els.sellerSetupSummary.textContent = [sellerIntentLabel(els.sellerIntent?.value), territory, hints].filter(Boolean).join(' · ')
+  els.sellerSetupSummary.textContent = [territory, hints].filter(Boolean).join(' · ')
 }
 
 function setupText(value, max) {
@@ -283,7 +279,7 @@ async function runSearch() {
         provider: els.provider.value,
         maxResults: Number(els.maxResults.value),
         searchScope: els.searchScope.value,
-        sellerIntent: els.sellerIntent?.value || 'general_b2b',
+        sellerIntent: 'web_it',
         sellerProfile: currentSellerProfile(),
         mode: els.runMode.value,
         enrichCompanyProfile: true,
@@ -1038,11 +1034,6 @@ function sellerFitBadge(lead) {
   return badge(`${fit}_fit`)
 }
 
-function isWebsiteSalesMode(lead) {
-  const intent = lead?.sellerFit?.sellerIntent || state.result?.summary?.sellerIntent || els.sellerIntent?.value || ''
-  return String(intent) === 'web_it'
-}
-
 function websiteSalesFitLabel(verdict = {}) {
   const fit = String(verdict.websiteSalesFit || '').toLowerCase()
   if (fit === 'strong') return 'Sterk nettside-lead'
@@ -1064,7 +1055,7 @@ function websiteSalesBadge(lead) {
 
 function websiteSalesSortScore(lead) {
   const verdict = lead.websiteSalesFit
-  if (!isWebsiteSalesMode(lead) || !verdict) return 0
+  if (!verdict) return 0
   const fit = String(verdict.websiteSalesFit || '').toLowerCase()
   if (fit === 'strong') return 220
   if (fit === 'weak') return -400
@@ -2726,7 +2717,7 @@ async function runSelectedDeepQualification(button) {
       body: JSON.stringify({
         query: state.result?.parsedQuery?.normalizedQuery || els.query.value.trim(),
         lead,
-        sellerIntent: els.sellerIntent?.value || state.result?.summary?.sellerIntent || 'general_b2b',
+        sellerIntent: 'web_it',
         sellerProfile: currentSellerProfile(),
         enrichCompanyProfile: true,
       }),

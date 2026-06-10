@@ -23,3 +23,7 @@ Do not add pitch generation, email templates, automatic outreach, CRM sync, auth
 - Lead cards and queue guidance reflect the selected seller intent.
 - Vertical-specific wording does not leak across seller types.
 - Existing seller-fit, lead-machine, frontend, and Netlify checks pass.
+
+## Status 2026-06-10
+
+The category picker (Hva selger du?) is removed from the UI: the MVP is website sales only, and every search runs as web_it. Geography, good-customer hints and disqualifiers remain in the collapsed seller setup. Core seller-fit keeps multi-intent support; reintroduce categories only when each category gets a real interpretive advantage, not just a label.
