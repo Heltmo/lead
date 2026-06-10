@@ -1076,6 +1076,14 @@ function priorityScore(lead) {
   return { high: 4, medium: 3, verify: 2, low: 1 }[String(lead.callPriority || lead.priority || '').toLowerCase()] || 0
 }
 
+// Server-built queueQuality carries a snapshot of workflowQueue from payload build
+// time; without this sync a saved outcome never moves the lead out of its queue.
+function syncLeadQueueQuality(lead) {
+  if (lead?.queueQuality && typeof lead.queueQuality === 'object') {
+    lead.queueQuality = { ...lead.queueQuality, workflowQueue: lead.workflow?.queue || '' }
+  }
+}
+
 function leadId(lead, index) {
   return [lead.company?.organizationNumber, lead.company?.candidateOrganizationNumber, lead.places?.placeId, lead.company?.displayName, index].filter(Boolean).join('::')
 }
@@ -1537,6 +1545,7 @@ async function runCallFocusOutcome(action, button) {
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || 'Workflow quick action failed')
     lead.workflow = payload.workflow
+    syncLeadQueueQuality(lead)
     state.callFocus.logged[action] = (state.callFocus.logged[action] || 0) + 1
     await refreshCommandCenter()
     clearStatus()
@@ -1722,6 +1731,7 @@ async function saveWorkflow(event) {
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || 'Lagring av notat feilet')
     lead.workflow = payload.workflow
+    syncLeadQueueQuality(lead)
     await refreshCommandCenter()
     if (saveText) saveText.textContent = 'Lagret nå'
     setStatus('notat lagret', '')
@@ -2547,6 +2557,7 @@ async function runWorkflowQuickAction(button) {
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || 'Workflow quick action failed')
     lead.workflow = payload.workflow
+    syncLeadQueueQuality(lead)
     await refreshCommandCenter()
     clearStatus()
     if (advanceQueue) selectNextQueueLead(lead)

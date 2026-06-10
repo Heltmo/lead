@@ -47,11 +47,13 @@ function evaluateWebsiteSalesFit(lead = {}) {
   const outOfArea = ['out_of_area', 'candidate_appears_outside_requested_location'].includes(locationStatus)
   const denyReason = publicOrChainReason(lead)
   const weakSiteEvidence = hasWebsite ? firstWeakSiteEvidence(lead) : ''
+  const centralLocationPage = hasWebsite && looksLikeCentralLocationPage(websiteUrl, contact.city || lead.city)
 
   const websiteLeadType = !hasWebsite ? 'no_website' : weakSiteEvidence ? 'weak_site' : 'site_unverified'
 
   const whyWebsiteLead = []
   const caution = []
+  if (centralLocationPage) caution.push('Nettsiden er en avdelingsside på et sentralt domene - kan være kjede med flere avdelinger.')
 
   if (websiteLeadType === 'no_website') whyWebsiteLead.push('Ingen nettside funnet - dette er salgsåpningen.')
   if (websiteLeadType === 'weak_site') whyWebsiteLead.push('Nettsiden viser svakhet: ' + weakSiteEvidence)
@@ -70,7 +72,7 @@ function evaluateWebsiteSalesFit(lead = {}) {
   if (!activeCompany) caution.push('Firmaaktiviteten er uklar i Brreg.')
 
   const websiteSalesFit = verdictFor({
-    denyReason, hasPhone, outOfArea, exactLocation, websiteLeadType, employees, activeCompany, googleActivity, confirmedOrg, candidateOrg,
+    denyReason, hasPhone, outOfArea, exactLocation, websiteLeadType, employees, activeCompany, googleActivity, confirmedOrg, candidateOrg, centralLocationPage,
   })
   const recommendedAction = recommendedActionFor({ websiteSalesFit, websiteLeadType, denyReason, hasPhone })
 
@@ -84,10 +86,11 @@ function evaluateWebsiteSalesFit(lead = {}) {
 }
 
 function verdictFor(context) {
-  const { denyReason, hasPhone, outOfArea, exactLocation, websiteLeadType, employees, activeCompany, googleActivity, confirmedOrg, candidateOrg } = context
+  const { denyReason, hasPhone, outOfArea, exactLocation, websiteLeadType, employees, activeCompany, googleActivity, confirmedOrg, candidateOrg, centralLocationPage } = context
   if (denyReason) return 'weak'
   if (!hasPhone) return 'weak'
   if (outOfArea) return 'weak'
+  if (centralLocationPage) return 'review'
   if (websiteLeadType === 'site_unverified') return 'review'
   // no_website or weak_site from here: the core website-sales opening.
   if (employees >= 50) return 'review'
@@ -115,6 +118,22 @@ function publicOrChainReason(lead = {}) {
   const chainToken = CHAIN_NAME_TOKENS.find((token) => nameHasToken(name, token))
   if (chainToken) return 'Ser ut som kjede/franchise ("' + chainToken + '") - nettsiden styres sentralt.'
   return ''
+}
+
+// A website URL whose path contains the lead's own city ("domain.no/pages/skien")
+// is usually a location page on a central chain site, not the business's own site.
+function looksLikeCentralLocationPage(url, city) {
+  const cleanCity = String(city || '').toLowerCase().trim()
+  if (cleanCity.length < 4) return false
+  let path = ''
+  try {
+    path = decodeURIComponent(new URL(/^https?:/i.test(url) ? url : 'https://' + url).pathname || '').toLowerCase()
+  } catch (_) {
+    return false
+  }
+  if (path.length <= 1) return false
+  const transliterated = cleanCity.replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a')
+  return path.includes(cleanCity) || path.includes(transliterated)
 }
 
 function nameHasToken(paddedName, token) {

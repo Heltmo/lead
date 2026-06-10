@@ -111,4 +111,22 @@ function lead(overrides = {}) {
   assert(result.websiteSalesFit === 'review', 'large company should not be a strong website lead')
 }
 
+{
+  const result = evaluateWebsiteSalesFit(lead({
+    company: { displayName: 'Truls og Trine Hårsenter', organizationNumber: '974450054', activeStatus: 'active' },
+    contact: { phone: '94 00 71 21', website: 'https://haargrossisten.no/pages/skien', city: 'Skien' },
+    website: { auditStatus: 'not_run', topEvidence: [] },
+  }))
+  assert(result.websiteSalesFit === 'review', 'a location page on a central domain should never be strong')
+  assert(result.caution.some((item) => item.includes('avdelingsside')), 'central-domain location page should warn about chains')
+}
+
+{
+  const result = evaluateWebsiteSalesFit(lead({
+    contact: { phone: '94 00 71 21', website: 'https://parkenfrisor.no/', city: 'Skien' },
+    website: { auditStatus: 'not_run', topEvidence: [] },
+  }))
+  assert(!result.caution.some((item) => item.includes('avdelingsside')), 'own-domain site must not trigger the chain location-page warning')
+}
+
 console.log('website-sales-fit smoke test passed')
