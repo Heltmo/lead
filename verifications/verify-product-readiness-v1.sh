@@ -26,7 +26,6 @@ for (const required of [
   'disabled_optional',
   'google usage stays capped: 25 for normal searches, 60 for norway-sweep beta runs',
   'selectedleaddeeponly',
-  'readinesspanel',
   'data-workspace-export',
   'sqlite_local',
 ]) {

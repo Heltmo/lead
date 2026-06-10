@@ -96,8 +96,7 @@ const els = {
   companyProfile: document.getElementById('companyProfile'),
   runButton: document.getElementById('runButton'),
   status: document.getElementById('statusPanel'),
-  summary: document.getElementById('summaryPanel'),
-  readiness: document.getElementById('readinessPanel'),
+  cityChips: document.getElementById('cityChips'),
   callFocusOverlay: document.getElementById('callFocusOverlay'),
   commandCenter: document.getElementById('commandCenterPanel'),
   workflowBoard: document.getElementById('workflowBoard'),
@@ -123,7 +122,6 @@ els.queryExamples.forEach((button) => button.addEventListener('click', () => { e
 els.location.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
 els.profession.addEventListener('change', syncQueryFromStructuredSearch)
 els.location.addEventListener('input', syncQueryFromStructuredSearch)
-els.runMode.addEventListener('change', () => renderSummary(state.result))
 els.leadSort.addEventListener('change', () => { state.selectedLeadId = null; renderAll() })
 els.queuePresets.forEach((button) => button.addEventListener('click', () => applyQueuePreset(button.dataset.queuePreset)))
 els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { state.selectedLeadId = null; renderAll() }))
@@ -140,8 +138,6 @@ document.addEventListener('click', (event) => {
   const workspaceExport = event.target.closest('[data-workspace-export]')
   if (workspaceExport) { exportWorkspaceSnapshot(); return }
 })
-renderSummary(null)
-renderReadiness(null)
 renderCommandCenter(null)
 renderExport(null)
 clearStatus()
@@ -260,7 +256,6 @@ async function runSearch() {
   state.result = null
   state.selectedIndex = 0
   state.selectedLeadId = null
-  renderSummary(null)
   renderLeads([])
   renderDetail(null)
   renderCommandCenter(null)
@@ -322,8 +317,7 @@ function renderAll() {
     state.selectedIndex = 0
     state.selectedLeadId = null
   }
-  renderSummary(state.result)
-  renderReadiness(state.result)
+  renderCityChips(state.result)
   renderCommandCenter(state.result)
   renderWorkQueueTabs(leads)
   renderWorkflowBoard(state.result)
@@ -333,24 +327,15 @@ function renderAll() {
   renderCallFocus()
 }
 
-function renderSummary(result) {
+function renderCityChips(result) {
+  if (!els.cityChips) return
   const summary = result?.summary || {}
-  const leads = result?.leadPacks || []
-  const counts = workQueueCounts(leads)
-  els.summary.innerHTML = `
-    ${metric('Leads', summary.includedLeadCount ?? summary.totalLeads ?? 0)}
-    ${metric('Ring nå', counts.call_now)}
-    ${metric('Ingen svar', counts.no_answer)}
-    ${metric('Oppfølging', counts.follow_up_today)}
-    ${metric('Interessert', counts.interested)}
-    ${summary.marketSweep ? metric('Byer', Object.keys(summary.marketSweepCityCounts || {}).length) : ''}
-    ${metric('Status', compactRunStatus(summary))}
-  `
-}
-
-function renderReadiness(result) {
-  if (!els.readiness) return
-  els.readiness.innerHTML = '<div class="readiness-strip"><button type="button" class="quiet-export" data-workspace-export>Last ned testdata</button></div>' + marketSweepPanel(result)
+  if (!summary.marketSweep) { els.cityChips.innerHTML = ''; return }
+  const cityEntries = Object.entries(summary.marketSweepCityCounts || {}).sort(([left], [right]) => left.localeCompare(right, 'nb'))
+  const activeCity = String(state.cityFilter || '')
+  const totalCityLeads = cityEntries.reduce((sum, [, count]) => sum + Number(count || 0), 0)
+  const allChip = '<button type="button" class="city-chip ' + (!activeCity ? 'active' : '') + '" data-city-filter=""><strong>Alle byer</strong> ' + escapeHtml(String(totalCityLeads)) + '</button>'
+  els.cityChips.innerHTML = allChip + cityEntries.map(([city, count]) => '<button type="button" class="city-chip ' + (normalizeCityName(city) === normalizeCityName(activeCity) ? 'active' : '') + '" data-city-filter="' + escapeAttr(city) + '"><strong>' + escapeHtml(city) + '</strong> ' + escapeHtml(String(count)) + '</button>').join('')
 }
 
 
@@ -358,24 +343,12 @@ function renderCommandCenter(result) {
   if (!els.commandCenter) return
   const command = result && result.commandCenter
   if (!command) {
-    els.commandCenter.innerHTML = '<section class="command-center-empty"><p class="eyebrow">I dag / kommandosenter</p><div class="empty-state compact-empty">Kjør et søk for å bygge dagens kommandosenter.</div></section>'
+    els.commandCenter.innerHTML = ''
     return
   }
-  const summary = command.summary || {}
   const primaryMove = commandPrimaryMove(command)
   els.commandCenter.innerHTML = '<section class="opportunity-command-center">' +
     '<div class="command-next-move"><div><p class="eyebrow">I dag / kommandosenter</p><h2>' + escapeHtml(primaryMove.title) + '</h2><small>' + escapeHtml(primaryMove.note) + '</small></div><div class="command-next-actions">' + primaryMove.actions + '</div></div>' +
-    '<div class="command-mini-queues">' +
-      commandQueueTile('Ring først', command.callTheseFirst, 'call_now', 'Ingen klare anrop') +
-      commandQueueTile('Verifiser først', command.verifyBeforeCalling, 'verify_first', 'Ingen stoppere') +
-      commandQueueTile('Følg opp', command.overdueFollowUps, 'follow_up_today', 'Nothing due') +
-    '</div>' +
-    '<details class="command-center-details"><summary>Marked og varselsignaler</summary><div class="command-center-grid">' +
-      commandMarketList(command.bestMarketsNow) +
-      commandWarningList('Tidssløsere', command.wastedTimeWarnings) +
-      commandWarningList('Kildevarsler', command.sourceWarnings) +
-    '</div></details>' +
-    '<p class="command-center-footnote">' + escapeHtml(String(summary.phoneReadyCount || 0) + ' med telefon · ' + String(summary.verifyFirstCount || 0) + ' verifiser først · ' + String(summary.overdueFollowUpCount || 0) + ' overdue') + '</p>' +
   '</section>'
 }
 
@@ -393,7 +366,7 @@ function commandPrimaryMove(command = {}) {
     return {
       title: 'Neste: ring ' + (callLead.company || 'best lead'),
       note: [callLead.city, callLead.phone, (callLead.reasons || [])[0]].filter(Boolean).join(' · '),
-      actions: commandActionButton('Åpne lead', { leadId: callLead.leadId }, 'primary') + commandActionButton('Ringekø', { queue: 'call_now' }),
+      actions: commandActionButton('Åpne lead', { leadId: callLead.leadId }, 'primary') + '<button type="button" data-start-call-focus>Start ringeøkt</button>',
     }
   }
   const verifyLead = Array.isArray(command.verifyBeforeCalling) ? command.verifyBeforeCalling[0] : null
@@ -427,42 +400,6 @@ function commandActionButton(label, target = {}, variant) {
   return ''
 }
 
-function commandQueueTile(title, items, queue, emptyText) {
-  const list = Array.isArray(items) ? items : []
-  const first = list[0]
-  const detail = first ? [first.company, first.city || first.phone].filter(Boolean).join(' · ') : emptyText
-  return '<button type="button" class="command-queue-tile" data-command-queue="' + escapeAttr(queue) + '"><span>' + escapeHtml(title) + '</span><strong>' + escapeHtml(String(list.length)) + '</strong><small>' + escapeHtml(detail || emptyText) + '</small></button>'
-}
-
-function commandTopActionButton(action = {}) {
-  const target = action.target || {}
-  if (target.queue) return '<button type="button" data-command-queue="' + escapeAttr(target.queue) + '"><strong>' + escapeHtml(action.label || 'Action') + '</strong><span>' + escapeHtml(action.note || '') + '</span></button>'
-  if (target.city) return '<button type="button" data-city-filter="' + escapeAttr(target.city) + '"><strong>' + escapeHtml(action.label || 'Marked') + '</strong><span>' + escapeHtml(action.note || '') + '</span></button>'
-  return '<button type="button" disabled><strong>' + escapeHtml(action.label || 'Action') + '</strong><span>' + escapeHtml(action.note || '') + '</span></button>'
-}
-
-function commandLeadList(title, items, queue) {
-  const list = Array.isArray(items) ? items.slice(0, 4) : []
-  const rows = list.length ? list.map((item) => '<button type="button" class="command-lead-row" data-command-lead-id="' + escapeAttr(item.leadId || item.id || '') + '"><strong>' + escapeHtml(item.company || 'Ukjent firma') + '</strong><span>' + escapeHtml([item.city, item.phone || workQueueLabel(item.queue || queue)].filter(Boolean).join(' · ')) + '</span><small>' + escapeHtml((item.reasons || []).slice(0, 2).join(' · ') || item.action || '') + '</small></button>').join('') : '<p class="muted">Nothing urgent here.</p>'
-  return '<section class="command-center-card"><div class="command-card-title"><h3>' + escapeHtml(title) + '</h3><button type="button" data-command-queue="' + escapeAttr(queue) + '">Åpne kø</button></div>' + rows + '</section>'
-}
-
-function commandMarketList(items) {
-  const markets = Array.isArray(items) ? items.slice(0, 5) : []
-  const rows = markets.length ? markets.map((market) => '<button type="button" class="command-market-row" data-city-filter="' + escapeAttr(market.city || '') + '"><strong>' + escapeHtml(market.city || 'Unknown city') + '</strong><span>' + escapeHtml(String(market.phoneReadyCount || 0) + '/' + String(market.leadCount || 0) + ' med telefon · ' + formatRatioPercent(market.verifyRate) + ' verify') + '</span><small>' + escapeHtml((market.reasons || []).slice(0, 2).join(' · ')) + '</small></button>').join('') : '<p class="muted">Run a Norway sweep to compare cities.</p>'
-  return '<section class="command-center-card"><div class="command-card-title"><h3>Best markets now</h3><span>By city</span></div>' + rows + '</section>'
-}
-
-function commandWarningList(title, items) {
-  const warnings = Array.isArray(items) ? items.slice(0, 4) : []
-  const rows = warnings.length ? warnings.map((item) => '<div class="command-warning-row"><strong>' + escapeHtml(item.label || 'Warning') + '</strong><span>' + escapeHtml(item.note || (item.count ? String(item.count) + ' leads' : '')) + '</span></div>').join('') : '<p class="muted">No major warning.</p>'
-  return '<section class="command-center-card"><div class="command-card-title"><h3>' + escapeHtml(title) + '</h3><span>Read-only</span></div>' + rows + '</section>'
-}
-
-function formatRatioPercent(value) {
-  const number = Number(value || 0)
-  return String(Math.round(number * 100)) + '%'
-}
 
 function selectCommandLead(id) {
   if (!id || !state.result || !Array.isArray(state.result.leadPacks)) return
@@ -508,14 +445,6 @@ async function exportWorkspaceSnapshot() {
 }
 
 
-function compactRunStatus(summary = {}) {
-  const mode = readable(summary.mode || 'fast')
-  if (!summary || Object.keys(summary).length === 0) return 'Klar'
-  if (summary.marketSweep) return `Norge-sweep · ${summary.includedLeadCount || summary.totalLeads || 0}`
-  if (summary.lowSupply) return `${mode} · low supply`
-  if (summary.fallbackUsed) return `${mode} · fallback used`
-  return mode
-}
 
 function renderWorkflowBoard(result) {
   if (!els.workflowBoard) return
@@ -632,21 +561,6 @@ function cityCountLabel(city) {
   return count ? String(count) + ' leads' : ''
 }
 
-function marketSweepPanel(result) {
-  const summary = result?.summary || {}
-  if (!summary.marketSweep) return ''
-  const counts = summary.marketSweepCityCounts || {}
-  const cityEntries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right, 'nb'))
-  const searchedCities = Array.isArray(summary.marketSweepCities) ? summary.marketSweepCities.length : 0
-  const citiesWithLeads = cityEntries.length
-  const activeCity = String(state.cityFilter || '')
-  const totalCityLeads = cityEntries.reduce((sum, [, count]) => sum + Number(count || 0), 0)
-  const allChip = '<button type="button" class="city-chip ' + (!activeCity ? 'active' : '') + '" data-city-filter=""><strong>Alle byer</strong> ' + escapeHtml(String(totalCityLeads)) + '</button>'
-  const chips = cityEntries.length
-    ? allChip + cityEntries.map(([city, count]) => '<button type="button" class="city-chip ' + (normalizeCityName(city) === normalizeCityName(activeCity) ? 'active' : '') + '" data-city-filter="' + escapeAttr(city) + '"><strong>' + escapeHtml(city) + '</strong> ' + escapeHtml(String(count)) + '</button>').join('')
-    : '<span class="muted">Ingen bygrupper ennå.</span>'
-  return '<section class="market-sweep-panel"><div><p class="eyebrow">Norge-sweep</p><h2>Leads gruppert etter by</h2><small>' + escapeHtml(String(searchedCities) + ' bysøk · ' + String(citiesWithLeads) + ' byer med treff · maks ' + String(summary.maxResults || 60) + ' leads') + '</small></div><div class="city-chip-row">' + chips + '</div></section>'
-}
 
 function focusLeadDetail(options = {}) {
   if (!els.leadDetail) return
@@ -2524,17 +2438,17 @@ function humanize(value) {
 
 function renderExport(result) {
   if (!result) {
-    els.exportPanel.innerHTML = '<p class="eyebrow">Eksport</p><div class="empty-state">CSV- og JSON-lenker vises etter en fullført kjøring.</div>'
+    els.exportPanel.innerHTML = '<p class="eyebrow">Eksport</p><div class="empty-state">CSV- og JSON-lenker vises etter en fullført kjøring.</div><p class="export-tools"><button type="button" class="quiet-export" data-workspace-export>Last ned testdata</button></p>'
     return
   }
   const leads = result.summary?.marketSweep ? (result.leadPacks || []).slice().sort(compareLeadsByCity) : (result.leadPacks || [])
   els.exportPanel.innerHTML = `
     <p class="eyebrow">Eksport</p>
-    <p class="muted">Run path: <code>${escapeHtml(result.outputDir)}</code></p>
-    <p><a href="${escapeAttr(withBetaToken(result.downloads.csv))}">Download CSV</a> · <a href="${escapeAttr(withBetaToken(result.downloads.json))}">Download JSON</a> · <button type="button" id="copyPath">Copy run path</button></p>
+    <p class="muted">Kjøringssti: <code>${escapeHtml(result.outputDir)}</code></p>
+    <p><a href="${escapeAttr(withBetaToken(result.downloads.csv))}">Last ned CSV</a> · <a href="${escapeAttr(withBetaToken(result.downloads.json))}">Last ned JSON</a> · <button type="button" id="copyPath">Kopier kjøringssti</button> <button type="button" class="quiet-export" data-workspace-export>Last ned testdata</button></p>
     ${callListLinks(result.downloads || {})}
     <table>
-      <thead><tr><th>rank</th><th>company</th><th>phone</th><th>city</th><th>queue</th><th>priority</th><th>confidence</th><th>osint</th><th>workflow</th><th>response</th><th>follow-up</th><th>last contacted</th><th>next action</th></tr></thead>
+      <thead><tr><th>nr</th><th>firma</th><th>telefon</th><th>by</th><th>kø</th><th>prioritet</th><th>trygghet</th><th>osint</th><th>arbeidsflyt</th><th>respons</th><th>oppfølging</th><th>sist kontaktet</th><th>neste handling</th></tr></thead>
       <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${phoneLink(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(workQueueLabel(leadWorkQueue(lead)))}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(sourceFusionExportCell(lead))}</td><td>${escapeHtml(osintExportCell(lead))}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.nextFollowUpAt || workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.lastContactedAt || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
     </table>
   `
@@ -2896,7 +2810,7 @@ function osintExportCell(lead) {
 function callListLinks(downloads) {
   if (!downloads.callList) return ''
   const queueLinks = WORK_QUEUES.map((queue) => '<a href="' + escapeAttr(withBetaToken(downloads.callList + '?view=' + queue.id)) + '">' + escapeHtml(queue.label) + '</a>').join(' · ')
-  return `<p class="export-actions">call-list.csv includes workflowQueue and lastActivityAt. <a href="${escapeAttr(withBetaToken(downloads.callList))}">All</a> · ${queueLinks}</p>`
+  return `<p class="export-actions">call-list.csv inkluderer workflowQueue og lastActivityAt. <a href="${escapeAttr(withBetaToken(downloads.callList))}">Alle</a> · ${queueLinks}</p>`
 }
 
 function phoneHref(value) {
@@ -2930,7 +2844,6 @@ function setStatus(text, cls) {
   els.status.className = `status-panel ${cls || ''}`
   els.status.textContent = text
 }
-function metric(label, value) { return `<div class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>` }
 function section(title, content) { return `<section class="detail-section"><h3>${escapeHtml(title)}</h3>${content}</section>` }
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }

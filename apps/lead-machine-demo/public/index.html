@@ -70,8 +70,6 @@
     </section>
 
     <section id="statusPanel" class="status-panel" hidden></section>
-    <section id="summaryPanel" class="summary-panel"></section>
-    <section id="readinessPanel" class="readiness-panel"></section>
     <section id="commandCenterPanel" class="command-center-panel"></section>
 
     <section class="desk-grid">
@@ -82,6 +80,7 @@
         <details class="lead-controls advanced-lead-controls">
           <summary>Filtrer / sorter leads</summary>
           <div class="lead-controls-body">
+            <div id="cityChips" class="city-chip-row" aria-label="Byfilter"></div>
             <div class="queue-presets" aria-label="Queue presets">
               <button type="button" class="queue-preset" data-queue-preset="callNow">Ring nå</button>
               <button type="button" class="queue-preset" data-queue-preset="verify">Må verifiseres</button>
