@@ -248,7 +248,7 @@ async function loadLatestRun() {
     clearStatus()
     renderAll()
   } catch (error) {
-    setStatus('Ready. Previous run could not be loaded; run a new search.', '')
+    setStatus('Klar. Forrige kjøring kunne ikke lastes; kjør et nytt søk.', '')
   }
 }
 
@@ -268,8 +268,8 @@ async function runSearch() {
 
   try {
     const statusText = els.runMode.value === 'fast'
-      ? 'running: fast discovery and lead-pack build'
-      : 'running: Verify & Enrich for selected lead'
+      ? 'kjører: raskt søk og lead-bygging'
+      : 'kjører: Verifiser firma for valgt lead'
     setStatus(statusText, 'running')
     const response = await apiFetch('/api/runs', {
       method: 'POST',
@@ -358,24 +358,24 @@ function renderCommandCenter(result) {
   if (!els.commandCenter) return
   const command = result && result.commandCenter
   if (!command) {
-    els.commandCenter.innerHTML = '<section class="command-center-empty"><p class="eyebrow">Today / Command Center</p><div class="empty-state compact-empty">Run a search to build today command center.</div></section>'
+    els.commandCenter.innerHTML = '<section class="command-center-empty"><p class="eyebrow">I dag / kommandosenter</p><div class="empty-state compact-empty">Kjør et søk for å bygge dagens kommandosenter.</div></section>'
     return
   }
   const summary = command.summary || {}
   const primaryMove = commandPrimaryMove(command)
   els.commandCenter.innerHTML = '<section class="opportunity-command-center">' +
-    '<div class="command-next-move"><div><p class="eyebrow">Today / Command Center</p><h2>' + escapeHtml(primaryMove.title) + '</h2><small>' + escapeHtml(primaryMove.note) + '</small></div><div class="command-next-actions">' + primaryMove.actions + '</div></div>' +
+    '<div class="command-next-move"><div><p class="eyebrow">I dag / kommandosenter</p><h2>' + escapeHtml(primaryMove.title) + '</h2><small>' + escapeHtml(primaryMove.note) + '</small></div><div class="command-next-actions">' + primaryMove.actions + '</div></div>' +
     '<div class="command-mini-queues">' +
-      commandQueueTile('Call first', command.callTheseFirst, 'call_now', 'No ready calls') +
-      commandQueueTile('Verify blockers', command.verifyBeforeCalling, 'verify_first', 'No blockers') +
-      commandQueueTile('Follow up', command.overdueFollowUps, 'follow_up_today', 'Nothing due') +
+      commandQueueTile('Ring først', command.callTheseFirst, 'call_now', 'Ingen klare anrop') +
+      commandQueueTile('Verifiser først', command.verifyBeforeCalling, 'verify_first', 'Ingen stoppere') +
+      commandQueueTile('Følg opp', command.overdueFollowUps, 'follow_up_today', 'Nothing due') +
     '</div>' +
-    '<details class="command-center-details"><summary>Market and warning signals</summary><div class="command-center-grid">' +
+    '<details class="command-center-details"><summary>Marked og varselsignaler</summary><div class="command-center-grid">' +
       commandMarketList(command.bestMarketsNow) +
-      commandWarningList('Wasted-time warnings', command.wastedTimeWarnings) +
-      commandWarningList('Source warnings', command.sourceWarnings) +
+      commandWarningList('Tidssløsere', command.wastedTimeWarnings) +
+      commandWarningList('Kildevarsler', command.sourceWarnings) +
     '</div></details>' +
-    '<p class="command-center-footnote">' + escapeHtml(String(summary.phoneReadyCount || 0) + ' phone-ready · ' + String(summary.verifyFirstCount || 0) + ' verify first · ' + String(summary.overdueFollowUpCount || 0) + ' overdue') + '</p>' +
+    '<p class="command-center-footnote">' + escapeHtml(String(summary.phoneReadyCount || 0) + ' med telefon · ' + String(summary.verifyFirstCount || 0) + ' verifiser først · ' + String(summary.overdueFollowUpCount || 0) + ' overdue') + '</p>' +
   '</section>'
 }
 
@@ -383,38 +383,38 @@ function commandPrimaryMove(command = {}) {
   const overdue = Array.isArray(command.overdueFollowUps) ? command.overdueFollowUps[0] : null
   if (overdue) {
     return {
-      title: 'Next: follow up ' + (overdue.company || 'lead'),
+      title: 'Neste: følg opp ' + (overdue.company || 'lead'),
       note: [overdue.city, overdue.phone, (overdue.reasons || [])[0]].filter(Boolean).join(' · '),
-      actions: commandActionButton('Open lead', { leadId: overdue.leadId }, 'primary') + commandActionButton('Open queue', { queue: 'follow_up_today' }),
+      actions: commandActionButton('Åpne lead', { leadId: overdue.leadId }, 'primary') + commandActionButton('Åpne kø', { queue: 'follow_up_today' }),
     }
   }
   const callLead = Array.isArray(command.callTheseFirst) ? command.callTheseFirst[0] : null
   if (callLead) {
     return {
-      title: 'Next: call ' + (callLead.company || 'best lead'),
+      title: 'Neste: ring ' + (callLead.company || 'best lead'),
       note: [callLead.city, callLead.phone, (callLead.reasons || [])[0]].filter(Boolean).join(' · '),
-      actions: commandActionButton('Open lead', { leadId: callLead.leadId }, 'primary') + commandActionButton('Call queue', { queue: 'call_now' }),
+      actions: commandActionButton('Åpne lead', { leadId: callLead.leadId }, 'primary') + commandActionButton('Ringekø', { queue: 'call_now' }),
     }
   }
   const verifyLead = Array.isArray(command.verifyBeforeCalling) ? command.verifyBeforeCalling[0] : null
   if (verifyLead) {
     return {
-      title: 'Next: verify ' + (verifyLead.company || 'lead'),
+      title: 'Neste: verifiser ' + (verifyLead.company || 'lead'),
       note: [verifyLead.city, (verifyLead.reasons || [])[0]].filter(Boolean).join(' · '),
-      actions: commandActionButton('Open lead', { leadId: verifyLead.leadId }, 'primary') + commandActionButton('Verify queue', { queue: 'verify_first' }),
+      actions: commandActionButton('Åpne lead', { leadId: verifyLead.leadId }, 'primary') + commandActionButton('Verifiser-kø', { queue: 'verify_first' }),
     }
   }
   const market = Array.isArray(command.bestMarketsNow) ? command.bestMarketsNow[0] : null
   if (market) {
     return {
-      title: 'Next: work ' + (market.city || 'best market'),
-      note: String(market.phoneReadyCount || 0) + '/' + String(market.leadCount || 0) + ' phone-ready in this market.',
+      title: 'Neste: jobb med ' + (market.city || 'beste marked'),
+      note: String(market.phoneReadyCount || 0) + '/' + String(market.leadCount || 0) + ' med telefon i dette markedet.',
       actions: commandActionButton('Filter city', { city: market.city }, 'primary'),
     }
   }
   return {
-    title: 'Next: run a market search',
-    note: 'Command Center appears after the first lead run.',
+    title: 'Neste: kjør et markedssøk',
+    note: 'Kommandosenteret vises etter første kjøring.',
     actions: '',
   }
 }
@@ -437,19 +437,19 @@ function commandQueueTile(title, items, queue, emptyText) {
 function commandTopActionButton(action = {}) {
   const target = action.target || {}
   if (target.queue) return '<button type="button" data-command-queue="' + escapeAttr(target.queue) + '"><strong>' + escapeHtml(action.label || 'Action') + '</strong><span>' + escapeHtml(action.note || '') + '</span></button>'
-  if (target.city) return '<button type="button" data-city-filter="' + escapeAttr(target.city) + '"><strong>' + escapeHtml(action.label || 'Market') + '</strong><span>' + escapeHtml(action.note || '') + '</span></button>'
+  if (target.city) return '<button type="button" data-city-filter="' + escapeAttr(target.city) + '"><strong>' + escapeHtml(action.label || 'Marked') + '</strong><span>' + escapeHtml(action.note || '') + '</span></button>'
   return '<button type="button" disabled><strong>' + escapeHtml(action.label || 'Action') + '</strong><span>' + escapeHtml(action.note || '') + '</span></button>'
 }
 
 function commandLeadList(title, items, queue) {
   const list = Array.isArray(items) ? items.slice(0, 4) : []
-  const rows = list.length ? list.map((item) => '<button type="button" class="command-lead-row" data-command-lead-id="' + escapeAttr(item.leadId || item.id || '') + '"><strong>' + escapeHtml(item.company || 'Unknown company') + '</strong><span>' + escapeHtml([item.city, item.phone || workQueueLabel(item.queue || queue)].filter(Boolean).join(' · ')) + '</span><small>' + escapeHtml((item.reasons || []).slice(0, 2).join(' · ') || item.action || '') + '</small></button>').join('') : '<p class="muted">Nothing urgent here.</p>'
-  return '<section class="command-center-card"><div class="command-card-title"><h3>' + escapeHtml(title) + '</h3><button type="button" data-command-queue="' + escapeAttr(queue) + '">Open queue</button></div>' + rows + '</section>'
+  const rows = list.length ? list.map((item) => '<button type="button" class="command-lead-row" data-command-lead-id="' + escapeAttr(item.leadId || item.id || '') + '"><strong>' + escapeHtml(item.company || 'Ukjent firma') + '</strong><span>' + escapeHtml([item.city, item.phone || workQueueLabel(item.queue || queue)].filter(Boolean).join(' · ')) + '</span><small>' + escapeHtml((item.reasons || []).slice(0, 2).join(' · ') || item.action || '') + '</small></button>').join('') : '<p class="muted">Nothing urgent here.</p>'
+  return '<section class="command-center-card"><div class="command-card-title"><h3>' + escapeHtml(title) + '</h3><button type="button" data-command-queue="' + escapeAttr(queue) + '">Åpne kø</button></div>' + rows + '</section>'
 }
 
 function commandMarketList(items) {
   const markets = Array.isArray(items) ? items.slice(0, 5) : []
-  const rows = markets.length ? markets.map((market) => '<button type="button" class="command-market-row" data-city-filter="' + escapeAttr(market.city || '') + '"><strong>' + escapeHtml(market.city || 'Unknown city') + '</strong><span>' + escapeHtml(String(market.phoneReadyCount || 0) + '/' + String(market.leadCount || 0) + ' phone-ready · ' + formatRatioPercent(market.verifyRate) + ' verify') + '</span><small>' + escapeHtml((market.reasons || []).slice(0, 2).join(' · ')) + '</small></button>').join('') : '<p class="muted">Run a Norway sweep to compare cities.</p>'
+  const rows = markets.length ? markets.map((market) => '<button type="button" class="command-market-row" data-city-filter="' + escapeAttr(market.city || '') + '"><strong>' + escapeHtml(market.city || 'Unknown city') + '</strong><span>' + escapeHtml(String(market.phoneReadyCount || 0) + '/' + String(market.leadCount || 0) + ' med telefon · ' + formatRatioPercent(market.verifyRate) + ' verify') + '</span><small>' + escapeHtml((market.reasons || []).slice(0, 2).join(' · ')) + '</small></button>').join('') : '<p class="muted">Run a Norway sweep to compare cities.</p>'
   return '<section class="command-center-card"><div class="command-card-title"><h3>Best markets now</h3><span>By city</span></div>' + rows + '</section>'
 }
 
@@ -490,7 +490,7 @@ async function exportWorkspaceSnapshot() {
   try {
     setStatus('exporting workspace snapshot...', 'running')
     const response = await apiFetch('/api/workspace-export')
-    if (!response.ok) throw new Error('Workspace export failed')
+    if (!response.ok) throw new Error('Eksport av arbeidsområde feilet')
     const snapshot = await response.json()
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -503,14 +503,14 @@ async function exportWorkspaceSnapshot() {
     URL.revokeObjectURL(url)
     setStatus('workspace snapshot exported', '')
   } catch (error) {
-    setStatus(error.message || 'workspace export failed', 'failed')
+    setStatus(error.message || 'eksport av arbeidsområde feilet', 'failed')
   }
 }
 
 
 function compactRunStatus(summary = {}) {
   const mode = readable(summary.mode || 'fast')
-  if (!summary || Object.keys(summary).length === 0) return 'Ready'
+  if (!summary || Object.keys(summary).length === 0) return 'Klar'
   if (summary.marketSweep) return `Norge-sweep · ${summary.includedLeadCount || summary.totalLeads || 0}`
   if (summary.lowSupply) return `${mode} · low supply`
   if (summary.fallbackUsed) return `${mode} · fallback used`
@@ -522,7 +522,7 @@ function renderWorkflowBoard(result) {
   const leads = result?.leadPacks || []
   if (!leads.length) {
     els.workflowBoard.className = 'workflow-board empty'
-    els.workflowBoard.textContent = 'Run a search to build the next work queue.'
+    els.workflowBoard.textContent = 'Kjør et søk for å bygge neste arbeidskø.'
     return
   }
   const queue = workQueueLeads(leads, state.selectedQueue)
@@ -530,7 +530,7 @@ function renderWorkflowBoard(result) {
   els.workflowBoard.className = 'workflow-board current-call-board'
   els.workflowBoard.innerHTML = next
     ? currentCallCard(next.lead, next.index, next.reason, queue.length, state.selectedQueue)
-    : '<div class="empty-state compact-empty">No leads in ' + escapeHtml(workQueueLabel(state.selectedQueue)) + '. Choose another queue or run a new search.</div>'
+    : '<div class="empty-state compact-empty">Ingen leads i ' + escapeHtml(workQueueLabel(state.selectedQueue)) + '. Velg en annen kø eller kjør et nytt søk.</div>'
   els.workflowBoard.querySelectorAll('.queue-select').forEach((button) => button.addEventListener('click', () => {
     state.selectedIndex = Number(button.dataset.index)
     state.selectedLeadId = leadId(leads[state.selectedIndex], state.selectedIndex)
@@ -540,7 +540,7 @@ function renderWorkflowBoard(result) {
 }
 
 function currentCallCard(lead, index, reason, queueCount, queueId) {
-  const name = lead.company?.displayName || lead.companyName || 'Unknown company'
+  const name = lead.company?.displayName || lead.companyName || 'Ukjent firma'
   const phone = lead.contact?.phone || lead.phone || ''
   const city = lead.contact?.city || lead.city || 'unknown'
   const followUpClass = followUpTiming(lead.workflow?.followUpDate)
@@ -556,7 +556,7 @@ function currentCallCard(lead, index, reason, queueCount, queueId) {
     </div>
     <div class="current-call-phone">
       ${phoneLink(phone)}
-      <button type="button" class="queue-select" data-index="${index}">Inspect</button>
+      <button type="button" class="queue-select" data-index="${index}">Inspiser</button>
     </div>
     ${queueVerificationPanel(lead, index, queueId)}
     ${quickActionsHtml(index, 'queue')}
@@ -569,7 +569,7 @@ function queueVerificationPanel(lead, index, queueId) {
   const guidance = verificationGuidance(lead)
   return '<section class="verify-queue-guidance">' +
     '<div><strong>' + escapeHtml(guidance.primary.title) + '</strong><span>' + escapeHtml(guidance.primary.note) + '</span></div>' +
-    '<button type="button" data-run-verify-enrich data-index="' + escapeAttr(String(index)) + '">Verify & Enrich</button>' +
+    '<button type="button" data-run-verify-enrich data-index="' + escapeAttr(String(index)) + '">Verifiser firma</button>' +
   '</section>'
 }
 
@@ -603,8 +603,8 @@ function renderLeads(visibleLeads) {
       ${cityHeading}
       <button class="lead-card ${id === state.selectedLeadId ? 'active' : ''}" type="button" data-index="${index}" data-id="${escapeAttr(id)}">
         <div class="badge-row">${websiteSalesBadge(lead)}${badge(callReadiness(lead).key)}${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${verticalMatchBadge(lead)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
-        <h3>${escapeHtml(company.displayName || lead.companyName || 'Unknown company')}</h3>
-        <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'phone unknown')}</p>
+        <h3>${escapeHtml(company.displayName || lead.companyName || 'Ukjent firma')}</h3>
+        <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'telefon ukjent')}</p>
         <p class="queue-action"><strong>Next:</strong> <span class="sales-edge-action ${escapeAttr(salesEdge.key)}">${escapeHtml(salesEdge.label)}</span></p>
         <p class="card-signal">${escapeHtml(primarySignal)}</p>
         <p class="card-meta">${escapeHtml(formatRating(places))} · ${escapeHtml(workflowCardNote(lead))}</p>
@@ -620,10 +620,10 @@ function renderLeads(visibleLeads) {
 }
 
 function emptyLeadsMessage(total) {
-  if (total) return 'No leads match these filters.'
+  if (total) return 'Ingen leads matcher disse filtrene.'
   const expanded = state.result?.summary?.expandedQueries || []
-  if (expanded.length > 1) return 'No direct results found for this vertical/location. Try regional scope or broader terms.'
-  return 'No leads found. Try a location, regional scope, or broader terms.'
+  if (expanded.length > 1) return 'Ingen direkte treff for denne bransjen/stedet. Prøv Hele Norge eller bredere søkeord.'
+  return 'Ingen leads funnet. Prøv et sted, Hele Norge eller bredere søkeord.'
 }
 
 function cityCountLabel(city) {
@@ -756,8 +756,8 @@ function workQueueReason(lead, queueId) {
   const queue = normalizeWorkQueue(queueId) || leadWorkQueue(lead)
   if (queue === 'follow_up_today') return followUpQueueReason(lead)
   if (queue === 'no_answer') return workflow.followUpDate ? 'Ingen svar · neste ' + workflow.followUpDate : 'Ingen svar · ring igjen senere'
-  if (queue === 'interested') return workflow.nextAction || 'Interessert lead needs next action'
-  if (queue === 'verify_first') return callReadiness(lead).note || 'Verify before call'
+  if (queue === 'interested') return workflow.nextAction || 'Interessert lead trenger neste handling'
+  if (queue === 'verify_first') return callReadiness(lead).note || 'Verifiser før du ringer'
   if (queue === 'not_relevant') return 'Removed from active calling'
   if (queue === 'archived') return 'Hidden from active queues'
   return leadQueueActionLabel(lead)
@@ -924,7 +924,7 @@ function sellerRecommendedAction(lead) {
 
 function callReadiness(lead) {
   const workflow = lead.workflow || {}
-  if (workflow.status === 'rejected' || workflow.queue === 'not_relevant' || workflow.archivedAt) return { key: 'skip', label: 'Skip', note: 'Rejected or not relevant.', rank: -2000 }
+  if (workflow.status === 'rejected' || workflow.queue === 'not_relevant' || workflow.archivedAt) return { key: 'skip', label: 'Hopp over', note: 'Rejected or not relevant.', rank: -2000 }
   const backendQuality = queueQualityForLead(lead)
   if (backendQuality) return callReadinessFromQueueQuality(backendQuality)
   const company = lead.company || {}
@@ -939,30 +939,30 @@ function callReadiness(lead) {
   const matchStatus = String(company.matchStatus || '').toLowerCase()
   const locationStatus = String(sourceQuality.locationMatchStatus || '').toLowerCase()
   const quality = leadQueueQuality(lead, { company, sourceQuality, fusion, hasPhone, sellerAction, trustAction, identityConfidence, contactConfidence, locationConfidence, matchStatus, locationStatus })
-  if (workflow.status === 'rejected') return { key: 'skip', label: 'Skip', note: 'Rejected or not relevant.', rank: -2000 }
-  if (isFollowUpDue(lead)) return { key: 'follow_up_due', label: 'Follow-up due', note: workflow.followUpDate ? 'Due ' + workflow.followUpDate : 'Follow-up is due.', rank: 1800 }
-  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return { key: 'follow_up_due', label: 'Follow-up', note: 'Interested lead needs follow-up.', rank: 1500 }
-  if (!quality.hasPhone) return { key: 'needs_contact', label: 'Needs contact', note: 'No direct phone yet.', rank: -300 }
-  if (sellerAction === 'skip' || trustAction === 'skip') return { key: 'skip', label: 'Skip', note: 'Seller-fit engine says deprioritize.', rank: -1200 }
-  if (quality.foreignPhone) return { key: 'verify_first', label: 'Verify first', note: 'Phone format looks outside Norway.', rank: 250 }
-  if (quality.severeLocationRisk) return { key: 'verify_first', label: 'Verify first', note: 'Resolve location conflict before calling.', rank: 350 }
-  if (trustAction === 'verify_first') return { key: 'verify_first', label: 'Verify first', note: 'Source Fusion says identity, contact or location needs verification.', rank: 500 }
-  if (quality.trustedToCall) return { key: 'ready_to_call', label: 'Ready to call', note: quality.locationFallback ? 'Phone-ready; confirm location during call.' : 'Phone-ready and not contacted.', rank: 1250 }
-  if (quality.needsVerifyBeforeCall) return { key: 'verify_first', label: 'Verify first', note: 'Verify identity/location before calling.', rank: 500 }
-  return { key: 'later', label: 'Later', note: 'Review when current queue is clear.', rank: 50 }
+  if (workflow.status === 'rejected') return { key: 'skip', label: 'Hopp over', note: 'Rejected or not relevant.', rank: -2000 }
+  if (isFollowUpDue(lead)) return { key: 'follow_up_due', label: 'Oppfølging forfalt', note: workflow.followUpDate ? 'Due ' + workflow.followUpDate : 'Oppfølging har forfalt.', rank: 1800 }
+  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return { key: 'follow_up_due', label: 'Oppfølging', note: 'Interessert lead trenger oppfølging.', rank: 1500 }
+  if (!quality.hasPhone) return { key: 'needs_contact', label: 'Trenger kontakt', note: 'Ingen direkte telefon ennå.', rank: -300 }
+  if (sellerAction === 'skip' || trustAction === 'skip') return { key: 'skip', label: 'Hopp over', note: 'Seller-fit engine says deprioritize.', rank: -1200 }
+  if (quality.foreignPhone) return { key: 'verify_first', label: 'Verifiser først', note: 'Telefonnummeret ser utenlandsk ut.', rank: 250 }
+  if (quality.severeLocationRisk) return { key: 'verify_first', label: 'Verifiser først', note: 'Løs stedskonflikten før du ringer.', rank: 350 }
+  if (trustAction === 'verify_first') return { key: 'verify_first', label: 'Verifiser først', note: 'Kildesjekken sier at identitet, kontakt eller sted må verifiseres.', rank: 500 }
+  if (quality.trustedToCall) return { key: 'ready_to_call', label: 'Klar til å ringe', note: quality.locationFallback ? 'Telefon klar; bekreft sted under samtalen.' : 'Telefon klar og ikke kontaktet.', rank: 1250 }
+  if (quality.needsVerifyBeforeCall) return { key: 'verify_first', label: 'Verifiser først', note: 'Verifiser identitet/sted før du ringer.', rank: 500 }
+  return { key: 'later', label: 'Senere', note: 'Vurder når køen er tom.', rank: 50 }
 }
 
 function callReadinessFromQueueQuality(queueQuality = {}) {
   const note = queueQuality.blockers?.length
     ? queueQuality.blockers.slice(0, 2).map(humanize).join(', ')
-    : queueQuality.reasons?.slice(0, 2).map(humanize).join(', ') || 'Backend queue-quality facts are attached.'
-  if (queueQuality.recommendedQueue === 'call_now') return { key: 'ready_to_call', label: 'Ready to call', note, rank: 1250 }
-  if (queueQuality.recommendedQueue === 'follow_up_today') return { key: 'follow_up_due', label: 'Follow-up due', note, rank: 1800 }
-  if (queueQuality.recommendedQueue === 'interested') return { key: 'follow_up_due', label: 'Follow-up', note, rank: 1500 }
-  if (queueQuality.recommendedQueue === 'verify_first') return { key: 'verify_first', label: 'Verify first', note, rank: 500 }
-  if (queueQuality.recommendedQueue === 'no_answer') return { key: 'no_answer', label: 'Call again', note, rank: 200 }
-  if (queueQuality.recommendedQueue === 'not_relevant' || queueQuality.recommendedQueue === 'archived') return { key: 'skip', label: 'Skip', note, rank: -1200 }
-  return { key: 'later', label: 'Later', note, rank: 50 }
+    : queueQuality.reasons?.slice(0, 2).map(humanize).join(', ') || 'Kø-kvalitetsfakta er lagt ved.'
+  if (queueQuality.recommendedQueue === 'call_now') return { key: 'ready_to_call', label: 'Klar til å ringe', note, rank: 1250 }
+  if (queueQuality.recommendedQueue === 'follow_up_today') return { key: 'follow_up_due', label: 'Oppfølging forfalt', note, rank: 1800 }
+  if (queueQuality.recommendedQueue === 'interested') return { key: 'follow_up_due', label: 'Oppfølging', note, rank: 1500 }
+  if (queueQuality.recommendedQueue === 'verify_first') return { key: 'verify_first', label: 'Verifiser først', note, rank: 500 }
+  if (queueQuality.recommendedQueue === 'no_answer') return { key: 'no_answer', label: 'Ring igjen', note, rank: 200 }
+  if (queueQuality.recommendedQueue === 'not_relevant' || queueQuality.recommendedQueue === 'archived') return { key: 'skip', label: 'Hopp over', note, rank: -1200 }
+  return { key: 'later', label: 'Senere', note, rank: 50 }
 }
 
 function leadQueueQuality(lead = {}, context = {}) {
@@ -1011,10 +1011,10 @@ function callFocusStrip(lead, command) {
   const readiness = callReadiness(lead)
   const workflow = lead.workflow || {}
   return '<section class="call-focus-strip">' +
-    commandMetric('Call readiness', readiness.label, readiness.note) +
-    commandMetric('Best contact', command.bestContact, command.bestContactNote) +
-    commandMetric('Next action', command.nextAction, command.nextActionNote) +
-    commandMetric('Last log', workflow.activities && workflow.activities[0] ? formatActivityTime(workflow.activities[0].at) : 'No log yet', workflow.activities && workflow.activities[0] ? activitySummary(workflow.activities[0]) : 'Save the first note.') +
+    commandMetric('Ringeklar?', readiness.label, readiness.note) +
+    commandMetric('Beste kontakt', command.bestContact, command.bestContactNote) +
+    commandMetric('Neste handling', command.nextAction, command.nextActionNote) +
+    commandMetric('Last log', workflow.activities && workflow.activities[0] ? formatActivityTime(workflow.activities[0].at) : 'Ingen logg ennå', workflow.activities && workflow.activities[0] ? activitySummary(workflow.activities[0]) : 'Lagre første notat.') +
   '</section>'
 }
 
@@ -1038,12 +1038,12 @@ function websiteSalesFitLabel(verdict = {}) {
   const fit = String(verdict.websiteSalesFit || '').toLowerCase()
   if (fit === 'strong') return 'Sterk nettside-lead'
   if (fit === 'weak') return 'Svak nettside-lead'
-  if (verdict.websiteLeadType === 'site_unverified') return 'Verifiser nettside'
+  if (verdict.websiteLeadType === 'site_unverified') return 'Sjekk nettsiden'
   return 'Vurder nettside-lead'
 }
 
 function websiteSalesActionLabel(action) {
-  return { call: 'Ring nå', verify: 'Kjør Deep først', review: 'Vurder først', skip: 'Hopp over' }[String(action || '').toLowerCase()] || ''
+  return { call: 'Ring nå', verify: 'Sjekk nettsiden først', review: 'Vurder først', skip: 'Hopp over' }[String(action || '').toLowerCase()] || ''
 }
 
 function websiteSalesBadge(lead) {
@@ -1070,7 +1070,7 @@ function websiteSalesPanel(lead) {
   const caution = normalizeList(verdict.caution)
   const action = websiteSalesActionLabel(verdict.recommendedAction)
   const deepHint = verdict.websiteLeadType === 'site_unverified'
-    ? '<p class="website-sales-note">Nettside finnes, men er ikke verifisert. Kjør Deep for å vurdere kvaliteten.</p>'
+    ? '<p class="website-sales-note">Nettside finnes, men er ikke vurdert. Åpne den og se selv før du dømmer leaden.</p>'
     : ''
   return `<section class="website-sales-panel website-sales-${escapeAttr(fit)}">
     <div class="website-sales-head"><div><p class="eyebrow">Nettside-salg</p><h3>${escapeHtml(websiteSalesFitLabel(verdict))}</h3></div>${action ? `<span class="badge website-sales-${escapeAttr(fit)}">${escapeHtml(action)}</span>` : ''}</div>
@@ -1098,7 +1098,7 @@ function workflowCounts(leads) {
 
 function workflowCountsLabel(leads) {
   const counts = workflowCounts(leads)
-  return `new:${counts.notContacted} contacted:${counts.contacted} follow-up:${counts.followUpDue} interested:${counts.interested}`
+  return `nye:${counts.notContacted} kontaktet:${counts.contacted} oppfølging:${counts.followUpDue} interessert:${counts.interested}`
 }
 
 function todayCallQueue(leads) {
@@ -1113,7 +1113,7 @@ function todayCallReason(lead) {
   if (workflow.status === 'rejected') return ''
   if (isFollowUpDue(lead)) return followUpQueueReason(lead)
   if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return 'Interested lead'
-  if (!workflow.contacted && !['contacted', 'follow_up'].includes(workflow.status)) return 'Not contacted yet'
+  if (!workflow.contacted && !['contacted', 'follow_up'].includes(workflow.status)) return 'Ikke kontaktet ennå'
   return ''
 }
 
@@ -1148,7 +1148,7 @@ function followUpQueueReason(lead) {
   if (timing === 'overdue') return `Overdue: ${date}`
   if (timing === 'today') return `Due today: ${date}`
   if (timing === 'future') return `Future follow-up: ${date}`
-  return 'Follow-up needed'
+  return 'Trenger oppfølging'
 }
 
 function followUpSortScore(lead) {
@@ -1182,43 +1182,43 @@ function salesEdgeAction(lead = {}) {
   const hasPhone = Boolean(lead.contact?.phone || lead.phone)
   const readiness = callReadiness(lead)
   const followUpDate = workflow.nextFollowUpAt || workflow.followUpDate || ''
-  if (isFollowUpDue(lead)) return { key: 'follow_up_today', label: 'Følg opp i dag', note: followUpDate ? 'Due ' + followUpDate + '.' : 'Follow-up is due.' }
-  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return { key: 'follow_up_today', label: 'Følg opp i dag', note: 'Interested lead needs a concrete next step.' }
-  if (trustAction === 'skip' || sellerAction === 'skip' || readiness.key === 'skip') return { key: 'skip', label: 'Hopp over', note: 'Weak fit or source confidence; review only if you have a reason.' }
-  if (!hasPhone && trustAction === 'skip') return { key: 'skip', label: 'Hopp over', note: 'No useful contact path found.' }
-  if (!hasPhone) return { key: 'verify_first', label: 'Verifiser først', note: 'Find or verify a direct contact path before calling.' }
-  if (readiness.key === 'verify_first' || readiness.key === 'needs_contact' || trustAction === 'verify_first') return { key: 'verify_first', label: 'Verifiser først', note: readiness.note || 'Verify identity, contact or location before calling.' }
-  if ((trustAction === 'call' || readiness.key === 'ready_to_call') && hasPhone) return { key: 'call', label: 'Ring nå', note: readiness.note || 'Phone, identity and location are strong enough to work.' }
-  if (isFastLead(lead)) return { key: 'verify_enrich', label: 'Verify & Enrich', note: 'Run a focused selected-lead check if this one is worth more context.' }
-  if (String(fusion.leadConfidence || '').toLowerCase() === 'review') return { key: 'verify_enrich', label: 'Verify & Enrich', note: 'Source confidence needs a focused check before prioritizing.' }
-  if (hasPhone) return { key: 'call', label: 'Ring nå', note: readiness.note || 'Phone is available and no hard blocker is visible.' }
-  return { key: 'verify_first', label: 'Verifiser først', note: 'Verify contactability before sales work.' }
+  if (isFollowUpDue(lead)) return { key: 'follow_up_today', label: 'Følg opp i dag', note: followUpDate ? 'Due ' + followUpDate + '.' : 'Oppfølging har forfalt.' }
+  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return { key: 'follow_up_today', label: 'Følg opp i dag', note: 'Interessert lead trenger et konkret neste steg.' }
+  if (trustAction === 'skip' || sellerAction === 'skip' || readiness.key === 'skip') return { key: 'skip', label: 'Hopp over', note: 'Svak match eller kildetrygghet; vurder bare hvis du har en grunn.' }
+  if (!hasPhone && trustAction === 'skip') return { key: 'skip', label: 'Hopp over', note: 'Ingen brukbar kontaktvei funnet.' }
+  if (!hasPhone) return { key: 'verify_first', label: 'Verifiser først', note: 'Finn eller verifiser en direkte kontaktvei før du ringer.' }
+  if (readiness.key === 'verify_first' || readiness.key === 'needs_contact' || trustAction === 'verify_first') return { key: 'verify_first', label: 'Verifiser først', note: readiness.note || 'Verifiser identitet, kontakt eller sted før du ringer.' }
+  if ((trustAction === 'call' || readiness.key === 'ready_to_call') && hasPhone) return { key: 'call', label: 'Ring nå', note: readiness.note || 'Telefon, identitet og sted er sterke nok til å jobbe med.' }
+  if (isFastLead(lead)) return { key: 'verify_enrich', label: 'Verifiser firma', note: 'Kjør en målrettet sjekk hvis denne leaden er verdt mer kontekst.' }
+  if (String(fusion.leadConfidence || '').toLowerCase() === 'review') return { key: 'verify_enrich', label: 'Verifiser firma', note: 'Kildetryggheten trenger en sjekk før du prioriterer.' }
+  if (hasPhone) return { key: 'call', label: 'Ring nå', note: readiness.note || 'Telefon finnes og ingen harde stoppere er synlige.' }
+  return { key: 'verify_first', label: 'Verifiser først', note: 'Verifiser kontaktbarhet før salgsarbeid.' }
 }
 
 function salesEdgeActionFromQueueQuality(queueQuality = {}) {
   const note = queueQuality.blockers?.length
     ? queueQuality.blockers.slice(0, 2).map(humanize).join(', ')
-    : queueQuality.reasons?.slice(0, 2).map(humanize).join(', ') || 'Backend queue-quality recommendation.'
+    : queueQuality.reasons?.slice(0, 2).map(humanize).join(', ') || 'Anbefaling fra kø-kvalitetssjekken.'
   if (queueQuality.recommendedAction === 'call') return { key: 'call', label: 'Ring nå', note }
   if (queueQuality.recommendedAction === 'follow_up_today' || queueQuality.recommendedQueue === 'follow_up_today') return { key: 'follow_up_today', label: 'Følg opp i dag', note }
   if (queueQuality.recommendedAction === 'verify_first') return { key: 'verify_first', label: 'Verifiser først', note }
   if (queueQuality.recommendedAction === 'skip') return { key: 'skip', label: 'Hopp over', note }
   if (queueQuality.recommendedAction === 'call_again') return { key: 'follow_up_today', label: 'Følg opp', note }
   if (queueQuality.recommendedAction === 'follow_up') return { key: 'follow_up_today', label: 'Følg opp', note }
-  return { key: 'verify_enrich', label: 'Verify & Enrich', note }
+  return { key: 'verify_enrich', label: 'Verifiser firma', note }
 }
 
 function updateFilterSummary(visible, total) {
   if (!els.leadFilterSummary) return
   const active = els.leadFilters.filter((filter) => filter.checked).map((filter) => filter.parentElement.textContent.trim())
   if (state.cityFilter) active.unshift('By: ' + state.cityFilter)
-  const prefix = total ? `${visible}/${total} leads shown` : 'No leads yet'
+  const prefix = total ? `${visible}/${total} leads shown` : 'Ingen leads ennå'
   els.leadFilterSummary.textContent = active.length ? `${prefix} · ${active.join(', ')}` : `${prefix} · no filters applied`
 }
 
 function renderDetail(lead) {
   if (!lead) {
-    els.leadDetail.innerHTML = '<div class="empty-state">Run a search to inspect company profile, contact data, evidence and caution.</div>'
+    els.leadDetail.innerHTML = '<div class="empty-state">Kjør et søk for å se firmaprofil, kontaktdata, bevis og obs-punkter.</div>'
     return
   }
   const company = lead.company || {}
@@ -1247,11 +1247,11 @@ function renderDetail(lead) {
 
     <section class="detail-tools">
       <details class="detail-tool">
-        <summary>Why inspect?</summary>
+        <summary>Hvorfor vurdere?</summary>
         <section class="leverage-panel compact">
           <div>
-            <p class="eyebrow">Seller context</p>
-            <h3>Reasons to review</h3>
+            <p class="eyebrow">Selgerkontekst</p>
+            <h3>Grunner til å vurdere</h3>
           </div>
           ${bullets(leverage)}
         </section>
@@ -1261,81 +1261,81 @@ function renderDetail(lead) {
         <summary>Sources</summary>
         <div class="source-grid">
         ${sourceCard('Google Places', places.provider || 'available', [
-          ['Rating', formatRating(places)],
-          ['Place ID', places.placeId || 'unknown'],
-          ['Reviews', places.reviewCount ?? 'unknown'],
+          ['Vurdering', formatRating(places)],
+          ['Sted-ID', places.placeId || 'unknown'],
+          ['Omtaler', places.reviewCount ?? 'unknown'],
         ])}
-        ${sourceCard('Digital presence check', website.auditStatus || 'available', [
-          ['Contactability', website.contactability || 'unknown'],
-          ['Top signal', (website.topEvidence || [])[0] || 'none'],
-          ['CTA profile', website.ctaProfile ? 'available' : 'unknown'],
+        ${sourceCard('Nettsidesjekk', website.auditStatus || 'available', [
+          ['Kontaktbarhet', website.contactability || 'unknown'],
+          ['Toppsignal', (website.topEvidence || [])[0] || 'none'],
+          ['CTA-profil', website.ctaProfile ? 'available' : 'unknown'],
         ])}
         ${brregSourceCard(company)}
-        ${sourceCard('Source strategy', sourceStrategyStatus(company, sourceQuality, places), [
-          ['Identity source', isBrregUnavailable(company) ? 'brreg not confirmed' : (sourceQuality.identitySource || company.source || 'unknown')],
-          ['Presence source', sourceQuality.presenceSource || places.provider || 'unknown'],
-          ['Strategy', sourceStrategyLabel(company, sourceQuality)],
+        ${sourceCard('Kildestrategi', sourceStrategyStatus(company, sourceQuality, places), [
+          ['Identitetskilde', isBrregUnavailable(company) ? 'brreg not confirmed' : (sourceQuality.identitySource || company.source || 'unknown')],
+          ['Synlighetskilde', sourceQuality.presenceSource || places.provider || 'unknown'],
+          ['Strategi', sourceStrategyLabel(company, sourceQuality)],
         ])}
-        ${sourceCard('Economy / Proff', economy.status || 'not_enabled', [
-          ['Revenue', economy.revenue ?? 'not enabled'],
-          ['Profit', economy.profit ?? 'not enabled'],
-          ['Employees', economy.employees ?? 'not enabled'],
-          ['Source', economy.source || 'not enabled'],
-          ['Warnings', normalizeList(economy.warnings).map(humanize).join(', ') || 'none'],
+        ${sourceCard('Økonomi / Proff', economy.status || 'not_enabled', [
+          ['Omsetning', economy.revenue ?? 'not enabled'],
+          ['Resultat', economy.profit ?? 'not enabled'],
+          ['Ansatte', economy.employees ?? 'not enabled'],
+          ['Kilde', economy.source || 'not enabled'],
+          ['Varsler', normalizeList(economy.warnings).map(humanize).join(', ') || 'none'],
         ])}
-        ${sourceCard('Discovery quality', discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown', [
+        ${sourceCard('Treffkvalitet', discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown', [
           ['Score', discoveryQuality.score == null ? 'unknown' : `${discoveryQuality.score}/100`],
-          ['Vertical match', readable(sourceQuality.verticalMatchStatus || 'unknown')],
-          ['Matched term', sourceQuality.verticalMatchedTerm || 'unknown'],
-          ['Reasons', (discoveryQuality.reasons || []).slice(0, 3).map(humanize).join(', ') || 'unknown'],
-          ['Warnings', (discoveryQuality.warnings || []).slice(0, 3).map(humanize).join(', ') || 'none'],
+          ['Bransjetreff', readable(sourceQuality.verticalMatchStatus || 'unknown')],
+          ['Matchet ord', sourceQuality.verticalMatchedTerm || 'unknown'],
+          ['Grunner', (discoveryQuality.reasons || []).slice(0, 3).map(humanize).join(', ') || 'unknown'],
+          ['Varsler', (discoveryQuality.warnings || []).slice(0, 3).map(humanize).join(', ') || 'none'],
         ])}
         </div>
       </details>
       ${deepEnrichmentModules(lead, command)}
       <details class="detail-tool">
-        <summary>Raw data</summary>
-    ${section('Company and contact', kv([
-      ['Confirmed org.nr', company.organizationNumber || 'none'],
-      ['Candidate org.nr', company.candidateOrganizationNumber || 'none'],
-      ['Legal name', company.legalName || 'unknown'],
-      ['Candidate legal name', company.candidateLegalName || 'none'],
-      ['Organization form', company.organizationForm || 'unknown'],
-      ['Registered address', company.registeredAddress || 'unknown'],
-      ['Municipality', company.municipality || 'unknown'],
+        <summary>Rådata</summary>
+    ${section('Firma og kontakt', kv([
+      ['Bekreftet org.nr', company.organizationNumber || 'none'],
+      ['Kandidat org.nr', company.candidateOrganizationNumber || 'none'],
+      ['Juridisk navn', company.legalName || 'unknown'],
+      ['Kandidat juridisk navn', company.candidateLegalName || 'none'],
+      ['Organisasjonsform', company.organizationForm || 'unknown'],
+      ['Registrert adresse', company.registeredAddress || 'unknown'],
+      ['Kommune', company.municipality || 'unknown'],
       ['NACE', [company.naceCode, company.naceDescription].filter(Boolean).join(' - ') || 'unknown'],
-      ['Employees', company.employees ?? 'unknown'],
-      ['Registered', company.registrationDate || 'unknown'],
+      ['Ansatte', company.employees ?? 'unknown'],
+      ['Registrert', company.registrationDate || 'unknown'],
       ['Status', company.activeStatus || 'unknown'],
-      ['Match status', readable(company.matchStatus || 'not_run')],
-      ['Match confidence', company.matchConfidence ?? 'unknown'],
-      ['Warnings', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
-      ['Brreg source', link(company.sourceUrl)],
-      ['Website', link(websiteValue(contact.website || lead.website))],
-      ['Phone', phoneLink(contact.phone || lead.phone || 'unknown')],
-      ['Email', contact.email || lead.email || 'unknown'],
-      ['Address', contact.address || lead.address || 'unknown'],
+      ['Treffstatus', readable(company.matchStatus || 'not_run')],
+      ['Treffsikkerhet', company.matchConfidence ?? 'unknown'],
+      ['Varsler', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
+      ['Brreg-kilde', link(company.sourceUrl)],
+      ['Nettside', link(websiteValue(contact.website || lead.website))],
+      ['Telefon', phoneLink(contact.phone || lead.phone || 'unknown')],
+      ['E-post', contact.email || lead.email || 'unknown'],
+      ['Adresse', contact.address || lead.address || 'unknown'],
       ['City', contact.city || lead.city || 'unknown'],
     ]))}
     ${candidateSection(company)}
-    ${section('Lead intelligence', kv([
-      ['Seller intent', humanize(lead.sellerFit?.sellerIntent || state.result?.summary?.sellerIntent || 'general_b2b')],
-      ['Seller fit', humanize(lead.sellerFit?.sellerFit || 'unknown')],
-      ['Recommended action', humanize(lead.sellerFit?.recommendedAction || 'unknown')],
-      ['Lead class', humanize(lead.leadClass || 'unknown')],
-      ['Opportunity', humanize(lead.opportunityType || 'unknown')],
-      ['Sales ease', readable(ranking.salesEase || 'unknown')],
-      ['Pain score', ranking.painScore ?? 'unknown'],
-      ['Location', readable(sourceQuality.locationMatchStatus || 'unknown')],
-      ['Vertical match', readable(sourceQuality.verticalMatchStatus || 'unknown')],
-      ['Matched term', sourceQuality.verticalMatchedTerm || 'unknown'],
-      ['Economy', readable(economy.status || 'not_enabled')],
-      ['Discovery confidence', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown')],
-      ['Identity source', sourceQuality.identitySource || company.source || 'unknown'],
-      ['Presence source', sourceQuality.presenceSource || places.provider || 'unknown'],
+    ${section('Lead-innsikt', kv([
+      ['Selgermodus', humanize(lead.sellerFit?.sellerIntent || state.result?.summary?.sellerIntent || 'general_b2b')],
+      ['Selgermatch', humanize(lead.sellerFit?.sellerFit || 'unknown')],
+      ['Anbefalt handling', humanize(lead.sellerFit?.recommendedAction || 'unknown')],
+      ['Lead-klasse', humanize(lead.leadClass || 'unknown')],
+      ['Mulighet', humanize(lead.opportunityType || 'unknown')],
+      ['Salgsletthet', readable(ranking.salesEase || 'unknown')],
+      ['Smertescore', ranking.painScore ?? 'unknown'],
+      ['Sted', readable(sourceQuality.locationMatchStatus || 'unknown')],
+      ['Bransjetreff', readable(sourceQuality.verticalMatchStatus || 'unknown')],
+      ['Matchet ord', sourceQuality.verticalMatchedTerm || 'unknown'],
+      ['Økonomi', readable(economy.status || 'not_enabled')],
+      ['Treffsikkerhet', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown')],
+      ['Identitetskilde', sourceQuality.identitySource || company.source || 'unknown'],
+      ['Synlighetskilde', sourceQuality.presenceSource || places.provider || 'unknown'],
     ]))}
-    ${section('Evidence', bullets((website.topEvidence || lead.topEvidence || lead.evidence || []).map(humanizeEvidence)))}
-    ${section('Caution', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}
+    ${section('Bevis', bullets((website.topEvidence || lead.topEvidence || lead.evidence || []).map(humanizeEvidence)))}
+    ${section('Obs', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}
       </details>
     </section>
   `
@@ -1355,12 +1355,12 @@ function sellerFlowPanel(lead, command, salesEdge) {
   const city = leadCity(lead)
   const category = sourceQuality.verticalMatchedTerm || businessActivityLabel(company) || company.naceDescription || 'Kategori ukjent'
   const primaryAction = verifyFirst
-    ? '<button type="button" class="seller-flow-primary" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verify & Enrich</button>'
+    ? '<button type="button" class="seller-flow-primary" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verifiser firma</button>'
     : (callHref ? '<a class="seller-flow-primary" href="' + escapeAttr(callHref) + '">Ring nå</a>' : '<span class="seller-flow-primary disabled">Ingen telefon</span>')
   const secondaryCall = verifyFirst && callHref ? '<a class="seller-flow-secondary" href="' + escapeAttr(callHref) + '">Ring hvis sjekket</a>' : ''
   const proof = verificationShortLabel(lead)
   return '<div class="seller-flow-hero queue-row">' +
-    '<div class="seller-flow-top"><div class="seller-flow-title"><p class="eyebrow">Valgt lead</p><h2>' + escapeHtml(company.displayName || lead.companyName || 'Unknown company') + '</h2><small>' + escapeHtml(company.legalName || city || 'Legal name unknown') + '</small><div class="badge-row instant-badges">' + websiteSalesBadge(lead) + badge(queue) + sourceFusionBadge(lead) + badge(brregStatusLabel(company)) + fastBadge(lead) + '</div></div>' +
+    '<div class="seller-flow-top"><div class="seller-flow-title"><p class="eyebrow">Valgt lead</p><h2>' + escapeHtml(company.displayName || lead.companyName || 'Ukjent firma') + '</h2><small>' + escapeHtml(company.legalName || city || 'Juridisk navn ukjent') + '</small><div class="badge-row instant-badges">' + websiteSalesBadge(lead) + badge(queue) + sourceFusionBadge(lead) + badge(brregStatusLabel(company)) + fastBadge(lead) + '</div></div>' +
     '<div class="seller-flow-contact"><span>Telefon</span>' + titlePhone(phone) + '<small>' + escapeHtml(command.bestContactNote) + '</small><button type="button" id="nextLeadButton" class="next-lead-button" ' + nextLeadDisabledAttr() + '>Neste lead</button></div></div>' +
     '<div class="seller-flow-steps" aria-label="Seller flow">' +
       '<section class="seller-flow-step"><span>1. Søk</span><strong>' + escapeHtml(city) + '</strong><small>' + escapeHtml(query + ' · ' + category) + '</small></section>' +
@@ -1374,7 +1374,7 @@ function sellerFlowPanel(lead, command, salesEdge) {
       websiteInfoItem(lead) +
       sellerFlowInfoItem('Firma', companyIdValue(company), companyIdNote(company)) +
       sellerFlowInfoItem('Sted', city, readable(sourceQuality.locationMatchStatus || 'unknown')) +
-      sellerFlowInfoItem('Proof', proof.title, proof.note) +
+      sellerFlowInfoItem('Bevis', proof.title, proof.note) +
     '</div>' +
   '</div>'
 }
@@ -1389,7 +1389,7 @@ function websiteInfoItem(lead) {
   if (!url) {
     return '<div class="seller-flow-info-item website-info-positive"><span>Nettside</span><strong>Ingen funnet</strong><small>Salgsåpning for nettsidesalg</small></div>'
   }
-  const note = verdict.websiteLeadType === 'weak_site' ? 'Svak nettside - se nettside-dommen' : 'Funnet, men uverifisert - kjør Deep ved behov'
+  const note = verdict.websiteLeadType === 'weak_site' ? 'Svak nettside - se dommen under' : 'Funnet - åpne og vurder selv'
   return '<div class="seller-flow-info-item website-info"><span>Nettside</span><strong><a href="' + escapeAttr(url) + '" target="_blank" rel="noreferrer" title="' + escapeAttr(url) + '">' + escapeHtml(displayUrl(url)) + '</a></strong><small>' + escapeHtml(note) + '</small></div>'
 }
 
@@ -1413,17 +1413,17 @@ function callSessionPanel(lead, command) {
   const verifyFirst = queue === 'verify_first'
   const queueCount = workQueueLeads(state.result?.leadPacks || [], queue).length
   return '<section class="call-session-panel queue-row" aria-label="Call session">' +
-    '<div class="call-session-copy"><p class="eyebrow">Seller next action</p><h3>' + escapeHtml(workQueueLabel(queue)) + ' · ' + escapeHtml(String(queueCount)) + ' leads</h3><p>' + escapeHtml(command.nextActionNote || callReadiness(lead).note) + '</p></div>' +
+    '<div class="call-session-copy"><p class="eyebrow">Neste handling</p><h3>' + escapeHtml(workQueueLabel(queue)) + ' · ' + escapeHtml(String(queueCount)) + ' leads</h3><p>' + escapeHtml(command.nextActionNote || callReadiness(lead).note) + '</p></div>' +
     '<div class="call-session-actions">' +
       (verifyFirst
-        ? '<button type="button" class="call-session-button primary" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verify & Enrich</button>'
-        : (callHref ? '<a class="call-session-button primary" href="' + escapeAttr(callHref) + '">Ring nå</a>' : '<span class="call-session-button disabled">No phone</span>')) +
-      (verifyFirst && callHref ? '<a class="call-session-button" href="' + escapeAttr(callHref) + '">Call if checked</a>' : '') +
+        ? '<button type="button" class="call-session-button primary" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verifiser firma</button>'
+        : (callHref ? '<a class="call-session-button primary" href="' + escapeAttr(callHref) + '">Ring nå</a>' : '<span class="call-session-button disabled">Ingen telefon</span>')) +
+      (verifyFirst && callHref ? '<a class="call-session-button" href="' + escapeAttr(callHref) + '">Ring hvis sjekket</a>' : '') +
       '<button type="button" class="call-session-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ingen svar</button>' +
       '<button type="button" class="call-session-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interessert</button>' +
       '<button type="button" class="call-session-button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ferdig</button>' +
       '<button type="button" class="call-session-button negative" data-workflow-action="not_relevant" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ikke relevant</button>' +
-      '<button type="button" class="call-session-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Next lead</button>' +
+      '<button type="button" class="call-session-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Neste lead</button>' +
     '</div></section>'
 }
 
@@ -1432,7 +1432,7 @@ function mobileCallBar(lead) {
   const contact = lead.contact || {}
   const phone = contact.phone || lead.phone || ''
   const callHref = phoneHref(phone)
-  const name = company.displayName || lead.companyName || 'Selected lead'
+  const name = company.displayName || lead.companyName || 'Valgt lead'
   const verifyFirst = leadWorkQueue(lead) === 'verify_first'
   return '<aside class="mobile-call-bar queue-row" aria-label="Mobile call actions">' +
     '<div class="mobile-call-main"><strong>' + escapeHtml(name) + '</strong><span>' + escapeHtml(phone || workQueueLabel(leadWorkQueue(lead))) + '</span></div>' +
@@ -1460,7 +1460,7 @@ function verificationGuidancePanel(lead) {
   const guidance = verificationGuidance(lead)
   return '<section class="verification-guidance-panel">' +
     '<div class="verification-guidance-head"><div><p class="eyebrow">Må verifiseres</p><h3>Sjekk dette før ringing</h3><small>' + escapeHtml(guidance.summary) + '</small></div>' +
-    '<button type="button" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verify & Enrich</button></div>' +
+    '<button type="button" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verifiser firma</button></div>' +
     '<div class="verification-task-grid">' + guidance.tasks.map((task) => (
       '<div class="verification-task"><strong>' + escapeHtml(task.title) + '</strong><span>' + escapeHtml(task.note) + '</span></div>'
     )).join('') + '</div>' +
@@ -1492,12 +1492,12 @@ function verificationGuidance(lead = {}) {
   if (blockers.includes('identity_not_confirmed') || String(company.matchStatus || '').toLowerCase() === 'no_match') {
     add('identity', 'Bekreft firmaidentitet', 'Google fant leaden, men Brreg er ikke bekreftet.')
   }
-  if (blockers.includes('source_fusion_verify_first')) add('proof', 'Sjekk proof/caution', 'Source Fusion anbefaler verifisering før leaden prioriteres.')
+  if (blockers.includes('source_fusion_verify_first')) add('proof', 'Sjekk bevis/obs', 'Source Fusion anbefaler verifisering før leaden prioriteres.')
   if (String(sourceQuality.verticalMatchStatus || '').toLowerCase() === 'weak') add('category', 'Sjekk kategori', 'Kategorimatchen er svak; kontroller at dette faktisk er riktig bransje.')
   if (String(sourceQuality.verticalMatchStatus || '').toLowerCase() === 'broad') add('category', 'Bekreft bransjematch', 'Lead er funnet via bredt søkeord; sjekk at den passer markedet.')
   if (!tasks.length && warnings.includes('org_not_confirmed_but_callable')) add('identity', 'Ringbar, men org.nr mangler', 'Telefon og sted ser brukbart ut, men org.nr er ikke bekreftet.')
-  if (!tasks.length && contact.phone) add('proof', 'Rask proof-sjekk', 'Telefon finnes; sjekk identitet/sted før du bruker tid på samtalen.')
-  if (!tasks.length) add('proof', 'Rask proof-sjekk', 'Se over identitet, kontakt og lokasjon før du prioriterer leaden.')
+  if (!tasks.length && contact.phone) add('proof', 'Rask bevissjekk', 'Telefon finnes; sjekk identitet/sted før du bruker tid på samtalen.')
+  if (!tasks.length) add('proof', 'Rask bevissjekk', 'Se over identitet, kontakt og lokasjon før du prioriterer leaden.')
 
   const topTasks = tasks.slice(0, 3)
   return {
@@ -1606,7 +1606,7 @@ async function runCallFocusOutcome(action, button) {
   const current = { ...(lead.workflow || {}) }
   if (note) current.notes = [cleanWorkflowNote(current.notes), note].filter(Boolean).join('\n')
   const workflow = buildQuickWorkflow(action, current)
-  if (!workflow) return setStatus('failed: unknown quick action', 'failed')
+  if (!workflow) return setStatus('feilet: ukjent hurtighandling', 'failed')
   workflow.owner = currentOwner() || workflow.owner || ''
   if (button) { button.disabled = true; button.textContent = 'Lagrer...' }
   try {
@@ -1657,8 +1657,8 @@ function workflowPanel(lead) {
   const queueGuidance = queueGuidanceNote({ ...lead, workflow })
   const phone = lead.contact?.phone || lead.phone || ''
   const callHref = phoneHref(phone)
-  const savedText = workflow.updatedAt ? `Saved ${escapeHtml(workflow.updatedAt)}` : 'Not saved yet'
-  const lastContacted = workflow.lastContactedAt ? formatActivityTime(workflow.lastContactedAt) : 'Not contacted yet'
+  const savedText = workflow.updatedAt ? `Lagret ${escapeHtml(workflow.updatedAt)}` : 'Ikke lagret ennå'
+  const lastContacted = workflow.lastContactedAt ? formatActivityTime(workflow.lastContactedAt) : 'Ikke kontaktet ennå'
   const nextFollowUp = workflow.nextFollowUpAt || workflow.followUpDate || 'Ikke satt'
   return `<section class="workflow-panel compact-workflow-panel seller-next-panel">
     <div class="workflow-head compact-workflow-head">
@@ -1674,9 +1674,9 @@ function workflowPanel(lead) {
       </div>
     </div>
     <div class="workflow-state-strip seller-next-state">
-      ${commandMetric('Current queue', workQueueLabel(currentQueue), workQueueReason({ ...lead, workflow }, currentQueue))}
-      ${commandMetric('Last contacted', lastContacted, workflow.response ? readable(workflow.response) : 'No latest outcome yet')}
-      ${commandMetric('Next follow-up', nextFollowUp, followUpTiming(workflow.nextFollowUpAt || workflow.followUpDate) === 'overdue' ? 'Overdue follow-up' : 'Date controls follow-up queue')}
+      ${commandMetric('Nåværende kø', workQueueLabel(currentQueue), workQueueReason({ ...lead, workflow }, currentQueue))}
+      ${commandMetric('Sist kontaktet', lastContacted, workflow.response ? readable(workflow.response) : 'Ingen utfall logget ennå')}
+      ${commandMetric('Neste oppfølging', nextFollowUp, followUpTiming(workflow.nextFollowUpAt || workflow.followUpDate) === 'overdue' ? 'Forfalt oppfølging' : 'Datoen styrer oppfølgingskøen')}
     </div>
     ${queueGuidance}
     <form id="workflowForm" class="workflow-form compact-workflow-form seller-next-form">
@@ -1713,8 +1713,8 @@ function workflowPanel(lead) {
 
 function workflowTimeline(workflow = {}) {
   const activities = Array.isArray(workflow.activities) ? workflow.activities.slice(0, 8) : []
-  return `<section class="activity-timeline"><div class="activity-timeline-head"><h4>Logged activity</h4><span>${activities.length ? (activities.length + ' latest') : 'No saved log yet'}</span></div>${activities.length ? `<ol>${activities.map((activity) => `
-    <li><div><strong>${escapeHtml(readable(activity.status || 'new'))}</strong><span>${escapeHtml(formatActivityTime(activity.at))}</span></div><p>${escapeHtml(activitySummary(activity))}</p></li>`).join('')}</ol>` : '<p class="muted">Save a note or use a quick action to create the first log entry.</p>'}</section>`
+  return `<section class="activity-timeline"><div class="activity-timeline-head"><h4>Aktivitetslogg</h4><span>${activities.length ? (activities.length + ' siste') : 'Ingen lagret logg ennå'}</span></div>${activities.length ? `<ol>${activities.map((activity) => `
+    <li><div><strong>${escapeHtml(readable(activity.status || 'new'))}</strong><span>${escapeHtml(formatActivityTime(activity.at))}</span></div><p>${escapeHtml(activitySummary(activity))}</p></li>`).join('')}</ol>` : '<p class="muted">Lagre et notat eller bruk en hurtigknapp for å logge første aktivitet.</p>'}</section>`
 }
 
 function formatActivityTime(value) {
@@ -1726,14 +1726,14 @@ function formatActivityTime(value) {
 function activitySummary(activity = {}) {
   return [
     activity.type ? `Type: ${readable(activity.type)}` : '',
-    activity.toQueue ? `Queue: ${workQueueLabel(activity.toQueue)}` : activity.queue ? `Queue: ${workQueueLabel(activity.queue)}` : '',
-    activity.channel ? `Channel: ${readable(activity.channel)}` : '',
-    activity.response ? `Response: ${readable(activity.response)}` : '',
+    activity.toQueue ? `Kø: ${workQueueLabel(activity.toQueue)}` : activity.queue ? `Kø: ${workQueueLabel(activity.queue)}` : '',
+    activity.channel ? `Kanal: ${readable(activity.channel)}` : '',
+    activity.response ? `Respons: ${readable(activity.response)}` : '',
     activity.personReached ? `Person: ${activity.personReached}` : '',
-    activity.followUpDate ? `Follow-up: ${activity.followUpDate}` : '',
-    activity.nextAction ? `Next: ${activity.nextAction}` : '',
-    cleanWorkflowNote(activity.notes) ? `Note: ${cleanWorkflowNote(activity.notes)}` : '',
-  ].filter(Boolean).join(' · ') || 'Lead note saved.'
+    activity.followUpDate ? `Oppfølging: ${activity.followUpDate}` : '',
+    activity.nextAction ? `Neste: ${activity.nextAction}` : '',
+    cleanWorkflowNote(activity.notes) ? `Notat: ${cleanWorkflowNote(activity.notes)}` : '',
+  ].filter(Boolean).join(' · ') || 'Notat lagret.'
 }
 
 function workflowOptions(values, selected) {
@@ -1752,7 +1752,7 @@ function workflowCardNote(lead) {
   const workflow = lead.workflow || {}
   if (workflow.followUpDate) return `follow-up ${workflow.followUpDate}`
   if (workflow.response) return readable(workflow.response)
-  return lead.contact?.website ? 'website found' : 'website unknown'
+  return lead.contact?.website ? 'website found' : 'nettside ukjent'
 }
 
 async function saveWorkflow(event) {
@@ -1774,7 +1774,7 @@ async function saveWorkflow(event) {
   })
   try {
     const lead = state.result?.leadPacks?.[state.selectedIndex]
-    if (!lead) throw new Error('No selected lead to save')
+    if (!lead) throw new Error('Ingen valgt lead å lagre')
     const form = new FormData(formElement)
     const status = form.get('status')
     const workflow = {
@@ -1806,11 +1806,11 @@ async function saveWorkflow(event) {
       }),
     })
     const payload = await response.json()
-    if (!response.ok) throw new Error(payload.error || 'Note save failed')
+    if (!response.ok) throw new Error(payload.error || 'Lagring av notat feilet')
     lead.workflow = payload.workflow
     await refreshCommandCenter()
-    if (saveText) saveText.textContent = 'Saved now'
-    setStatus('note saved', '')
+    if (saveText) saveText.textContent = 'Lagret nå'
+    setStatus('notat lagret', '')
     renderAll()
   } catch (error) {
     const message = noteSaveErrorMessage(error)
@@ -1856,7 +1856,7 @@ function applyWorkflowDefaults(workflow) {
 }
 
 function noteSaveErrorMessage(error) {
-  const detail = error && error.message ? String(error.message) : 'Note save failed'
+  const detail = error && error.message ? String(error.message) : 'Lagring av notat feilet'
   if (/fetch|network|load failed/i.test(detail)) return 'Kunne ikke lagre - lokal server kjører ikke. Start den på nytt og prøv igjen.'
   return 'Could not save - ' + detail
 }
@@ -1864,15 +1864,15 @@ function noteSaveErrorMessage(error) {
 function modeGuidance(summary) {
   const mode = summary.mode || els.runMode.value || 'fast'
   if (!summary || Object.keys(summary).length === 0) {
-    return mode === 'deep' ? 'Verify & Enrich adds selected-lead proof modules.' : 'Fast scan finds candidates; verify and enrich only the leads that need more context.'
+    return mode === 'deep' ? 'Verifiser firma legger til bevismoduler for valgt lead.' : 'Raskt søk finner kandidater; verifiser bare leads som trenger mer kontekst.'
   }
   const included = Number(summary.includedLeadCount ?? summary.totalLeads ?? 0)
-  if (mode === 'fast' && included > 0) return 'These are candidates. Use Verify & Enrich only on leads that need more context.'
-  return summary.nextRecommendedAction || 'These leads include enrichment signals.'
+  if (mode === 'fast' && included > 0) return 'Dette er kandidater. Bruk Verifiser firma bare på leads som trenger mer kontekst.'
+  return summary.nextRecommendedAction || 'Disse leadene har berikelsessignaler.'
 }
 
 function fastBadge(lead) {
-  return isFastLead(lead) ? '<span class="badge audit-skipped">Fast scan</span>' : ''
+  return isFastLead(lead) ? '<span class="badge audit-skipped">Raskt søk</span>' : ''
 }
 
 function isFastLead(lead) {
@@ -1880,11 +1880,11 @@ function isFastLead(lead) {
 }
 
 function enrichmentTool(lead) {
-  if (isHostedContextRefresh(lead)) return `<section class="detail-tool detail-tool-status"><strong>Hosted Verify & Enrich</strong><span>Light company/contact/source refresh. Full local audit not run.</span></section>`
-  if (!isFastLead(lead)) return `<section class="detail-tool detail-tool-status"><strong>Verified & enriched</strong><span>Selected-lead verification has run. Digital presence is one secondary module.</span></section>`
+  if (isHostedContextRefresh(lead)) return `<section class="detail-tool detail-tool-status"><strong>Verifiser firma (hosted)</strong><span>Lett firma-/kontakt-/kildeoppfrisking. Full lokal sjekk er ikke kjørt.</span></section>`
+  if (!isFastLead(lead)) return `<section class="detail-tool detail-tool-status"><strong>Verified & enriched</strong><span>Selected-lead verification has run. Digital synlighet is one secondary module.</span></section>`
   return `<section class="detail-tool enrichment-tool">
-    <div><strong>Need stronger proof?</strong><span>Keep it fast unless this lead is worth a focused identity, contact and source check.</span></div>
-    <button type="button" id="runDeepQualification">Verify & Enrich</button>
+    <div><strong>Trenger du sterkere bevis?</strong><span>Hold tempoet - kjør sjekken bare når leaden er verdt en grundig identitets-, kontakt- og kildesjekk.</span></div>
+    <button type="button" id="runDeepQualification">Verifiser firma</button>
   </section>`
 }
 
@@ -1901,13 +1901,13 @@ function deepEnrichmentModules(lead, command) {
     ? lead.enrichmentModules
     : Array.isArray(lead.enrichment?.modules) ? lead.enrichment.modules : []
   const modules = liveModules.length ? liveModules : [
-    { name: 'Digital presence check', status: isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), summary: isFastLead(lead) ? 'Run enrichment to check digital presence.' : 'Digital presence signals are attached.' },
-    { name: 'Brreg verification', status: company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), summary: company.organizationNumber ? 'Official identity is confirmed.' : company.candidateOrganizationNumber ? 'Candidate identity needs manual verify.' : 'Not confirmed in fast search; Verify & Enrich retries Brreg for this company.' },
-    { name: 'Economy / Proff', status: economy.status || 'not_enabled', summary: economyModuleSummary(economy) },
-    { name: 'Social/source signals', status: 'not_enabled', summary: 'Later module: Facebook, LinkedIn, news and public source links.' },
-    { name: 'Decision makers', status: 'not_enabled', summary: 'Later module: public role/contact hints when available.' },
-    { name: 'Recent activity', status: 'not_enabled', summary: 'Later module: hiring, news, website updates and public activity.' },
-    { name: 'Seller fit summary', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Uses seller intent plus contact, company, location and source signals.' },
+    { name: 'Nettsidesjekk', status: isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), summary: isFastLead(lead) ? 'Run enrichment to check digital presence.' : 'Digitale signaler er lagt ved.' },
+    { name: 'Brreg verification', status: company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), summary: company.organizationNumber ? 'Offisiell identitet er bekreftet.' : company.candidateOrganizationNumber ? 'Kandidat-identitet må verifiseres manuelt.' : 'Ikke bekreftet i raskt søk; Verifiser firma prøver Brreg på nytt.' },
+    { name: 'Økonomi / Proff', status: economy.status || 'not_enabled', summary: economyModuleSummary(economy) },
+    { name: 'Sosiale/kildesignaler', status: 'not_enabled', summary: 'Senere modul: Facebook, LinkedIn, nyheter og offentlige kildelenker.' },
+    { name: 'Beslutningstakere', status: 'not_enabled', summary: 'Senere modul: offentlige rolle-/kontakthint når tilgjengelig.' },
+    { name: 'Nylig aktivitet', status: 'not_enabled', summary: 'Senere modul: ansettelser, nyheter, nettsideendringer og offentlig aktivitet.' },
+    { name: 'Selgermatch-sammendrag', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Bruker selgeroppsettet pluss kontakt-, firma-, sted- og kildesignaler.' },
     { name: 'OSINT public evidence', status: lead.osint ? 'completed' : 'not_run', summary: lead.osint ? osintSummaryText(lead.osint) : 'Runs on selected-lead enrichment from public business evidence.' },
   ]
   return `<details class="detail-tool enrichment-modules">
@@ -1923,26 +1923,26 @@ function osintPanel(lead) {
   if (!osint) return ''
   const summary = osint.summary || {}
   const groups = [
-    ['Company identity', osint.companyIdentity],
-    ['Contactability', osint.contactability],
-    ['Digital presence', osint.digitalPresence],
-    ['Market proof', osint.marketProof],
-    ['Recent activity', osint.recentActivity],
-    ['Risk / verify', osint.riskVerify],
+    ['Firmaidentitet', osint.companyIdentity],
+    ['Kontaktbarhet', osint.contactability],
+    ['Digital synlighet', osint.digitalPresence],
+    ['Markedsbevis', osint.marketProof],
+    ['Nylig aktivitet', osint.recentActivity],
+    ['Risiko / verifiser', osint.riskVerify],
   ]
   return '<details class="detail-collapse osint-panel" open>' +
     '<summary>OSINT public evidence</summary>' +
     '<section class="osint-summary">' +
-      commandMetric('Evidence', String(summary.evidenceCount || 0), 'Public business signals found') +
+      commandMetric('Bevis', String(summary.evidenceCount || 0), 'Offentlige firmasignaler funnet') +
       commandMetric('Risks', String(summary.riskCount || 0), 'Checks before seller use') +
-      commandMetric('Sources', String(summary.sourceCount || 0), 'Public source references') +
+      commandMetric('Kilder', String(summary.sourceCount || 0), 'Offentlige kildereferanser') +
     '</section>' +
     '<div class="source-grid osint-grid">' +
       groups.map(([title, items]) => osintGroupCard(title, items)).join('') +
       sourceCard('OSINT sources', osint.status || 'completed', [
-        ['Mode', readable(osint.mode || 'selected_lead')],
+        ['Modus', readable(osint.mode || 'selected_lead')],
         ['Observed', osint.observedAt || 'unknown'],
-        ['Top signal', (summary.topSignals || [])[0] || 'none'],
+        ['Toppsignal', (summary.topSignals || [])[0] || 'none'],
         ['Top risk', (summary.topRisks || [])[0] || 'none'],
       ]) +
     '</div>' +
@@ -1953,28 +1953,28 @@ function osintGroupCard(title, items) {
   const list = Array.isArray(items) ? items.slice(0, 4) : []
   const rows = list.length
     ? list.map((item) => [item.label || 'Signal', osintSignalText(item)])
-    : [['Status', 'No public evidence recorded yet']]
+    : [['Status', 'Ingen offentlige bevis registrert ennå']]
   const status = title.toLowerCase().includes('risk') && list.length ? 'verify' : list.length ? 'completed' : 'not_run'
   return sourceCard(title, status, rows)
 }
 
 function osintSignalText(item = {}) {
   const value = item.value || 'unknown'
-  const source = item.source && item.source.name ? item.source.name : 'public source'
+  const source = item.source && item.source.name ? item.source.name : 'offentlig kilde'
   return value + ' (' + (item.confidence || 'medium') + ' confidence, ' + source + ')'
 }
 
 function osintSummaryText(osint = {}) {
   const summary = osint.summary || {}
-  return String(summary.evidenceCount || 0) + ' evidence signals, ' + String(summary.riskCount || 0) + ' checks, ' + String(summary.sourceCount || 0) + ' sources.'
+  return String(summary.evidenceCount || 0) + ' bevissignaler, ' + String(summary.riskCount || 0) + ' checks, ' + String(summary.sourceCount || 0) + ' sources.'
 }
 
 function economyModuleSummary(economy = {}) {
-  if (economy.status === 'success') return 'Proff economy fields are attached for confirmed org.nr.'
+  if (economy.status === 'success') return 'Proff-økonomifelt legges ved for bekreftet org.nr.'
   if (economy.status === 'disabled') return 'Set PROFF_API_KEY to enable Proff enrichment.'
-  if (economy.status === 'not_eligible') return 'Skipped because org.nr is not confirmed.'
+  if (economy.status === 'not_eligible') return 'Hoppet over fordi org.nr ikke er bekreftet.'
   if (economy.status === 'error') return 'Proff lookup failed; retry later.'
-  return 'Requires confirmed org.nr and Proff integration.'
+  return 'Krever bekreftet org.nr og Proff-integrasjon.'
 }
 
 function sellerCommandCard(command) {
@@ -1987,10 +1987,10 @@ function sellerCommandCard(command) {
       </div>
     </div>
     <div class="command-grid compact-command-grid">
-      ${commandMetric('Best first contact', command.bestContact, command.bestContactNote)}
-      ${commandMetric('Business type', command.businessType, command.businessTypeNote)}
-      ${commandMetric('Company identity', command.verification, command.verificationNote)}
-      ${commandMetric('Check before use', command.mainRisk, command.mainRiskNote)}
+      ${commandMetric('Beste første kontakt', command.bestContact, command.bestContactNote)}
+      ${commandMetric('Bedriftstype', command.businessType, command.businessTypeNote)}
+      ${commandMetric('Firmaidentitet', command.verification, command.verificationNote)}
+      ${commandMetric('Sjekk før bruk', command.mainRisk, command.mainRiskNote)}
     </div>
   </section>`
 }
@@ -2016,85 +2016,85 @@ function sellerDeskCards(lead, command, options = {}) {
   const websiteUrl = websiteValue(contact.website || lead.website)
   const locationText = [contact.address || lead.address, contact.city || lead.city].filter(Boolean).join(', ') || 'unknown'
   const identityRows = [
-    ['Legal name', company.legalName || company.candidateLegalName || 'unknown'],
+    ['Juridisk navn', company.legalName || company.candidateLegalName || 'unknown'],
     ['Org.nr', company.organizationNumber || company.candidateOrganizationNumber || 'unknown'],
-    ['Employees', company.employees ?? 'unknown'],
+    ['Ansatte', company.employees ?? 'unknown'],
     ['NACE', [company.naceCode, company.naceDescription].filter(Boolean).join(' - ') || 'unknown'],
   ]
   const contactRows = [
-    ['Phone', phoneLink(contact.phone || lead.phone || 'unknown')],
-    ['Email', contact.email || lead.email || 'unknown'],
-    ['Website', websiteUrl ? link(websiteUrl) : noWebsiteSignal()],
-    ['Address', locationText],
+    ['Telefon', phoneLink(contact.phone || lead.phone || 'unknown')],
+    ['E-post', contact.email || lead.email || 'unknown'],
+    ['Nettside', websiteUrl ? link(websiteUrl) : noWebsiteSignal()],
+    ['Adresse', locationText],
   ]
   const marketRows = [
     ['Google', formatRating(places)],
-    ['Location', readable(sourceQuality.locationMatchStatus || 'unknown')],
-    ['Discovery', discoveryQuality.score == null ? readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown') : `${discoveryQuality.score}/100`],
+    ['Sted', readable(sourceQuality.locationMatchStatus || 'unknown')],
+    ['Treff', discoveryQuality.score == null ? readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown') : `${discoveryQuality.score}/100`],
     ['Presence', sourceQuality.presenceSource || places.provider || 'unknown'],
   ]
   const fitRows = [
-    ['Seller fit', command.sellerReadiness],
-    ['Intent', sellerIntentLabel(fit.sellerIntent || state.result?.summary?.sellerIntent)],
-    ['Recommended action', command.nextAction],
+    ['Selgermatch', command.sellerReadiness],
+    ['Modus', sellerIntentLabel(fit.sellerIntent || state.result?.summary?.sellerIntent)],
+    ['Anbefalt handling', command.nextAction],
     ['Why', fitReasonText],
   ]
   const actionRows = [
-    ['Important signals', normalizeList(fit.importantSignals).slice(0, 2).map(humanize).join(', ') || command.nextActionNote],
-    ['Digital presence', command.websiteOpportunity],
-    ['Source confidence', command.sourceConfidence],
-    ['Next action', command.nextAction],
+    ['Viktige signaler', normalizeList(fit.importantSignals).slice(0, 2).map(humanize).join(', ') || command.nextActionNote],
+    ['Digital synlighet', command.websiteOpportunity],
+    ['Kildetrygghet', command.sourceConfidence],
+    ['Neste handling', command.nextAction],
   ]
   const qualificationRows = [
-    ['Mode', isFastLead(lead) ? 'Fast candidate' : 'Verified/enriched'],
+    ['Modus', isFastLead(lead) ? 'Rask kandidat' : 'Verifisert/beriket'],
     ['Fit', command.sellerReadiness],
-    ['Digital presence', command.websiteOpportunity],
-    ['Main risk', command.mainRisk],
-    ['Source confidence', command.sourceConfidence],
+    ['Digital synlighet', command.websiteOpportunity],
+    ['Hovedrisiko', command.mainRisk],
+    ['Kildetrygghet', command.sourceConfidence],
   ]
   const riskRows = [
-    ['Verification', command.verification],
-    ['Risk reasons', riskReasonText],
-    ['Warnings', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
-    ['Economy', readable(economy.status || 'not_enabled')],
-    ['Export state', company.organizationNumber ? 'identity ready' : company.candidateOrganizationNumber ? 'verify candidate org.nr' : 'identity not confirmed'],
+    ['Verifisering', command.verification],
+    ['Risikogrunner', riskReasonText],
+    ['Varsler', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
+    ['Økonomi', readable(economy.status || 'not_enabled')],
+    ['Eksportstatus', company.organizationNumber ? 'identitet klar' : company.candidateOrganizationNumber ? 'verifiser kandidat-org.nr' : 'identitet ikke bekreftet'],
   ]
   const proofRiskRows = [
     ['Google', formatRating(places)],
-    ['Location', readable(sourceQuality.locationMatchStatus || 'unknown')],
-    ['Verification', command.verification],
-    ['Main check', command.mainRisk],
+    ['Sted', readable(sourceQuality.locationMatchStatus || 'unknown')],
+    ['Verifisering', command.verification],
+    ['Hovedsjekk', command.mainRisk],
   ]
   const confidenceRows = [
-    ['Lead confidence', leadConfidenceLabel(fusion.leadConfidence)],
-    ['Trust action', trustActionLabel(fusion.recommendedTrustAction)],
-    ['Identity', identityConfidenceLabel(fusion.identityConfidence)],
+    ['Lead-trygghet', leadConfidenceLabel(fusion.leadConfidence)],
+    ['Tillitshandling', trustActionLabel(fusion.recommendedTrustAction)],
+    ['Identitet', identityConfidenceLabel(fusion.identityConfidence)],
     ['Contact', contactConfidenceLabel(fusion.contactConfidence)],
-    ['Location', locationConfidenceLabel(fusion.locationConfidence)],
+    ['Sted', locationConfidenceLabel(fusion.locationConfidence)],
   ]
   const sourceCoverageRows = [
-    ['Source coverage', fusionSummary.coverage || 'none'],
-    ['Verified fields', fusionSummary.verified || 'none'],
-    ['Proof', fusionSummary.proof || 'none'],
-    ['Risk', fusionSummary.risk || 'none'],
-    ['Warnings', fusionSummary.warnings || 'none'],
+    ['Kildedekning', fusionSummary.coverage || 'none'],
+    ['Verifiserte felt', fusionSummary.verified || 'none'],
+    ['Bevis', fusionSummary.proof || 'none'],
+    ['Risiko', fusionSummary.risk || 'none'],
+    ['Varsler', fusionSummary.warnings || 'none'],
   ]
 
   const topCards = `<section class="seller-desk-v2 lead-brief-grid">
     ${sellerDeskCard('Contact', contact.phone ? 'phone_available' : 'contact_missing', contactRows, command.bestContactNote)}
-    ${sellerDeskCard('Company', orgStatus, identityRows, brregPublicLink(company))}
-    ${sellerDeskCard('Proof & checks', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : sourceQuality.locationMatchStatus || command.sellerReadinessKey, proofRiskRows, command.mainRiskNote)}
-    ${sellerDeskCard('Proof & confidence', fusion.recommendedTrustAction || fusion.leadConfidence, confidenceRows, sourceFusionFooter(fusion))}
+    ${sellerDeskCard('Firma', orgStatus, identityRows, brregPublicLink(company))}
+    ${sellerDeskCard('Bevis og sjekker', command.verification === 'Bekreftet org.nr' ? 'confirmed_org' : sourceQuality.locationMatchStatus || command.sellerReadinessKey, proofRiskRows, command.mainRiskNote)}
+    ${sellerDeskCard('Bevis og trygghet', fusion.recommendedTrustAction || fusion.leadConfidence, confidenceRows, sourceFusionFooter(fusion))}
   </section>`
   const details = `<details class="detail-collapse lead-brief-details">
-    <summary>Qualification and verification details</summary>
+    <summary>Kvalifisering og verifiseringsdetaljer</summary>
     <div class="seller-desk-v2 secondary-brief-grid">
-      ${sellerDeskCard('Company fit', command.sellerReadinessKey, fitRows, 'Seller fit interprets existing data; it does not change source truth.')}
-      ${sellerDeskCard('Source coverage', fusion.leadConfidence || 'unknown', sourceCoverageRows, 'Brreg is legal identity; website/contact is one source signal.')}
-      ${sellerDeskCard('Market proof', sourceQuality.locationMatchStatus || 'unknown', marketRows, places.placeId ? `Place ID: ${places.placeId}` : '')}
-      ${sellerDeskCard('Sales signals', command.sellerReadinessKey, actionRows, 'No script generated; seller owns angle and wording.')}
-      ${sellerDeskCard('Risk / verify', command.verification === 'Confirmed org.nr' ? 'confirmed_org' : command.sellerReadinessKey, riskRows, command.mainRiskNote)}
-      ${sellerDeskCard('Qualification', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Verify & Enrich has not run yet.' : 'Verify & Enrich modules included.')}
+      ${sellerDeskCard('Firmamatch', command.sellerReadinessKey, fitRows, 'Selgermatch tolker eksisterende data; den endrer ikke kildene.')}
+      ${sellerDeskCard('Kildedekning', fusion.leadConfidence || 'unknown', sourceCoverageRows, 'Brreg er juridisk identitet; nettside/kontakt er ett kildesignal.')}
+      ${sellerDeskCard('Markedsbevis', sourceQuality.locationMatchStatus || 'unknown', marketRows, places.placeId ? `Sted-ID: ${places.placeId}` : '')}
+      ${sellerDeskCard('Salgssignaler', command.sellerReadinessKey, actionRows, 'Ingen manus genereres; selgeren eier vinkel og ordlyd.')}
+      ${sellerDeskCard('Risiko / verifiser', command.verification === 'Bekreftet org.nr' ? 'confirmed_org' : command.sellerReadinessKey, riskRows, command.mainRiskNote)}
+      ${sellerDeskCard('Kvalifisering', isFastLead(lead) ? 'audit_skipped' : 'completed', qualificationRows, isFastLead(lead) ? 'Verifiser firma har ikke kjørt ennå.' : 'Verifiseringsmoduler er inkludert.')}
     </div>
   </details>`
   const includeTop = options.includeTop !== false
@@ -2140,11 +2140,11 @@ function sellerCommand(lead) {
   if (rating >= 4.3) fitScore += 1
   if (reviewCount >= 10) fitScore += 1
   if (employees >= 5) fitScore += 1
-  const companyFit = fitScore >= 7 ? 'Strong fit' : fitScore >= 5 ? 'Good fit' : fitScore >= 3 ? 'Review fit' : 'Weak fit'
+  const companyFit = fitScore >= 7 ? 'Strong fit' : fitScore >= 5 ? 'Good fit' : fitScore >= 3 ? 'Vurder match' : 'Weak fit'
   const companyFitNote = [
-    exactLocation ? 'right location' : 'location needs review',
-    confirmedOrg ? 'confirmed identity' : candidateOrg ? 'candidate identity' : 'identity not verified',
-    hasPhone ? 'phone available' : 'phone missing',
+    exactLocation ? 'right location' : 'sted må sjekkes',
+    confirmedOrg ? 'bekreftet identitet' : candidateOrg ? 'kandidat-identitet' : 'identitet ikke verifisert',
+    hasPhone ? 'telefon finnes' : 'telefon mangler',
   ].join(' · ')
 
   let sellerScore = 0
@@ -2163,81 +2163,81 @@ function sellerCommand(lead) {
 
   let sellerReadinessKey = sellerScore >= 10 ? 'strong' : sellerScore >= 7 ? 'good' : sellerScore >= 4 ? 'verify' : 'weak'
   let sellerReadiness = {
-    strong: 'Ready now',
-    good: 'Usable contact',
-    verify: 'Verify first',
-    weak: 'Needs contact',
+    strong: 'Klar nå',
+    good: 'Brukbar kontakt',
+    verify: 'Verifiser først',
+    weak: 'Trenger kontakt',
   }[sellerReadinessKey]
 
   const websiteOpportunity = {
     high: 'Strong digital signal',
     medium: 'Medium digital signal',
     low: 'Low digital signal',
-    verify: fast ? 'Not checked yet' : 'Needs review',
-  }[priority] || 'Needs review'
+    verify: fast ? 'Ikke sjekket ennå' : 'Må vurderes',
+  }[priority] || 'Må vurderes'
   const websiteOpportunityNote = fast
-    ? 'Fast mode has not audited the website yet.'
+    ? 'Nettsiden er ikke vurdert ennå.'
     : priority === 'low'
-      ? 'Digital presence did not show strong pain; this can still be a usable B2B lead.'
-      : 'Digital presence signals can support the seller if relevant.'
+      ? 'Digital synlighet did not show strong pain; this can still be a usable B2B lead.'
+      : 'Digitale signaler kan støtte selgeren der det er relevant.'
 
   const bestContact = hasPhone ? (contact.phone || lead.phone) : (contact.email || lead.email || 'unknown')
-  const bestContactNote = hasPhone ? 'Direct phone is available.' : contact.email ? 'Email exists, phone missing.' : 'Find a direct contact before sales work.'
-  const businessType = businessActivityLabel(company) || 'Unknown activity'
-  const businessTypeNote = businessType === 'Unknown activity'
-    ? 'No NACE/business activity found yet.'
-    : 'Registered business activity from Brreg/NACE.'
+  const bestContactNote = hasPhone ? 'Direkte telefon er tilgjengelig.' : contact.email ? 'E-post finnes, telefon mangler.' : 'Finn en direkte kontakt før salgsarbeid.'
+  const businessType = businessActivityLabel(company) || 'Ukjent aktivitet'
+  const businessTypeNote = businessType === 'Ukjent aktivitet'
+    ? 'Ingen NACE/bransjeaktivitet funnet ennå.'
+    : 'Registrert bransjeaktivitet fra Brreg/NACE.'
 
-  const verification = confirmedOrg ? 'Confirmed org.nr' : candidateOrg ? 'Candidate org.nr' : brregUnavailable ? 'Identity pending' : 'Not verified'
-  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'unknown'} confidence` : candidateOrg ? 'Manual verify before export.' : brregUnavailable ? 'Brreg not confirmed in fast search; use Verify & Enrich for a focused retry.' : 'Brreg returned no confirmed identity.'
+  const verification = confirmedOrg ? 'Bekreftet org.nr' : candidateOrg ? 'Kandidat org.nr' : brregUnavailable ? 'Identitet uavklart' : 'Ikke verifisert'
+  const verificationNote = confirmedOrg ? `${company.organizationNumber} · ${company.matchConfidence ?? 'ukjent'} treffsikkerhet` : candidateOrg ? 'Verifiser manuelt før eksport.' : brregUnavailable ? 'Brreg ikke bekreftet i raskt søk; bruk Verifiser firma for nytt forsøk.' : 'Brreg fant ingen bekreftet identitet.'
 
-  let mainRisk = 'Low data risk'
-  let mainRiskNote = 'Core contact and identity fields look usable.'
+  let mainRisk = 'Lav datarisiko'
+  let mainRiskNote = 'Kontakt- og identitetsfeltene ser brukbare ut.'
   if (!hasPhone) {
-    mainRisk = 'No direct phone'
-    mainRiskNote = 'This is harder to use for calling until contact data is improved.'
+    mainRisk = 'Ingen direkte telefon'
+    mainRiskNote = 'Vanskelig å bruke til ringing før kontaktdata er bedre.'
   } else if (!confirmedOrg && candidateOrg) {
-    mainRisk = 'Identity uncertain'
-    mainRiskNote = 'Candidate org.nr must be verified.'
+    mainRisk = 'Identitet usikker'
+    mainRiskNote = 'Kandidat-org.nr må verifiseres.'
   } else if (!exactLocation) {
-    mainRisk = 'Location fallback'
+    mainRisk = 'Sted via fallback'
     mainRiskNote = 'Do not treat this as an exact local lead.'
   } else if (fast) {
-    mainRisk = contact.website ? 'Website unverified' : 'Fast mode only'
-    mainRiskNote = contact.website ? 'Google supplied a URL; enrichment can verify whether it is real and relevant.' : 'Digital presence check and deeper enrichment are skipped.'
+    mainRisk = contact.website ? 'Nettside uvurdert' : 'Fast mode only'
+    mainRiskNote = contact.website ? 'Google ga en URL; åpne den og sjekk at den er ekte og relevant.' : 'Nettsidesjekk og dypere berikelse er hoppet over.'
   } else if ((ranking.caution || []).length) {
-    mainRisk = 'Review caution'
+    mainRisk = 'Obs-punkter'
     mainRiskNote = humanizeEvidence((ranking.caution || [])[0])
   }
 
   let nextAction = 'Use as B2B lead'
-  let nextActionNote = 'Contactability and company context decide sales usability; website pain is separate.'
+  let nextActionNote = 'Kontaktbarhet og firmakontekst avgjør salgsverdien; nettsidesmerte er separat.'
   if (!hasPhone) {
-    nextAction = 'Find contact first'
-    nextActionNote = 'Do not prioritize for calling until a direct contact is found.'
+    nextAction = 'Finn kontakt først'
+    nextActionNote = 'Ikke prioriter ringing før en direkte kontakt er funnet.'
   } else if (fast) {
-    nextAction = confirmedOrg ? 'Verify & Enrich if more context is needed' : candidateOrg ? 'Verify org.nr, then use Verify & Enrich if needed' : brregUnavailable ? 'Verify & Enrich for Brreg retry' : 'Verify & Enrich if needed'
-    nextActionNote = 'Fast found a usable candidate; Verify & Enrich adds optional context modules.'
+    nextAction = confirmedOrg ? 'Verifiser firma hvis du trenger mer kontekst' : candidateOrg ? 'Verifiser org.nr, bruk Verifiser firma ved behov' : brregUnavailable ? 'Verifiser firma for nytt Brreg-forsøk' : 'Verifiser firma ved behov'
+    nextActionNote = 'Raskt søk fant en brukbar kandidat; Verifiser firma legger til valgfri kontekst.'
   } else if (priority === 'low' && sellerReadinessKey !== 'weak') {
     nextAction = 'Usable lead; weak digital angle'
     nextActionNote = 'Do not treat LOW digital signal as a bad business lead.'
   } else if (priority === 'high') {
-    nextAction = 'Review first'
+    nextAction = 'Vurder først'
     nextActionNote = 'Enrichment evidence supports website/opportunity urgency.'
   }
 
-  const sourceConfidence = discoveryLevel === 'unknown' ? 'Unknown' : readable(discoveryLevel)
-  const sourceConfidenceNote = discoveryQuality.score == null ? 'No discovery score available.' : `Discovery score ${discoveryQuality.score}/100.`
+  const sourceConfidence = discoveryLevel === 'unknown' ? 'Ukjent' : readable(discoveryLevel)
+  const sourceConfidenceNote = discoveryQuality.score == null ? 'Ingen treffscore tilgjengelig.' : `Discovery score ${discoveryQuality.score}/100.`
 
   const fit = lead.sellerFit || null
   if (fit) {
     if (fit.sellerFit === 'strong') sellerReadiness = 'Strong fit'
     else if (fit.sellerFit === 'good') sellerReadiness = 'Good fit'
-    else if (fit.sellerFit === 'review') sellerReadiness = 'Review fit'
+    else if (fit.sellerFit === 'review') sellerReadiness = 'Vurder match'
     else sellerReadiness = 'Weak fit'
     sellerReadinessKey = fit.sellerFit === 'review' ? 'verify' : fit.sellerFit
     if (fit.recommendedAction === 'contact') nextAction = 'Contact now'
-    else if (fit.recommendedAction === 'verify') nextAction = 'Verify first'
+    else if (fit.recommendedAction === 'verify') nextAction = 'Verifiser først'
     else if (fit.recommendedAction === 'skip') nextAction = 'Skip or deprioritize'
     nextActionNote = (fit.fitReasons || []).slice(0, 2).join(' · ') || nextActionNote
   }
@@ -2258,23 +2258,23 @@ function sellerIntentLabel(value) {
     insurance: 'Insurance',
     finance: 'Finance',
     recruiting: 'Recruiting',
-    other: 'Other',
+    other: 'Annet',
   }[String(value || 'general_b2b')] || 'General B2B'
 }
 
 function buildCommandSummary({ company, contact, places, confirmedOrg, candidateOrg, exactLocation, fast, employees, priority, websiteOpportunity }) {
   const activity = businessActivityLabel(company)
   const parts = []
-  if (activity) parts.push(`Registered as ${activity}`)
-  if (contact.phone) parts.push(`direct phone ${contact.phone} is available`)
+  if (activity) parts.push(`Registrert som ${activity}`)
+  if (contact.phone) parts.push(`direkte telefon ${contact.phone} er tilgjengelig`)
   if (employees != null && employees !== '' && !Number.isNaN(Number(employees))) parts.push(`${employees} employees registered`)
   if (places.rating) parts.push(`Google ${places.rating}/5${places.reviewCount != null ? ` from ${places.reviewCount} reviews` : ''}`)
-  if (exactLocation) parts.push('location matches the search')
-  if (confirmedOrg) parts.push(`org.nr is confirmed${company.organizationNumber ? ` (${company.organizationNumber})` : ''}`)
-  else if (candidateOrg) parts.push('org.nr has a candidate match and must be verified')
-  else parts.push('company identity is not verified yet')
-  if (fast) parts.push(contact.website ? 'website is only a presence signal until enrichment runs' : 'enrichment has not run yet')
-  else parts.push(`digital presence signal is ${websiteOpportunity || String(priority || 'unknown').toUpperCase()}`)
+  if (exactLocation) parts.push('stedet matcher søket')
+  if (confirmedOrg) parts.push(`org.nr er bekreftet${company.organizationNumber ? ` (${company.organizationNumber})` : ''}`)
+  else if (candidateOrg) parts.push('org.nr har kandidat-treff og må verifiseres')
+  else parts.push('firmaidentiteten er ikke verifisert ennå')
+  if (fast) parts.push(contact.website ? 'nettsiden er bare et synlighetssignal til den er sjekket' : 'enrichment has not run yet')
+  else parts.push(`digitalt signal er ${websiteOpportunity || String(priority || 'unknown').toUpperCase()}`)
   return `${parts.join('; ')}.`
 }
 
@@ -2301,9 +2301,9 @@ function companyIdValue(company = {}) {
 }
 
 function companyIdNote(company = {}) {
-  if (company.organizationNumber) return 'Confirmed official identity'
-  if (company.candidateOrganizationNumber) return 'Candidate org.nr; verify before export'
-  if (isBrregUnavailable(company)) return 'Fast search could not confirm Brreg; use Verify & Enrich for a focused retry'
+  if (company.organizationNumber) return 'Bekreftet offisiell identitet'
+  if (company.candidateOrganizationNumber) return 'Kandidat-org.nr; verifiser før eksport'
+  if (isBrregUnavailable(company)) return 'Raskt søk fikk ikke bekreftet Brreg; bruk Verifiser firma for nytt forsøk'
   return brregStatusLabel(company)
 }
 
@@ -2313,24 +2313,24 @@ function sourceStrategyStatus(company = {}, sourceQuality = {}, places = {}) {
 }
 
 function sourceStrategyLabel(company = {}, sourceQuality = {}) {
-  if (isBrregUnavailable(company)) return 'Presence-first fallback; Verify & Enrich retries Brreg for this company'
-  if (sourceQuality.identitySource === 'brreg') return 'Brreg-first identity with presence enrichment'
-  return 'Presence-first discovery'
+  if (isBrregUnavailable(company)) return 'Synlighet-først fallback; Verifiser firma prøver Brreg på nytt'
+  if (sourceQuality.identitySource === 'brreg') return 'Brreg-først identitet med synlighetsberikelse'
+  return 'Synlighet-først søk'
 }
 
 function brregSourceCard(company) {
   const rows = [
-    ['Confirmed org.nr', company.organizationNumber || 'none'],
-    ['Candidate org.nr', company.candidateOrganizationNumber || 'none'],
-    ['Legal name', company.legalName || 'unknown'],
-    ['Candidate legal name', company.candidateLegalName || 'none'],
+    ['Bekreftet org.nr', company.organizationNumber || 'none'],
+    ['Kandidat org.nr', company.candidateOrganizationNumber || 'none'],
+    ['Juridisk navn', company.legalName || 'unknown'],
+    ['Kandidat juridisk navn', company.candidateLegalName || 'none'],
     ['Org form', company.organizationForm || 'unknown'],
-    ['Municipality', company.municipality || 'unknown'],
+    ['Kommune', company.municipality || 'unknown'],
     ['NACE', [company.naceCode, company.naceDescription].filter(Boolean).join(' - ') || 'unknown'],
-    ['Employees', company.employees ?? 'unknown'],
+    ['Ansatte', company.employees ?? 'unknown'],
     ['Status', company.activeStatus || 'unknown'],
     ['Confidence', company.matchConfidence ?? 'unknown'],
-    ['Warnings', normalizeList(company.warnings).length ? normalizeList(company.warnings).map(humanize).join(', ') : 'none'],
+    ['Varsler', normalizeList(company.warnings).length ? normalizeList(company.warnings).map(humanize).join(', ') : 'none'],
     ['Brønnøysund', brregPublicLink(company) || 'unknown'],
   ]
   return sourceCard('Brreg firmaprofil', brregStatusLabel(company), rows)
@@ -2368,7 +2368,7 @@ function candidateSection(company = {}) {
   if (!candidates.length) return ''
   return section('Brreg candidates', `<div class="candidate-list">${candidates.map((candidate) => `
     <div class="candidate-row">
-      <strong>${escapeHtml(candidate.candidateLegalName || 'Unknown legal name')}</strong>
+      <strong>${escapeHtml(candidate.candidateLegalName || 'Ukjent juridisk navn')}</strong>
       <span>${escapeHtml(candidate.candidateOrganizationNumber || 'no org.nr')} · ${escapeHtml(candidate.unitType || 'unknown')} · ${escapeHtml(candidate.municipality || 'unknown')} · score ${escapeHtml(candidate.score ?? 'unknown')}</span>
       <small>${escapeHtml(candidate.address || '')}</small>
     </div>
@@ -2390,46 +2390,46 @@ function sellerSignals(lead) {
   const raw = [lead.opportunityType, lead.leadClass, ...(ranking.whyRanked || []), ...(website.topEvidence || [])].filter(Boolean)
   const signals = []
 
-  if (contact.phone) signals.push(`Phone is available: ${contact.phone}. This is contactable, not just a website lead.`)
-  else if (contact.email) signals.push(`Email is available: ${contact.email}. Direct qualification is possible.`)
+  if (contact.phone) signals.push(`Telefon finnes: ${contact.phone}. Denne er kontaktbar, ikke bare en nettside-lead.`)
+  else if (contact.email) signals.push(`E-post finnes: ${contact.email}. Direkte kvalifisering er mulig.`)
 
-  if (places.rating) signals.push(`Google proof: ${formatRating(places)}. Use this to judge market presence before prioritizing.`)
+  if (places.rating) signals.push(`Google-bevis: ${formatRating(places)}. Bruk dette til å vurdere markedsnærvær før du prioriterer.`)
 
-  if (isFastLead(lead) && contact.website) signals.push('Website is from discovery and has not been verified yet; enrich before using website quality as leverage.')
+  if (isFastLead(lead) && contact.website) signals.push('Nettsiden er fra søket og er ikke vurdert; åpne og sjekk før du bruker den som salgsvinkel.')
 
-  if (company.organizationNumber) signals.push(`Brreg confirmed: org.nr ${company.organizationNumber}. Legal identity is ready for export.`)
-  else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Brreg candidate exists, but legal identity should be verified before export.')
-  else if (isBrregUnavailable(company)) signals.push('Brreg is not confirmed from the fast run; use Verify & Enrich for a focused retry.')
-  else signals.push('Legal identity is not verified yet; Brreg returned no confirmed firm profile.')
+  if (company.organizationNumber) signals.push(`Brreg bekreftet: org.nr ${company.organizationNumber}. Juridisk identitet er klar for eksport.`)
+  else if (company.candidateOrganizationNumber || company.matchStatus === 'manual_verify') signals.push('Brreg-kandidat finnes, men juridisk identitet bør verifiseres før eksport.')
+  else if (isBrregUnavailable(company)) signals.push('Brreg er ikke bekreftet fra raskt søk; bruk Verifiser firma for nytt forsøk.')
+  else signals.push('Juridisk identitet er ikke verifisert; Brreg fant ingen bekreftet firmaprofil.')
 
-  if (isLawLead(lead)) signals.push('Law-firm context: credibility, trust and client enquiry quality matter more than generic booking language.')
+  if (isLawLead(lead)) signals.push('Advokat-kontekst: troverdighet, tillit og kvalitet på henvendelser betyr mer enn generisk booking-språk.')
 
   for (const item of raw) {
     const mapped = leverageLabel(item)
     if (mapped && !signals.includes(mapped)) signals.push(mapped)
   }
 
-  if (!signals.length) signals.push('Lead has enough contact and source context to review manually.')
+  if (!signals.length) signals.push('Leaden har nok kontakt- og kildekontekst til manuell vurdering.')
   return signals.filter(Boolean).slice(0, 7)
 }
 
 function leverageLabel(value) {
   const text = String(value || '').toLowerCase()
   if (isInternalLabel(text)) return null
-  if (text.includes('brand_identity_confusion') || text.includes('brand identity confusion')) return 'Brand/domain alignment may be unclear. Verify that the company name, website and legal entity point to the same business.'
-  if (text === 'brand_identity' || text.includes('leadclass:brand_identity')) return 'Identity signal: verify whether the public brand and legal firm name are aligned.'
-  if (text.includes('technical_trust_risk') || text.includes('technical trust')) return 'Digital trust or reliability signals may be weaker than the business itself.'
-  if (text.includes('many_failed_requests') || text.includes('failed network')) return 'Digital reliability evidence exists; verify before using it as a sales point.'
+  if (text.includes('brand_identity_confusion') || text.includes('merkevare/identitet-forvirring')) return 'Brand/domain alignment may be unclear. Verify that the company name, website and legal entity point to the same business.'
+  if (text === 'brand_identity' || text.includes('leadclass:brand_identity')) return 'Identitetssignal: sjekk om offentlig merkevare og juridisk firmanavn stemmer overens.'
+  if (text.includes('technical_trust_risk') || text.includes('technical trust')) return 'Digitale tillitssignaler kan være svakere enn bedriften selv.'
+  if (text.includes('many_failed_requests') || text.includes('failed network')) return 'Digitale pålitelighetsbevis finnes; sjekk før du bruker det som salgspoeng.'
   if (text.includes('accessibility') || text.includes('usability')) return 'Usability/accessibility friction may affect customer confidence.'
-  if (text.includes('high_value_service') || text.includes('service_line')) return 'High-value services are present and may deserve clearer lead paths.'
-  if (text.includes('local_visibility')) return 'Local visibility lead: contact and location are clear, but urgency may be lower without stronger pain.'
-  if (text.includes('strong_existing_conversion_flow')) return 'Contact flow already looks strong, so urgency should not be overstated.'
-  if (text.includes('contact_maturity_requires_stronger_technical_pain')) return 'Contact maturity is high; treat this as shortlist unless technical pain is clear.'
-  if (text.includes('visible_technical_trust_pain')) return 'Visible technical trust evidence supports a deeper review.'
-  if (text.includes('no social links')) return 'Social proof links were not detected in the digital presence check.'
-  if (text.includes('no recognized technology stack')) return 'Technology stack was not recognized; this can be a manual review signal for site age or custom setup.'
-  if (text.includes('fetch failed') || text.includes('network error')) return 'Registry lookup was unavailable; retry Brreg before export.'
-  if (text.includes('contactable')) return 'Business appears reachable from available contact data.'
+  if (text.includes('high_value_service') || text.includes('service_line')) return 'Høyverdi-tjenester finnes og kan fortjene tydeligere lead-veier.'
+  if (text.includes('local_visibility')) return 'Lokal synlighets-lead: kontakt og sted er klare, men hastverket kan være lavere uten sterkere smerte.'
+  if (text.includes('strong_existing_conversion_flow')) return 'Kontaktflyten ser allerede sterk ut, så ikke overdriv hastverket.'
+  if (text.includes('contact_maturity_requires_stronger_technical_pain')) return 'Kontaktmodenheten er høy; behandle som kortliste med mindre teknisk smerte er tydelig.'
+  if (text.includes('visible_technical_trust_pain')) return 'Synlige tekniske tillitsfunn støtter en grundigere vurdering.'
+  if (text.includes('no social links')) return 'Sosiale bevis-lenker ble ikke funnet i nettsidesjekken.'
+  if (text.includes('no recognized technology stack')) return 'Teknologistakken ble ikke gjenkjent; kan være et signal om gammel eller spesialbygd side.'
+  if (text.includes('fetch failed') || text.includes('network error')) return 'Registeroppslag var utilgjengelig; prøv Brreg på nytt før eksport.'
+  if (text.includes('contactable')) return 'Bedriften ser kontaktbar ut fra tilgjengelige data.'
   return null
 }
 
@@ -2451,17 +2451,17 @@ function isLawLead(lead) {
 function nextSellerStep(lead) {
   const priority = String(lead.callPriority || lead.priority || '').toLowerCase()
   const match = String(lead.company?.matchStatus || '').toLowerCase()
-  if (match === 'manual_verify' || match === 'weak_match') return 'Verify company identity first'
-  if (priority === 'high') return 'Review first'
-  if (priority === 'medium') return 'Shortlist and inspect evidence'
+  if (match === 'manual_verify' || match === 'weak_match') return 'Verifiser firmaidentitet først'
+  if (priority === 'high') return 'Vurder først'
+  if (priority === 'medium') return 'Kortlist og se på bevisene'
   if (priority === 'low') return 'Usable lead; weak digital angle'
   if (priority === 'verify') return 'Manual verification required'
-  return 'Review source data'
+  return 'Vurder kildedata'
 }
 
 function formatRating(places) {
-  if (!places || places.rating === null || places.rating === undefined) return 'rating unknown'
-  const reviews = places.reviewCount === null || places.reviewCount === undefined ? 'reviews unknown' : `${places.reviewCount} reviews`
+  if (!places || places.rating === null || places.rating === undefined) return 'vurdering ukjent'
+  const reviews = places.reviewCount === null || places.reviewCount === undefined ? 'antall omtaler ukjent' : `${places.reviewCount} reviews`
   return `${places.rating} / 5 · ${reviews}`
 }
 
@@ -2470,8 +2470,52 @@ function humanizeEvidence(value) {
   return mapped || humanize(value)
 }
 
+const HUMANIZE_NB = {
+  website_available: 'Nettside finnes',
+  phone_available: 'Telefon finnes',
+  address_available: 'Adresse finnes',
+  place_id_available: 'Google-oppføring finnes',
+  rating_available: 'Google-vurdering finnes',
+  reviews_available: 'Google-omtaler finnes',
+  operational: 'I drift',
+  direct_business_target: 'Direkte bedriftstreff',
+  vertical_exact: 'Eksakt bransjetreff',
+  vertical_synonym: 'Relatert bransjetreff',
+  vertical_broad: 'Bredt bransjetreff',
+  vertical_weak: 'Svakt bransjetreff',
+  missing_website: 'Nettside mangler',
+  missing_phone: 'Telefon mangler',
+  missing_email: 'E-post mangler',
+  candidate_org_number: 'Kandidat-org.nr',
+  org_not_confirmed_but_callable: 'Org.nr ikke bekreftet, men ringbar',
+  phone_format_not_norwegian: 'Telefonnummeret ser utenlandsk ut',
+  location_conflict: 'Stedskonflikt',
+  location_needs_review: 'Sted må sjekkes',
+  location_missing: 'Sted mangler',
+  contact_missing: 'Kontakt mangler',
+  source_fusion_verify_first: 'Kildesjekk: verifiser først',
+  requested_location_missing: 'Ønsket sted mangler i kilden',
+  candidate_location_unknown: 'Kandidatens sted er ukjent',
+  candidate_appears_outside_requested_location: 'Ser ut til å ligge utenfor ønsket sted',
+  name_mismatch: 'Navn matcher ikke',
+  no_plausible_candidate: 'Ingen plausibel kandidat',
+  brreg_unavailable: 'Brreg utilgjengelig',
+  not_audit_eligible: 'Ikke kvalifisert for nettsidesjekk',
+  missing_website_for_audit: 'Nettside mangler for sjekk',
+  included_as_explicit_location_fallback: 'Inkludert som steds-fallback',
+  skipped_no_website: 'Hoppet over - ingen nettside',
+  skipped_fast_mode: 'Hoppet over i raskt søk',
+  exact_match: 'Eksakt treff',
+  strong_match: 'Sterkt treff',
+  weak_match: 'Svakt treff',
+  basic_contact_available: 'Grunnleggende kontakt finnes',
+  proff_api_key_missing: 'Proff-nøkkel mangler',
+}
+
 function humanize(value) {
-  return String(value || 'unknown')
+  const key = String(value || '').toLowerCase().trim()
+  if (HUMANIZE_NB[key]) return HUMANIZE_NB[key]
+  return String(value || 'ukjent')
     .replace(/[_:]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -2480,12 +2524,12 @@ function humanize(value) {
 
 function renderExport(result) {
   if (!result) {
-    els.exportPanel.innerHTML = '<p class="eyebrow">Export</p><div class="empty-state">CSV and JSON links appear after a completed run.</div>'
+    els.exportPanel.innerHTML = '<p class="eyebrow">Eksport</p><div class="empty-state">CSV- og JSON-lenker vises etter en fullført kjøring.</div>'
     return
   }
   const leads = result.summary?.marketSweep ? (result.leadPacks || []).slice().sort(compareLeadsByCity) : (result.leadPacks || [])
   els.exportPanel.innerHTML = `
-    <p class="eyebrow">Export</p>
+    <p class="eyebrow">Eksport</p>
     <p class="muted">Run path: <code>${escapeHtml(result.outputDir)}</code></p>
     <p><a href="${escapeAttr(withBetaToken(result.downloads.csv))}">Download CSV</a> · <a href="${escapeAttr(withBetaToken(result.downloads.json))}">Download JSON</a> · <button type="button" id="copyPath">Copy run path</button></p>
     ${callListLinks(result.downloads || {})}
@@ -2563,10 +2607,10 @@ document.addEventListener('click', (event) => {
 async function runWorkflowQuickAction(button) {
   const index = Number(button.dataset.index ?? state.selectedIndex)
   const lead = state.result?.leadPacks?.[index]
-  if (!lead) return setStatus('failed: no selected lead for quick action', 'failed')
+  if (!lead) return setStatus('feilet: ingen valgt lead for hurtighandling', 'failed')
   const action = button.dataset.workflowAction
   const workflow = buildQuickWorkflow(action, lead.workflow || {})
-  if (!workflow) return setStatus('failed: unknown quick action', 'failed')
+  if (!workflow) return setStatus('feilet: ukjent hurtighandling', 'failed')
   workflow.owner = currentOwner() || workflow.owner || ''
   const advanceQueue = Boolean(button.closest('.queue-row'))
   state.selectedIndex = index
@@ -2606,9 +2650,9 @@ function applyWorkflowQuickActionDraft(button) {
   const form = document.getElementById('workflowForm')
   const index = Number(button.dataset.index ?? state.selectedIndex)
   const lead = state.result?.leadPacks?.[index]
-  if (!form || !lead) return setStatus('failed: no selected lead for note draft', 'failed')
+  if (!form || !lead) return setStatus('feilet: ingen valgt lead for notatutkast', 'failed')
   const workflow = buildQuickWorkflow(button.dataset.workflowAction, readWorkflowDraft(form, lead.workflow || {}))
-  if (!workflow) return setStatus('failed: unknown quick action', 'failed')
+  if (!workflow) return setStatus('feilet: ukjent hurtighandling', 'failed')
   setWorkflowFormValues(form, workflow)
   const saveText = form.querySelector('.workflow-actions small')
   if (saveText) saveText.textContent = 'Utkast - klikk Lagre for å logge'
@@ -2709,7 +2753,7 @@ async function runSelectedDeepQualification(button) {
   const originalText = button.textContent
   button.disabled = true
   button.textContent = 'Verifying...'
-  setStatus(`running: Verify & Enrich for ${lead.company?.displayName || 'selected lead'}`, 'running')
+  setStatus(`running: Verifiser firma for ${lead.company?.displayName || 'valgt lead'}`, 'running')
   try {
     const response = await apiFetch('/api/deep-qualify', {
       method: 'POST',
@@ -2729,7 +2773,7 @@ async function runSelectedDeepQualification(button) {
     updatedLead.workflow = lead.workflow || updatedLead.workflow
     state.result.leadPacks[state.selectedIndex] = updatedLead
     state.result.summary = updateSummaryAfterLeadReplacement(state.result.summary || {}, state.result.leadPacks)
-    setStatus('completed: selected lead verified and enriched', '')
+    setStatus('fullført: valgt lead verifisert og beriket', '')
     renderAll()
   } catch (error) {
     setStatus(`failed: ${error.message || 'Lead enrichment failed'}`, 'failed')
@@ -2753,7 +2797,7 @@ function updateSummaryAfterLeadReplacement(summary, leads) {
     totalIncluded: leads.length,
     totalLeads: leads.length,
     mode: 'mixed',
-    nextRecommendedAction: callPriorityCounts.high ? 'Review HIGH leads first.' : callPriorityCounts.medium ? 'Review top MEDIUM leads as shortlist.' : 'Review verified leads and remaining Fast candidates.',
+    nextRecommendedAction: callPriorityCounts.high ? 'Vurder HØY-leads først.' : callPriorityCounts.medium ? 'Vurder de beste MEDIUM-leadene som kortliste.' : 'Vurder verifiserte leads og resten av kandidatene.',
   }
 }
 
@@ -2805,11 +2849,11 @@ function sourceFusionUiSummary(fusion = {}) {
 
 function sourceFusionFooter(fusion = {}) {
   const summary = sourceFusionUiSummary(fusion)
-  return summary.warnings || summary.risk || summary.proof || 'Uses existing Google, Brreg and contact signals.'
+  return summary.warnings || summary.risk || summary.proof || 'Bruker eksisterende Google-, Brreg- og kontaktsignaler.'
 }
 
 function sourceCoverageLabels(values = []) {
-  const labels = { google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Contact data', contact_provider: 'Contact provider', website_contact_profile: 'Website/contact profile', workflow: 'Workflow' }
+  const labels = { google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Kontaktdata', contact_provider: 'Kontaktleverandør', website_contact_profile: 'Nettside-/kontaktprofil', workflow: 'Arbeidsflyt' }
   return normalizeList(values).map((value) => labels[value] || humanize(value))
 }
 
@@ -2827,15 +2871,15 @@ function trustActionLabel(value) {
 }
 
 function identityConfidenceLabel(value) {
-  return { confirmed: 'Confirmed company', candidate: 'Candidate org.nr', manual_verify: 'Manual verify', unknown: 'Unknown identity' }[String(value || '').toLowerCase()] || humanize(value)
+  return { confirmed: 'Bekreftet firma', candidate: 'Kandidat org.nr', manual_verify: 'Verifiser manuelt', unknown: 'Ukjent identitet' }[String(value || '').toLowerCase()] || humanize(value)
 }
 
 function contactConfidenceLabel(value) {
-  return { strong: 'Contact available', good: 'Phone available', review: 'Missing phone', weak: 'No contact path', unknown: 'Unknown contact' }[String(value || '').toLowerCase()] || humanize(value)
+  return { strong: 'Kontakt finnes', good: 'Telefon finnes', review: 'Telefon mangler', weak: 'Ingen kontaktvei', unknown: 'Ukjent kontakt' }[String(value || '').toLowerCase()] || humanize(value)
 }
 
 function locationConfidenceLabel(value) {
-  return { exact: 'Exact location', nearby: 'Nearby location', fallback: 'Regional fallback', conflict: 'Location conflict', unknown: 'Unknown location' }[String(value || '').toLowerCase()] || humanize(value)
+  return { exact: 'Eksakt sted', nearby: 'Nærområde-treff', fallback: 'Regionalt treff', conflict: 'Stedskonflikt', unknown: 'Ukjent sted' }[String(value || '').toLowerCase()] || humanize(value)
 }
 
 function sourceFusionExportCell(lead) {
@@ -2891,7 +2935,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { new: 'New lead', reviewed: 'Reviewed', contacted: 'Contacted', follow_up: 'Follow-up', interested: 'Interested', rejected: 'Rejected', no_answer: 'No answer', no_response: 'No response', negative: 'Negative', neutral: 'Neutral', meeting_booked: 'Meeting booked', phone: 'Phone', email: 'Email', contact_form: 'Contact form', linkedin: 'LinkedIn', other: 'Other', exact_location: 'Exact location', regional_fallback: 'Regional fallback', not_enabled: 'Not enabled', disabled: 'Disabled', success: 'Success', not_eligible: 'Not eligible', manual_verify: 'Manual verify', confirmed_org: 'Confirmed org.nr', candidate_org: 'Candidate org.nr', no_match: 'No match', not_run: 'Not run', brreg_unavailable: 'Brreg ikke bekreftet', phone_available: 'Phone available', contact_missing: 'Contact missing', audit_skipped: 'Fast scan', completed: 'Completed', good: 'Good', strong: 'Strong', weak: 'Weak', high: 'High', medium: 'Medium', low: 'Low', verify: 'Verify', fast: 'Fast', deep: 'Deep', mixed: 'Mixed', ready_to_call: 'Ready to call', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Needs contact', follow_up_due: 'Follow-up due', later: 'Later', skip: 'Skip', queue_change: 'Queue change', follow_up_set: 'Follow-up set', contact_attempt: 'Contact attempt', status_change: 'Status change', note: 'Note', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Exact location', nearby: 'Nearby location', fallback: 'Regional fallback', conflict: 'Conflict', confirmed: 'Confirmed company', candidate: 'Candidate org.nr', unknown: 'Unknown', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Contact data', contact_provider: 'Contact provider', website_contact_profile: 'Website/contact profile', workflow: 'Workflow', vertical_exact: 'Exact category', vertical_synonym: 'Related category', vertical_broad: 'Broad category', vertical_weak: 'Weak category', synonym: 'Related', broad: 'Broad' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'Ny lead', reviewed: 'Vurdert', contacted: 'Kontaktet', follow_up: 'Oppfølging', interested: 'Interessert', rejected: 'Avvist', no_answer: 'Ingen svar', no_response: 'Ingen respons', negative: 'Negativ', neutral: 'Nøytral', meeting_booked: 'Møte booket', phone: 'Telefon', email: 'E-post', contact_form: 'Kontaktskjema', linkedin: 'LinkedIn', other: 'Annet', exact_location: 'Eksakt sted', regional_fallback: 'Regionalt treff', not_enabled: 'Ikke aktivert', disabled: 'Avslått', success: 'Vellykket', not_eligible: 'Ikke kvalifisert', manual_verify: 'Verifiser manuelt', confirmed_org: 'Bekreftet org.nr', candidate_org: 'Kandidat org.nr', no_match: 'Ingen treff', not_run: 'Ikke kjørt', brreg_unavailable: 'Brreg ikke bekreftet', phone_available: 'Telefon finnes', contact_missing: 'Kontakt mangler', audit_skipped: 'Raskt søk', completed: 'Fullført', good: 'God', strong: 'Sterk', weak: 'Svak', high: 'Høy', medium: 'Middels', low: 'Lav', verify: 'Verifiser', fast: 'Rask', deep: 'Dyp', mixed: 'Blandet', ready_to_call: 'Klar til å ringe', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Trenger kontakt', follow_up_due: 'Oppfølging forfalt', later: 'Senere', skip: 'Hopp over', queue_change: 'Køendring', follow_up_set: 'Oppfølging satt', contact_attempt: 'Kontaktforsøk', status_change: 'Statusendring', note: 'Notat', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Eksakt sted', nearby: 'Nærområde-treff', fallback: 'Regionalt treff', conflict: 'Konflikt', confirmed: 'Bekreftet firma', candidate: 'Kandidat org.nr', unknown: 'Ukjent', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Kontaktdata', contact_provider: 'Kontaktleverandør', website_contact_profile: 'Nettside-/kontaktprofil', workflow: 'Arbeidsflyt', vertical_exact: 'Eksakt kategori', vertical_synonym: 'Relatert kategori', vertical_broad: 'Bred kategori', vertical_weak: 'Svak kategori', synonym: 'Relatert', broad: 'Bred' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {

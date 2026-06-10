@@ -56,7 +56,7 @@ function emptyOsint({ observedAt, sellerIntent }) {
 function addCompanyIdentity(osint, { company, sourceQuality, observedAt }) {
   if (company.organizationNumber) {
     addSignal(osint, 'companyIdentity', {
-      label: 'Confirmed org.nr',
+      label: 'Bekreftet org.nr',
       value: company.organizationNumber,
       confidence: confidenceFromNumber(company.matchConfidence, 'high'),
       sourceName: sourceQuality.identitySource || company.source || 'Brreg',
@@ -65,7 +65,7 @@ function addCompanyIdentity(osint, { company, sourceQuality, observedAt }) {
     })
   } else if (company.candidateOrganizationNumber) {
     addSignal(osint, 'companyIdentity', {
-      label: 'Candidate org.nr',
+      label: 'Kandidat org.nr',
       value: company.candidateOrganizationNumber,
       confidence: confidenceFromNumber(company.matchConfidence, 'medium'),
       riskLevel: 'medium',
@@ -75,7 +75,7 @@ function addCompanyIdentity(osint, { company, sourceQuality, observedAt }) {
     })
   } else {
     addSignal(osint, 'riskVerify', {
-      label: 'Company identity not confirmed',
+      label: 'Firmaidentitet ikke bekreftet',
       value: company.matchStatus || 'not_confirmed',
       confidence: 'medium',
       riskLevel: 'medium',
@@ -87,7 +87,7 @@ function addCompanyIdentity(osint, { company, sourceQuality, observedAt }) {
 
   if (company.legalName || company.candidateLegalName) {
     addSignal(osint, 'companyIdentity', {
-      label: 'Legal name',
+      label: 'Juridisk navn',
       value: company.legalName || company.candidateLegalName,
       confidence: company.legalName ? 'high' : 'medium',
       sourceName: company.source || 'Brreg',
@@ -98,7 +98,7 @@ function addCompanyIdentity(osint, { company, sourceQuality, observedAt }) {
 
   if (company.activeStatus) {
     addSignal(osint, company.activeStatus === 'active' ? 'companyIdentity' : 'riskVerify', {
-      label: 'Company status',
+      label: 'Firmastatus',
       value: company.activeStatus,
       confidence: 'high',
       riskLevel: company.activeStatus === 'active' ? 'low' : 'high',
@@ -110,7 +110,7 @@ function addCompanyIdentity(osint, { company, sourceQuality, observedAt }) {
 
   if (company.employees !== undefined && company.employees !== null && company.employees !== '') {
     addSignal(osint, 'companyIdentity', {
-      label: 'Registered employees',
+      label: 'Registrerte ansatte',
       value: String(company.employees),
       confidence: 'medium',
       sourceName: company.source || 'Brreg',
@@ -121,7 +121,7 @@ function addCompanyIdentity(osint, { company, sourceQuality, observedAt }) {
 
   if (company.naceCode || company.naceDescription) {
     addSignal(osint, 'companyIdentity', {
-      label: 'Industry category',
+      label: 'Bransjekategori',
       value: [company.naceCode, company.naceDescription].filter(Boolean).join(' - '),
       confidence: 'medium',
       sourceName: company.source || 'Brreg',
@@ -138,20 +138,20 @@ function addContactability(osint, { lead, contact, website, observedAt }) {
 
   if (phone) {
     addSignal(osint, 'contactability', {
-      label: 'Direct phone',
+      label: 'Direkte telefon',
       value: phone,
       confidence: 'high',
-      sourceName: 'Lead public source',
+      sourceName: 'Offentlig kilde for lead',
       sourceUrl: null,
       observedAt,
     })
   } else {
     addSignal(osint, 'riskVerify', {
-      label: 'No direct phone found',
+      label: 'Ingen direkte telefon funnet',
       value: 'missing',
       confidence: 'medium',
       riskLevel: 'medium',
-      sourceName: 'Lead public source',
+      sourceName: 'Offentlig kilde for lead',
       sourceUrl: null,
       observedAt,
     })
@@ -159,10 +159,10 @@ function addContactability(osint, { lead, contact, website, observedAt }) {
 
   if (email) {
     addSignal(osint, 'contactability', {
-      label: 'Email contact path',
+      label: 'E-postvei',
       value: email,
       confidence: 'medium',
-      sourceName: 'Digital presence check',
+      sourceName: 'Nettsidesjekk',
       sourceUrl: websiteUrl,
       observedAt,
     })
@@ -170,7 +170,7 @@ function addContactability(osint, { lead, contact, website, observedAt }) {
 
   if (websiteUrl) {
     addSignal(osint, 'contactability', {
-      label: 'Website contact path',
+      label: 'Kontaktvei på nettsiden',
       value: websiteUrl,
       confidence: 'medium',
       sourceName: 'Website',
@@ -181,10 +181,10 @@ function addContactability(osint, { lead, contact, website, observedAt }) {
 
   if (website.contactability) {
     addSignal(osint, 'contactability', {
-      label: 'Website contactability',
+      label: 'Nettside-kontaktbarhet',
       value: website.contactability,
       confidence: 'medium',
-      sourceName: 'Digital presence check',
+      sourceName: 'Nettsidesjekk',
       sourceUrl: websiteUrl,
       observedAt,
     })
@@ -195,7 +195,7 @@ function addDigitalPresence(osint, { lead, contact, website, ranking, observedAt
   const websiteUrl = websiteValue(contact.website || lead.website)
   if (websiteUrl) {
     addSignal(osint, 'digitalPresence', {
-      label: 'Website found',
+      label: 'Nettside funnet',
       value: websiteUrl,
       confidence: 'medium',
       sourceName: 'Website',
@@ -204,11 +204,11 @@ function addDigitalPresence(osint, { lead, contact, website, ranking, observedAt
     })
   } else {
     addSignal(osint, 'riskVerify', {
-      label: 'No website found',
+      label: 'Ingen nettside funnet',
       value: 'missing',
       confidence: 'medium',
       riskLevel: 'low',
-      sourceName: 'Lead public source',
+      sourceName: 'Offentlig kilde for lead',
       sourceUrl: null,
       observedAt,
     })
@@ -216,10 +216,10 @@ function addDigitalPresence(osint, { lead, contact, website, ranking, observedAt
 
   if (website.auditStatus) {
     addSignal(osint, 'digitalPresence', {
-      label: 'Digital presence status',
+      label: 'Digital synlighetsstatus',
       value: website.auditStatus,
       confidence: website.auditStatus === 'completed' ? 'high' : 'medium',
-      sourceName: 'Digital presence check',
+      sourceName: 'Nettsidesjekk',
       sourceUrl: websiteUrl,
       observedAt,
     })
@@ -227,10 +227,10 @@ function addDigitalPresence(osint, { lead, contact, website, ranking, observedAt
 
   for (const item of normalizeList(website.topEvidence).slice(0, 4)) {
     addSignal(osint, 'digitalPresence', {
-      label: 'Digital evidence',
+      label: 'Digitale bevis',
       value: item,
       confidence: 'medium',
-      sourceName: 'Digital presence check',
+      sourceName: 'Nettsidesjekk',
       sourceUrl: websiteUrl,
       observedAt,
     })
@@ -238,10 +238,10 @@ function addDigitalPresence(osint, { lead, contact, website, ranking, observedAt
 
   for (const item of normalizeList(ranking.whyRanked).filter(isDigitalSignal).slice(0, 3)) {
     addSignal(osint, 'digitalPresence', {
-      label: 'Digital sales signal',
+      label: 'Digitalt salgssignal',
       value: item,
       confidence: 'medium',
-      sourceName: 'Lead ranking evidence',
+      sourceName: 'Lead-rangeringsbevis',
       sourceUrl: websiteUrl,
       observedAt,
     })
@@ -251,7 +251,7 @@ function addDigitalPresence(osint, { lead, contact, website, ranking, observedAt
 function addMarketProof(osint, { places, sourceQuality, observedAt }) {
   if (places.rating) {
     addSignal(osint, 'marketProof', {
-      label: 'Google rating',
+      label: 'Google-vurdering',
       value: `${places.rating}/5`,
       confidence: 'medium',
       sourceName: places.provider || 'Google Places',
@@ -262,7 +262,7 @@ function addMarketProof(osint, { places, sourceQuality, observedAt }) {
 
   if (places.reviewCount !== undefined && places.reviewCount !== null && places.reviewCount !== '') {
     addSignal(osint, 'marketProof', {
-      label: 'Google reviews',
+      label: 'Google-omtaler',
       value: String(places.reviewCount),
       confidence: 'medium',
       sourceName: places.provider || 'Google Places',
@@ -273,11 +273,11 @@ function addMarketProof(osint, { places, sourceQuality, observedAt }) {
 
   if (sourceQuality.locationMatchStatus) {
     addSignal(osint, sourceQuality.locationMatchStatus === 'exact_location' ? 'marketProof' : 'riskVerify', {
-      label: 'Location match',
+      label: 'Stedstreff',
       value: sourceQuality.locationMatchStatus,
       confidence: confidenceFromNumber(sourceQuality.locationConfidence, 'medium'),
       riskLevel: sourceQuality.locationMatchStatus === 'exact_location' ? 'low' : 'medium',
-      sourceName: sourceQuality.presenceSource || places.provider || 'Lead public source',
+      sourceName: sourceQuality.presenceSource || places.provider || 'Offentlig kilde for lead',
       sourceUrl: places.url || null,
       observedAt,
     })
@@ -285,7 +285,7 @@ function addMarketProof(osint, { places, sourceQuality, observedAt }) {
 
   if (sourceQuality.discoveryQuality?.level || sourceQuality.discoveryConfidence) {
     addSignal(osint, 'marketProof', {
-      label: 'Discovery confidence',
+      label: 'Treffsikkerhet',
       value: sourceQuality.discoveryQuality?.level || sourceQuality.discoveryConfidence,
       confidence: 'medium',
       sourceName: 'Discovery quality',
@@ -303,10 +303,10 @@ function addRecentActivity(osint, { website, economy, observedAt }) {
 
   for (const item of activitySignals) {
     addSignal(osint, 'recentActivity', {
-      label: 'Recent public activity',
+      label: 'Nylig offentlig aktivitet',
       value: item,
       confidence: 'low',
-      sourceName: 'Public web signal',
+      sourceName: 'Offentlig nettsignal',
       sourceUrl: websiteValue(website),
       observedAt,
     })
@@ -314,10 +314,10 @@ function addRecentActivity(osint, { website, economy, observedAt }) {
 
   if (economy.status === 'success') {
     addSignal(osint, 'recentActivity', {
-      label: 'Economy data attached',
+      label: 'Økonomidata vedlagt',
       value: 'available',
       confidence: 'medium',
-      sourceName: economy.source || 'Economy source',
+      sourceName: economy.source || 'Økonomikilde',
       sourceUrl: economy.sourceUrl || null,
       observedAt,
     })
@@ -327,7 +327,7 @@ function addRecentActivity(osint, { website, economy, observedAt }) {
 function addRiskVerify(osint, { company, contact, website, ranking, sourceQuality, observedAt }) {
   for (const item of normalizeList(company.warnings).slice(0, 4)) {
     addSignal(osint, 'riskVerify', {
-      label: 'Company warning',
+      label: 'Firmavarsel',
       value: item,
       confidence: 'medium',
       riskLevel: 'medium',
@@ -339,11 +339,11 @@ function addRiskVerify(osint, { company, contact, website, ranking, sourceQualit
 
   for (const item of normalizeList(ranking.caution).slice(0, 4)) {
     addSignal(osint, 'riskVerify', {
-      label: 'Caution',
+      label: 'Obs',
       value: item,
       confidence: 'medium',
       riskLevel: 'medium',
-      sourceName: 'Lead ranking evidence',
+      sourceName: 'Lead-rangeringsbevis',
       sourceUrl: websiteValue(contact.website || website),
       observedAt,
     })
@@ -351,11 +351,11 @@ function addRiskVerify(osint, { company, contact, website, ranking, sourceQualit
 
   if (sourceQuality.locationMatchStatus && sourceQuality.locationMatchStatus !== 'exact_location') {
     addSignal(osint, 'riskVerify', {
-      label: 'Location needs verification',
+      label: 'Sted må verifiseres',
       value: sourceQuality.locationMatchStatus,
       confidence: confidenceFromNumber(sourceQuality.locationConfidence, 'medium'),
       riskLevel: 'medium',
-      sourceName: sourceQuality.presenceSource || 'Lead public source',
+      sourceName: sourceQuality.presenceSource || 'Offentlig kilde for lead',
       sourceUrl: null,
       observedAt,
     })
@@ -370,7 +370,7 @@ function addSignal(osint, group, signal) {
     confidence: normalizeConfidence(signal.confidence),
     riskLevel: normalizeRisk(signal.riskLevel),
     source: {
-      name: clean(signal.sourceName || 'Public source'),
+      name: clean(signal.sourceName || 'Offentlig kilde'),
       url: clean(signal.sourceUrl),
       unavailableReason: signal.sourceUrl ? '' : 'source_url_unavailable',
     },

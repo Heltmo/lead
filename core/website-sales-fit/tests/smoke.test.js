@@ -31,7 +31,7 @@ function lead(overrides = {}) {
   assert(result.websiteSalesFit === 'strong', 'local SMB + phone + no website + exact location should be strong')
   assert(result.websiteLeadType === 'no_website', 'missing website should be classified no_website')
   assert(result.recommendedAction === 'call', 'strong website lead should recommend call')
-  assert(result.whyWebsiteLead[0].includes('No website found'), 'no website must lead the why-bullets as a positive signal')
+  assert(result.whyWebsiteLead[0].includes('Ingen nettside funnet'), 'no website must lead the why-bullets as a positive signal')
   assert(result.whyWebsiteLead.length <= 3 && result.caution.length <= 2, 'bullets must stay within limits')
 }
 
@@ -75,7 +75,7 @@ function lead(overrides = {}) {
     company: { displayName: 'Cutters Oslo', organizationForm: 'AS', activeStatus: 'active' },
   }))
   assert(result.websiteSalesFit === 'weak' && result.recommendedAction === 'skip', 'known chain should be weak/skip')
-  assert(result.caution.some((item) => item.includes('chain')), 'chain caution should explain the verdict')
+  assert(result.caution.some((item) => item.includes('kjede')), 'chain caution should explain the verdict')
 }
 
 {
@@ -101,7 +101,7 @@ function lead(overrides = {}) {
     company: { displayName: 'Frisør Lillevik', matchStatus: 'no_match', employees: 0 },
   }))
   assert(result.websiteSalesFit === 'strong', 'phone + exact location can be strong without Brreg identity')
-  assert(result.caution.some((item) => item.toLowerCase().includes('identity')), 'missing identity must surface as caution')
+  assert(result.caution.some((item) => item.toLowerCase().includes('identitet')), 'missing identity must surface as caution')
 }
 
 {

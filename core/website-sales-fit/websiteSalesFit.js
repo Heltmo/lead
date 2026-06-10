@@ -53,21 +53,21 @@ function evaluateWebsiteSalesFit(lead = {}) {
   const whyWebsiteLead = []
   const caution = []
 
-  if (websiteLeadType === 'no_website') whyWebsiteLead.push('No website found - this is the website-sales opening.')
-  if (websiteLeadType === 'weak_site') whyWebsiteLead.push('Website shows weakness: ' + weakSiteEvidence)
-  if (websiteLeadType === 'site_unverified') whyWebsiteLead.push('Website exists but is unverified - run Deep before judging quality.')
-  if (hasPhone) whyWebsiteLead.push('Direct phone available.')
+  if (websiteLeadType === 'no_website') whyWebsiteLead.push('Ingen nettside funnet - dette er salgsåpningen.')
+  if (websiteLeadType === 'weak_site') whyWebsiteLead.push('Nettsiden viser svakhet: ' + weakSiteEvidence)
+  if (websiteLeadType === 'site_unverified') whyWebsiteLead.push('Nettside finnes, men er ikke vurdert - åpne den og se selv.')
+  if (hasPhone) whyWebsiteLead.push('Direkte telefon tilgjengelig.')
   if (googleActivity) whyWebsiteLead.push(googleActivityReason(places))
-  else if (exactLocation) whyWebsiteLead.push('Local business with exact location match.')
+  else if (exactLocation) whyWebsiteLead.push('Lokal bedrift med eksakt stedstreff.')
 
   if (denyReason) caution.push(denyReason)
-  if (!hasPhone) caution.push('No phone found - find a contact path before prioritizing.')
-  if (outOfArea) caution.push('Location does not match the searched market.')
-  else if (!exactLocation) caution.push('Location is not confirmed exact - check before calling.')
-  if (!confirmedOrg && candidateOrg) caution.push('Org.nr is candidate only - verify identity.')
-  else if (!confirmedOrg && !candidateOrg) caution.push('Company identity is not confirmed.')
-  if (employees >= 50) caution.push('Large company - likely has an agency or internal IT.')
-  if (!activeCompany) caution.push('Company activity is unclear in Brreg.')
+  if (!hasPhone) caution.push('Ingen telefon funnet - finn kontaktvei før du prioriterer.')
+  if (outOfArea) caution.push('Stedet matcher ikke markedet du søkte i.')
+  else if (!exactLocation) caution.push('Stedet er ikke bekreftet eksakt - sjekk før du ringer.')
+  if (!confirmedOrg && candidateOrg) caution.push('Org.nr er bare kandidat - verifiser identiteten.')
+  else if (!confirmedOrg && !candidateOrg) caution.push('Firmaidentiteten er ikke bekreftet.')
+  if (employees >= 50) caution.push('Stort selskap - har trolig byrå eller egen IT.')
+  if (!activeCompany) caution.push('Firmaaktiviteten er uklar i Brreg.')
 
   const websiteSalesFit = verdictFor({
     denyReason, hasPhone, outOfArea, exactLocation, websiteLeadType, employees, activeCompany, googleActivity, confirmedOrg, candidateOrg,
@@ -108,12 +108,12 @@ function recommendedActionFor({ websiteSalesFit, websiteLeadType, denyReason, ha
 function publicOrChainReason(lead = {}) {
   const company = lead.company || {}
   const orgForm = String(company.organizationForm || '').toUpperCase()
-  if (PUBLIC_ORG_FORMS.has(orgForm)) return 'Public-sector organization form (' + orgForm + ') - not a website-sales target.'
+  if (PUBLIC_ORG_FORMS.has(orgForm)) return 'Offentlig organisasjonsform (' + orgForm + ') - ikke et mål for nettsidesalg.'
   const name = ' ' + String(company.displayName || company.legalName || lead.companyName || '').toLowerCase() + ' '
   const publicToken = PUBLIC_NAME_TOKENS.find((token) => nameHasToken(name, token))
-  if (publicToken) return 'Looks public-sector ("' + publicToken + '") - not a website-sales target.'
+  if (publicToken) return 'Ser offentlig ut ("' + publicToken + '") - ikke et mål for nettsidesalg.'
   const chainToken = CHAIN_NAME_TOKENS.find((token) => nameHasToken(name, token))
-  if (chainToken) return 'Looks like a chain/franchise ("' + chainToken + '") - website is handled centrally.'
+  if (chainToken) return 'Ser ut som kjede/franchise ("' + chainToken + '") - nettsiden styres sentralt.'
   return ''
 }
 
@@ -135,8 +135,8 @@ function firstWeakSiteEvidence(lead = {}) {
 function googleActivityReason(places = {}) {
   const rating = toNumber(places.rating)
   const reviews = toNumber(places.reviewCount)
-  if (rating > 0 && reviews > 0) return 'Active Google profile (' + rating + ' rating, ' + reviews + ' reviews).'
-  return 'Active Google Places presence.'
+  if (rating > 0 && reviews > 0) return 'Aktiv Google-profil (' + rating + ' i vurdering, ' + reviews + ' omtaler).'
+  return 'Aktiv Google-oppføring.'
 }
 
 function websiteValue(value) {

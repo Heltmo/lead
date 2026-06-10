@@ -56,8 +56,8 @@ function evaluateSourceFusion(input = {}) {
   }
 
   for (const warning of sourceWarnings) addUnique(warnings, humanWarning(warning))
-  if (places.placeId || places.provider || places.rating || places.reviewCount) addUnique(proofReasons, 'Google Places presence is available.')
-  if (hasAddress) addUnique(proofReasons, 'Address is available for location review.')
+  if (places.placeId || places.provider || places.rating || places.reviewCount) addUnique(proofReasons, 'Google Places-oppføring er tilgjengelig.')
+  if (hasAddress) addUnique(proofReasons, 'Adresse er tilgjengelig for stedsvurdering.')
   if (normalizedSellerFit === 'weak') addUnique(riskReasons, 'Seller fit is weak for the selected sales context.')
   if (normalizedSellerFit === 'unknown') addUnique(warnings, 'Seller fit is not available yet.')
 
@@ -85,20 +85,20 @@ function identityConfidenceFor(context) {
   const warningText = companyWarnings.join(' ').toLowerCase()
   const conflict = hasConflictText(warningText) || ['conflict', 'mismatch'].includes(matchStatus)
   if (conflict) {
-    addUnique(conflicts, 'Company identity has conflicting source signals.')
-    addUnique(warnings, 'Manual identity verification is required.')
+    addUnique(conflicts, 'Firmaidentiteten har motstridende kildesignaler.')
+    addUnique(warnings, 'Manuell identitetsverifisering kreves.')
     return 'manual_verify'
   }
   if (hasOrg) {
-    addUnique(proofReasons, 'Brreg confirmed organization number.')
+    addUnique(proofReasons, 'Brreg bekreftet organisasjonsnummeret.')
     return 'confirmed'
   }
   if (hasCandidateOrg || ['manual_verify', 'weak_match', 'candidate_org'].includes(matchStatus)) {
-    addUnique(riskReasons, 'Organization number is a candidate and needs manual verification.')
+    addUnique(riskReasons, 'Organisasjonsnummeret er kandidat og må verifiseres manuelt.')
     return 'manual_verify'
   }
   if (['no_match', 'not_run', 'error', 'brreg_unavailable'].includes(matchStatus)) {
-    addUnique(riskReasons, 'Legal identity is not confirmed yet.')
+    addUnique(riskReasons, 'Juridisk identitet er ikke bekreftet ennå.')
     return 'unknown'
   }
   return 'unknown'
@@ -121,11 +121,11 @@ function contactConfidenceFor(context) {
     return 'review'
   }
   if (hasPhone && (hasEmail || hasWebsite)) {
-    addUnique(proofReasons, 'Phone and another contact path are available.')
+    addUnique(proofReasons, 'Telefon og en annen kontaktvei er tilgjengelig.')
     return 'strong'
   }
   if (hasPhone) {
-    addUnique(proofReasons, 'Phone is available for seller contact.')
+    addUnique(proofReasons, 'Telefon er tilgjengelig for selgerkontakt.')
     return 'good'
   }
   if (hasEmail || hasWebsite) {
@@ -139,29 +139,29 @@ function contactConfidenceFor(context) {
 function locationConfidenceFor({ sourceQuality, warnings, conflicts, proofReasons, riskReasons }) {
   const status = String(sourceQuality.locationMatchStatus || '').toLowerCase()
   if (['exact_location', 'exact'].includes(status)) {
-    addUnique(proofReasons, 'Location appears exact for the search area.')
+    addUnique(proofReasons, 'Stedet ser eksakt ut for søkeområdet.')
     return 'exact'
   }
   if (['nearby_location', 'nearby'].includes(status)) {
-    addUnique(proofReasons, 'Location is nearby the requested area.')
+    addUnique(proofReasons, 'Stedet er i nærheten av ønsket område.')
     return 'nearby'
   }
   if (['regional_fallback', 'fallback'].includes(status)) {
-    addUnique(warnings, 'Regional fallback: do not treat this as an exact local lead.')
-    addUnique(riskReasons, 'Location should be verified before local outreach.')
+    addUnique(warnings, 'Regionalt treff: ikke behandle dette som et eksakt lokalt lead.')
+    addUnique(riskReasons, 'Stedet bør verifiseres før lokal kontakt.')
     return 'fallback'
   }
   if (['out_of_area', 'conflict', 'location_conflict'].includes(status)) {
-    addUnique(conflicts, 'Location conflicts with the requested area.')
-    addUnique(riskReasons, 'Location conflict must be resolved before using this lead.')
+    addUnique(conflicts, 'Stedet er i konflikt med ønsket område.')
+    addUnique(riskReasons, 'Stedskonflikt må løses før leaden brukes.')
     return 'conflict'
   }
   if (clean(sourceQuality.requestedLocation)) {
-    addUnique(warnings, 'Requested location is not confirmed for this lead.')
-    addUnique(riskReasons, 'Location should be verified before treating this as a local lead.')
+    addUnique(warnings, 'Ønsket sted er ikke bekreftet for denne leaden.')
+    addUnique(riskReasons, 'Stedet bør verifiseres før dette behandles som et lokalt lead.')
     return 'fallback'
   }
-  addUnique(warnings, 'Location confidence is unknown.')
+  addUnique(warnings, 'Stedstryggheten er ukjent.')
   return 'unknown'
 }
 

@@ -70,7 +70,7 @@ function normalizeWorkflow(input = {}, options = {}) {
   if ((workflow.response === 'no_answer' || workflow.response === 'no_response') && !workflow.followUpDate) {
     workflow.followUpDate = isoDateOffset(1, options.now)
     workflow.nextFollowUpAt = workflow.followUpDate
-    if (!workflow.nextAction || workflow.nextAction === 'review') workflow.nextAction = 'call again'
+    if (!workflow.nextAction || workflow.nextAction === 'review') workflow.nextAction = 'ring igjen'
   }
   if ((workflow.response === 'interested' || workflow.response === 'meeting_booked' || workflow.status === 'interested') && (!workflow.nextAction || workflow.nextAction === 'review')) {
     workflow.nextAction = 'follow up interested lead'

@@ -50,10 +50,10 @@ assert(commandCenter.status === 'ready', 'command center should be ready when le
 assert(commandCenter.topActions.length >= 3, 'command center should produce top actions')
 assert(commandCenter.callTheseFirst.some((item) => item.company === 'Bergen Rør AS'), 'command center should recommend call-first leads')
 assert(commandCenter.verifyBeforeCalling.some((item) => item.company === 'Oslo Candidate VVS'), 'command center should recommend verify-first leads')
-assert(commandCenter.verifyBeforeCalling.find((item) => item.company === 'Oslo Candidate VVS').reasons.join(' ').toLowerCase().includes('candidate'), 'verify recommendation should include traceable reason')
+assert(commandCenter.verifyBeforeCalling.find((item) => item.company === 'Oslo Candidate VVS').reasons.join(' ').toLowerCase().includes('kandidat'), 'verify recommendation should include traceable reason')
 assert(commandCenter.overdueFollowUps.some((item) => item.company === 'Ålesund Follow AS' && item.timing === 'overdue'), 'command center should surface overdue follow-ups')
 assert(commandCenter.bestMarketsNow[0].city === 'Bergen', 'best market should favor high-quality phone-ready city')
-assert(commandCenter.wastedTimeWarnings.some((item) => item.id === 'high verification burden' || item.id === 'verify_first'), 'command center should warn about verification burden')
+assert(commandCenter.wastedTimeWarnings.some((item) => item.id === 'mye må verifiseres' || item.id === 'verify_first'), 'command center should warn about verification burden')
 assert(commandCenter.sourceWarnings.some((item) => item.label.toLowerCase().includes('regional fallback')), 'command center should summarize source warnings')
 
 const empty = buildOpportunityCommandCenter({ leadPacks: [], generatedAt: '2026-06-04T09:00:00.000Z' })

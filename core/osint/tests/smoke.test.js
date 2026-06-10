@@ -51,10 +51,10 @@ function lead(overrides = {}) {
 {
   const { osint } = enrichOsint(lead(), { observedAt: '2026-05-31T00:00:00.000Z' })
   for (const group of GROUPS) assert(Array.isArray(osint[group]), `${group} should be an array`)
-  assert(osint.companyIdentity.some((signal) => signal.label === 'Confirmed org.nr'), 'confirmed org.nr should be identity evidence')
-  assert(osint.contactability.some((signal) => signal.label === 'Direct phone'), 'phone should be contactability evidence')
-  assert(osint.digitalPresence.some((signal) => signal.label === 'Digital presence status'), 'digital status should be captured')
-  assert(osint.marketProof.some((signal) => signal.label === 'Google reviews'), 'reviews should be market proof')
+  assert(osint.companyIdentity.some((signal) => signal.label === 'Bekreftet org.nr'), 'confirmed org.nr should be identity evidence')
+  assert(osint.contactability.some((signal) => signal.label === 'Direkte telefon'), 'phone should be contactability evidence')
+  assert(osint.digitalPresence.some((signal) => signal.label === 'Digital synlighetsstatus'), 'digital status should be captured')
+  assert(osint.marketProof.some((signal) => signal.label === 'Google-omtaler'), 'reviews should be market proof')
   assert(osint.sources.length >= 3, 'sources should be tracked')
   assert(osint.sources.every((source) => source.name && source.observedAt && source.confidence), 'sources need audit context')
   assert(osint.summary.evidenceCount > 0, 'summary should count evidence')
@@ -69,9 +69,9 @@ function lead(overrides = {}) {
     website: {},
     ranking: { caution: ['Location is not confirmed exact'] },
   }))
-  assert(osint.riskVerify.some((signal) => signal.label === 'Company identity not confirmed'), 'missing identity should be risk')
-  assert(osint.riskVerify.some((signal) => signal.label === 'No direct phone found'), 'missing phone should be risk')
-  assert(osint.riskVerify.some((signal) => signal.label === 'Location needs verification'), 'fallback location should be risk')
+  assert(osint.riskVerify.some((signal) => signal.label === 'Firmaidentitet ikke bekreftet'), 'missing identity should be risk')
+  assert(osint.riskVerify.some((signal) => signal.label === 'Ingen direkte telefon funnet'), 'missing phone should be risk')
+  assert(osint.riskVerify.some((signal) => signal.label === 'Sted må verifiseres'), 'fallback location should be risk')
   assert(osint.summary.riskCount >= 3, 'summary should count risks')
 }
 

@@ -41,7 +41,7 @@ function lead(overrides = {}) {
 {
   const fusion = evaluateSourceFusion(lead({ sourceQuality: { locationMatchStatus: 'regional_fallback' } }))
   assert(fusion.locationConfidence === 'fallback', 'regional_fallback should map to fallback')
-  assert(fusion.warnings.some((item) => item.toLowerCase().includes('regional fallback')), 'regional fallback should create a warning')
+  assert(fusion.warnings.some((item) => item.toLowerCase().includes('regionalt treff')), 'regional fallback should create a warning')
 }
 
 {

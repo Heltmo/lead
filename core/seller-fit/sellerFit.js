@@ -41,108 +41,108 @@ function evaluateSellerFit(lead = {}, sellerIntent = 'general_b2b', sellerProfil
   const riskReasons = []
   const importantSignals = []
 
-  add(scoreDelta(active, 2, 'active company', fitReasons, 'company activity is unclear', riskReasons))
-  add(scoreDelta(hasPhone, 4, 'direct phone available', fitReasons, 'no direct phone found', riskReasons, -4))
-  add(scoreDelta(hasEmail, 1, 'email path available', fitReasons))
-  add(scoreDelta(confirmedOrg, 4, 'confirmed org.nr', fitReasons))
+  add(scoreDelta(active, 2, 'aktivt firma', fitReasons, 'firmaaktiviteten er uklar', riskReasons))
+  add(scoreDelta(hasPhone, 4, 'direkte telefon tilgjengelig', fitReasons, 'ingen direkte telefon funnet', riskReasons, -4))
+  add(scoreDelta(hasEmail, 1, 'e-postvei tilgjengelig', fitReasons))
+  add(scoreDelta(confirmedOrg, 4, 'bekreftet org.nr', fitReasons))
   if (!confirmedOrg && candidateOrg) {
     score += 2
-    fitReasons.push('candidate org.nr available')
-    riskReasons.push('candidate org.nr must be verified')
+    fitReasons.push('kandidat-org.nr tilgjengelig')
+    riskReasons.push('kandidat-org.nr må verifiseres')
   } else if (!confirmedOrg && !candidateOrg) {
     score -= 2
-    riskReasons.push('company identity not confirmed')
+    riskReasons.push('firmaidentitet ikke bekreftet')
   }
-  add(scoreDelta(exactLocation, 2, 'location matches search', fitReasons, 'location needs review', riskReasons, -2))
+  add(scoreDelta(exactLocation, 2, 'stedet matcher søket', fitReasons, 'sted må sjekkes', riskReasons, -2))
   if (rating >= 4) {
     score += 1
-    fitReasons.push('positive Google rating')
+    fitReasons.push('positiv Google-vurdering')
   }
   if (reviews >= 5) {
     score += 1
-    fitReasons.push('public review activity')
+    fitReasons.push('offentlig omtaleaktivitet')
   }
   if (employees > 0) {
     score += 1
-    fitReasons.push('registered employees')
+    fitReasons.push('registrerte ansatte')
   }
   if (employees >= 10) {
     score += 1
-    fitReasons.push('meaningful company size')
+    fitReasons.push('meningsfull firmastørrelse')
   }
 
   if (profile.territory) {
-    importantSignals.push('seller geography is part of this search setup')
+    importantSignals.push('selgergeografi er del av dette søkeoppsettet')
     const geographyMatch = firstMatchingKeyword(leadText, profile.territoryKeywords)
     if (geographyMatch) {
       score += 1
-      fitReasons.push('matches seller geography: ' + geographyMatch)
+      fitReasons.push('matcher selgergeografi: ' + geographyMatch)
     }
   }
 
   if (profile.goodCustomer) {
-    importantSignals.push('good-customer hints are part of this seller setup')
+    importantSignals.push('god kunde-hint er del av selgeroppsettet')
     const goodCustomerMatch = firstMatchingKeyword(leadText, profile.goodCustomerKeywords)
     if (goodCustomerMatch) {
       score += 2
-      fitReasons.push('matches good-customer hint: ' + goodCustomerMatch)
+      fitReasons.push('matcher god kunde-hint: ' + goodCustomerMatch)
     }
   }
 
   if (profile.disqualifiers) {
-    importantSignals.push('disqualifiers are part of this seller setup')
+    importantSignals.push('diskvalifiseringer er del av selgeroppsettet')
     const disqualifierMatch = firstMatchingKeyword(leadText, profile.disqualifierKeywords)
     if (disqualifierMatch) {
       score -= 5
-      riskReasons.push('matches disqualifier: ' + disqualifierMatch)
+      riskReasons.push('matcher diskvalifisering: ' + disqualifierMatch)
     }
   }
 
   if (intent === 'web_it') {
-    importantSignals.push('digital presence and website quality matter more for this seller intent')
+    importantSignals.push('digital synlighet og nettsidekvalitet betyr mer for denne selgermodusen')
     if (digitalRisk) {
       score += 3
-      fitReasons.push('digital presence issue may be relevant')
+      fitReasons.push('digitalt synlighetsproblem kan være relevant')
     } else if (fast && hasWebsite) {
-      importantSignals.push('website is unverified until enrichment runs')
+      importantSignals.push('nettsiden er uvurdert til den sjekkes')
     }
   }
 
   if (intent === 'ads_marketing') {
-    importantSignals.push('Google presence, reviews, website and local visibility matter more')
+    importantSignals.push('Google-synlighet, omtaler, nettside og lokal synlighet betyr mer')
     if (reviews >= 10) score += 2
     if (hasWebsite) score += 1
-    if (!hasWebsite) riskReasons.push('website/social presence should be checked before ad-sales prioritization')
+    if (!hasWebsite) riskReasons.push('nettside/sosial synlighet bør sjekkes før annonsesalg prioriteres')
   }
 
   if (intent === 'telecom') {
-    importantSignals.push('phone availability, locations, size and active company status matter more')
+    importantSignals.push('telefon, lokasjoner, størrelse og aktiv status betyr mer')
     if (hasPhone) score += 2
     if (employees >= 5) score += 1
-    if (!hasPhone) riskReasons.push('telecom seller needs a better contact path')
+    if (!hasPhone) riskReasons.push('telekomselger trenger en bedre kontaktvei')
   }
 
   if (['accounting', 'finance', 'insurance'].includes(intent)) {
-    importantSignals.push('verified legal identity, company form, employees and economy readiness matter more')
+    importantSignals.push('verifisert juridisk identitet, selskapsform, ansatte og økonomi betyr mer')
     if (confirmedOrg) score += 2
     if (company.organizationForm) score += 1
     if (economyAvailable) score += 2
-    if (!confirmedOrg) riskReasons.push('legal identity should be verified before financial-service prioritization')
+    if (!confirmedOrg) riskReasons.push('juridisk identitet bør verifiseres før finanstjenester prioriteres')
   }
 
   if (intent === 'recruiting') {
-    importantSignals.push('employee count, growth/activity and public company context matter more')
+    importantSignals.push('antall ansatte, vekst/aktivitet og offentlig kontekst betyr mer')
     if (employees >= 5) score += 2
     if (employees >= 20) score += 2
-    if (employees === 0) riskReasons.push('no employees registered; recruiting fit may be weak')
+    if (employees === 0) riskReasons.push('ingen ansatte registrert; rekrutteringsmatch kan være svak')
   }
 
   if (fast) {
-    importantSignals.push('fast scan candidate; enrichment is optional when more context is needed')
+    importantSignals.push('rask-søk-kandidat; berikelse er valgfritt ved behov for mer kontekst')
   }
 
   if (sourceQuality.locationMatchStatus && sourceQuality.locationMatchStatus !== 'exact_location') {
-    riskReasons.push('location is not confirmed exact')
+    riskReasons.push('stedet er ikke bekreftet eksakt')
   }
 
   const sellerFit = score >= 12 ? 'strong' : score >= 8 ? 'good' : score >= 4 ? 'review' : 'weak'

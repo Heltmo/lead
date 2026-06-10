@@ -20,6 +20,7 @@ Lead Machine is focused on one product: a seller desk where users choose what th
 - Selected-lead enrichment without old browser-audit dependencies.
 - Notes, outcomes, activity log, follow-up dates, and exports.
 - Simplified search header: free-text search first, seller setup collapsed behind a summary toggle. Saved searches persist server-side (command center and export) but the management panel is removed from the seller desk.
+- All seller-facing UI text is Norwegian: app surface, verdict bullets, seller-fit/source-fusion/command-center/osint reasons, queue notes and snake_case warning keys (translated via a key dictionary in the frontend). Deep ("Verifiser firma") is honestly labeled as identity/contact verification - it does not audit website quality; unverified websites say "åpne den og se selv".
 - One product mode: the seller category picker is removed from the UI and every search runs as website sales (web_it). Core seller-fit keeps multi-intent support so categories can return later if they earn a real advantage per category.
 - Ringeøkt (call focus mode): one lead at a time in a full-screen card - big tel: link, website sales verdict, optional note, outcome buttons (Ingen svar / Interessert / Ferdig / Ikke relevant) that save through the normal workflow API and advance to the next call-ready lead automatically. Keyboard 1-4 + Esc.
 - Netlify hosted friend beta with token gate and Netlify Blobs/shared workspace support.

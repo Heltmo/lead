@@ -16,7 +16,7 @@ function buildOpportunityCommandCenter(input = {}) {
     .map((item) => recommendationFromLead(item, {
       action: 'follow_up',
       reasons: item.followUpTiming === 'overdue'
-        ? [`Overdue follow-up: ${item.workflow.followUpDate}`]
+        ? [`Forfalt oppfølging: ${item.workflow.followUpDate}`]
         : [`Due today: ${item.workflow.followUpDate}`],
     }))
 
@@ -101,7 +101,7 @@ function analyzeLead(lead = {}, index = 0, today) {
     lead,
     index,
     leadId: lead.workflow?.leadId || leadId(lead, index),
-    name: company.displayName || lead.companyName || 'Unknown company',
+    name: company.displayName || lead.companyName || 'Ukjent firma',
     phone,
     city,
     queue,
@@ -196,26 +196,26 @@ function verifyPriorityScore(context) {
 
 function callReasons(item) {
   return [
-    item.hasPhone && !item.foreignPhone ? 'Direct phone is available.' : '',
-    item.confirmedOrg ? 'Brreg identity is confirmed.' : item.candidateOrg ? 'Candidate org.nr exists; verify while working.' : '',
-    item.exactLocation ? 'Location matches the search area.' : item.locationFallback ? 'Location should be confirmed during call.' : '',
+    item.hasPhone && !item.foreignPhone ? 'Direkte telefon er tilgjengelig.' : '',
+    item.confirmedOrg ? 'Brreg-identitet er bekreftet.' : item.candidateOrg ? 'Kandidat-org.nr finnes; verifiser underveis.' : '',
+    item.exactLocation ? 'Stedet matcher søkeområdet.' : item.locationFallback ? 'Stedet bør bekreftes under samtalen.' : '',
     ['strong', 'good'].includes(item.fit) ? `Seller fit is ${item.fit}.` : '',
-    ['strong', 'good'].includes(item.leadConfidence) ? `Lead confidence is ${item.leadConfidence}.` : '',
+    ['strong', 'good'].includes(item.leadConfidence) ? `Lead-trygghet er ${item.leadConfidence}.` : '',
     item.googleReviews ? `Google proof: ${item.googleReviews} reviews.` : '',
-    !item.workflow.contacted ? 'Not contacted yet.' : '',
+    !item.workflow.contacted ? 'Ikke kontaktet ennå.' : '',
   ].filter(Boolean).slice(0, 5)
 }
 
 function verifyReasons(item) {
   return [
-    !item.hasPhone ? 'No direct phone found.' : '',
-    item.foreignPhone ? 'Phone format does not look Norwegian.' : '',
-    !item.confirmedOrg && item.candidateOrg ? 'Only candidate org.nr is available.' : '',
-    !item.confirmedOrg && item.identityConfidence === 'unknown' ? 'Legal identity is not confirmed.' : '',
-    item.sourceConflict ? 'Source conflict must be resolved.' : '',
-    item.locationFallback ? 'Location is fallback/uncertain.' : '',
-    item.contactConfidence === 'weak' ? 'Contact confidence is weak.' : '',
-    item.trustAction === 'verify_first' ? 'Source Fusion recommends verify first.' : '',
+    !item.hasPhone ? 'Ingen direkte telefon funnet.' : '',
+    item.foreignPhone ? 'Telefonnummeret ser ikke norsk ut.' : '',
+    !item.confirmedOrg && item.candidateOrg ? 'Bare kandidat-org.nr er tilgjengelig.' : '',
+    !item.confirmedOrg && item.identityConfidence === 'unknown' ? 'Juridisk identitet er ikke bekreftet.' : '',
+    item.sourceConflict ? 'Kildekonflikt må løses.' : '',
+    item.locationFallback ? 'Stedet er fallback/usikkert.' : '',
+    item.contactConfidence === 'weak' ? 'Kontakttryggheten er svak.' : '',
+    item.trustAction === 'verify_first' ? 'Kildesjekken anbefaler verifisering først.' : '',
   ].filter(Boolean).slice(0, 5)
 }
 
@@ -318,9 +318,9 @@ function marketLeadScore(item) {
 function marketReasons(group) {
   return [
     `${group.leadCount} leads.`,
-    `${group.phoneReadyCount} phone-ready.`,
-    group.confirmedOrgCount ? `${group.confirmedOrgCount} confirmed org.nr.` : '',
-    group.verifyFirstCount ? `${group.verifyFirstCount} need verification.` : 'Low verification burden.',
+    `${group.phoneReadyCount} med telefon.`,
+    group.confirmedOrgCount ? `${group.confirmedOrgCount} bekreftet org.nr.` : '',
+    group.verifyFirstCount ? `${group.verifyFirstCount} må verifiseres.` : 'Lite å verifisere.',
   ].filter(Boolean)
 }
 
@@ -333,12 +333,12 @@ function buildWastedTimeWarnings({ leadItems, summary }) {
   const candidateIdentity = leadItems.filter((item) => !item.confirmedOrg && item.candidateOrg).length
   const fallbackLocation = leadItems.filter((item) => item.locationFallback).length
   const warnings = []
-  addWarning(warnings, missingPhone / count >= 0.35, 'Many leads lack direct phone', `${missingPhone}/${count} leads have no direct phone.`, 'phone')
-  addWarning(warnings, verifyFirst / count >= 0.35, 'High verification burden', `${verifyFirst}/${count} leads are in verify-first.`, 'verify_first')
-  addWarning(warnings, weak / count >= 0.25, 'Weak lead coverage', `${weak}/${count} leads look weak or skippable.`, 'weak')
-  addWarning(warnings, candidateIdentity / count >= 0.35, 'Many candidate org.nr matches', `${candidateIdentity}/${count} leads need identity confirmation.`, 'identity')
-  addWarning(warnings, fallbackLocation / count >= 0.35, 'Location fallback is common', `${fallbackLocation}/${count} leads are fallback or uncertain by location.`, 'location')
-  if (summary.lowSupply) warnings.push({ id: 'low_supply', label: 'Low market supply', note: 'This search returned fewer leads than requested.', severity: 'medium', target: { type: 'market' } })
+  addWarning(warnings, missingPhone / count >= 0.35, 'Mange leads mangler direkte telefon', `${missingPhone}/${count} leads mangler direkte telefon.`, 'phone')
+  addWarning(warnings, verifyFirst / count >= 0.35, 'Mye må verifiseres', `${verifyFirst}/${count} leads ligger i verifiser-først.`, 'verify_first')
+  addWarning(warnings, weak / count >= 0.25, 'Svak lead-dekning', `${weak}/${count} leads ser svake ut eller kan hoppes over.`, 'weak')
+  addWarning(warnings, candidateIdentity / count >= 0.35, 'Mange kandidat-org.nr', `${candidateIdentity}/${count} leads trenger identitetsbekreftelse.`, 'identity')
+  addWarning(warnings, fallbackLocation / count >= 0.35, 'Sted via fallback er vanlig', `${fallbackLocation}/${count} leads har fallback/usikkert sted.`, 'location')
+  if (summary.lowSupply) warnings.push({ id: 'low_supply', label: 'Lavt markedstilfang', note: 'Søket ga færre leads enn ønsket.', severity: 'medium', target: { type: 'market' } })
   return warnings.slice(0, 6)
 }
 
@@ -356,7 +356,7 @@ function buildSourceWarnings(leadItems) {
       ...normalizeList(item.lead.sourceQuality?.locationWarnings),
     ]) {
       const key = humanize(warning)
-      if (!warnings.has(key)) warnings.set(key, { id: slug(key), label: key, note: 'Source warning appears on current leads.', count: 0, leadIds: [] })
+      if (!warnings.has(key)) warnings.set(key, { id: slug(key), label: key, note: 'Kildevarsel finnes på gjeldende leads.', count: 0, leadIds: [] })
       const entry = warnings.get(key)
       entry.count += 1
       if (entry.leadIds.length < 5) entry.leadIds.push(item.leadId)
@@ -369,25 +369,25 @@ function buildTopActions(context) {
   const actions = []
   const { callTheseFirst, verifyBeforeCalling, overdueFollowUps, bestMarketsNow, wastedTimeWarnings, queueCounts, leadItems, savedSearches } = context
   if (overdueFollowUps.length) {
-    actions.push({ id: 'handle_followups', label: 'Handle follow-ups first', note: `${overdueFollowUps.length} follow-ups are due or overdue.`, priority: 1, target: { queue: 'follow_up_today' } })
+    actions.push({ id: 'handle_followups', label: 'Ta oppfølgingene først', note: `${overdueFollowUps.length} oppfølginger har forfalt.`, priority: 1, target: { queue: 'follow_up_today' } })
   }
   if (callTheseFirst.length) {
-    actions.push({ id: 'call_first', label: 'Call these first', note: `${callTheseFirst.length} phone-ready leads look worth working now.`, priority: 2, target: { queue: 'call_now' } })
+    actions.push({ id: 'call_first', label: 'Ring disse først', note: `${callTheseFirst.length} leads med telefon ser verdt å jobbe med nå.`, priority: 2, target: { queue: 'call_now' } })
   }
   if (verifyBeforeCalling.length) {
-    actions.push({ id: 'clear_verification', label: 'Clear verification blockers', note: `${verifyBeforeCalling.length} leads need identity, contact, or location checks.`, priority: 3, target: { queue: 'verify_first' } })
+    actions.push({ id: 'clear_verification', label: 'Rydd verifiseringsstoppere', note: `${verifyBeforeCalling.length} leads trenger identitets-, kontakt- eller stedssjekk.`, priority: 3, target: { queue: 'verify_first' } })
   }
   if (bestMarketsNow.length) {
     const market = bestMarketsNow[0]
-    actions.push({ id: 'best_market', label: 'Best market now', note: `${market.city}: ${market.phoneReadyCount}/${market.leadCount} phone-ready.`, priority: 4, target: { city: market.city } })
+    actions.push({ id: 'best_market', label: 'Beste marked nå', note: `${market.city}: ${market.phoneReadyCount}/${market.leadCount} med telefon.`, priority: 4, target: { city: market.city } })
   }
   if (wastedTimeWarnings.length) {
-    actions.push({ id: 'avoid_waste', label: 'Avoid wasted time', note: wastedTimeWarnings[0].note, priority: 5, target: wastedTimeWarnings[0].target })
+    actions.push({ id: 'avoid_waste', label: 'Unngå tidssløsing', note: wastedTimeWarnings[0].note, priority: 5, target: wastedTimeWarnings[0].target })
   }
   if (!actions.length) {
-    actions.push({ id: 'run_search', label: savedSearches.length ? 'Refresh a saved market' : 'Run a market search', note: leadItems.length ? 'No urgent blockers found.' : 'Search a market to build today command center.', priority: 9, target: {} })
+    actions.push({ id: 'run_search', label: savedSearches.length ? 'Oppdater et lagret marked' : 'Kjør et markedssøk', note: leadItems.length ? 'Ingen hastestoppere funnet.' : 'Søk i et marked for å bygge dagens kommandosenter.', priority: 9, target: {} })
   }
-  actions.push({ id: 'queue_snapshot', label: 'Queue snapshot', note: `${queueCounts.call_now || 0} call now, ${queueCounts.verify_first || 0} verify first, ${queueCounts.follow_up_today || 0} follow-ups.`, priority: 10, target: {} })
+  actions.push({ id: 'queue_snapshot', label: 'Købilde', note: `${queueCounts.call_now || 0} call now, ${queueCounts.verify_first || 0} verify first, ${queueCounts.follow_up_today || 0} follow-ups.`, priority: 10, target: {} })
   return actions.slice(0, 6)
 }
 
