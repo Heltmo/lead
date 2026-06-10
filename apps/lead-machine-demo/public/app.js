@@ -42,7 +42,7 @@ const WORK_QUEUES = [
 ]
 const WORK_QUEUE_IDS = new Set(WORK_QUEUES.map((queue) => queue.id))
 
-const state = { result: null, selectedIndex: 0, selectedLeadId: null, selectedQueue: 'call_now', cityFilter: '' }
+const state = { result: null, selectedIndex: 0, selectedLeadId: null, selectedQueue: 'call_now', cityFilter: '', callFocus: null }
 
 initBetaAccess()
 
@@ -99,6 +99,7 @@ const els = {
   status: document.getElementById('statusPanel'),
   summary: document.getElementById('summaryPanel'),
   readiness: document.getElementById('readinessPanel'),
+  callFocusOverlay: document.getElementById('callFocusOverlay'),
   commandCenter: document.getElementById('commandCenterPanel'),
   workflowBoard: document.getElementById('workflowBoard'),
   workQueueTabs: document.getElementById('workQueueTabs'),
@@ -328,6 +329,7 @@ function renderAll() {
   renderLeads(visibleLeads)
   renderDetail(visibleLeads.length ? leads[state.selectedIndex] : null)
   renderExport(state.result)
+  renderCallFocus()
 }
 
 function renderSummary(result) {
@@ -667,7 +669,7 @@ function renderWorkQueueTabs(leads) {
   els.workQueueTabs.innerHTML = WORK_QUEUES.map((queue) => {
     const active = queue.id === state.selectedQueue
     return '<button type="button" class="work-queue-tab ' + (active ? 'active' : '') + '" data-work-queue="' + escapeAttr(queue.id) + '"><span>' + escapeHtml(queue.label) + '</span><strong>' + escapeHtml(counts[queue.id] || 0) + '</strong></button>'
-  }).join('')
+  }).join('') + '<button type="button" class="start-call-focus" data-start-call-focus ' + (counts.call_now ? '' : 'disabled') + '>Start ringeøkt</button>'
 }
 
 function workQueueCounts(leads) {
@@ -1513,6 +1515,133 @@ function selectNextVisibleLead() {
   renderAll()
   focusLeadDetail({ block: 'start' })
 }
+
+function startCallFocus() {
+  state.selectedQueue = 'call_now'
+  state.callFocus = { skippedIds: [], logged: { no_answer: 0, interested: 0, mark_called: 0, not_relevant: 0 } }
+  renderAll()
+}
+
+function exitCallFocus() {
+  state.callFocus = null
+  renderAll()
+}
+
+function callFocusLeads() {
+  if (!state.callFocus) return []
+  return getVisibleLeads(state.result?.leadPacks || [])
+    .filter(({ lead }) => leadWorkQueue(lead) === 'call_now')
+    .filter(({ id }) => !state.callFocus.skippedIds.includes(id))
+}
+
+function callFocusLoggedCount() {
+  return Object.values(state.callFocus?.logged || {}).reduce((sum, count) => sum + Number(count || 0), 0)
+}
+
+function renderCallFocus() {
+  const overlay = els.callFocusOverlay
+  if (!overlay) return
+  if (!state.callFocus) {
+    overlay.hidden = true
+    overlay.innerHTML = ''
+    document.body.classList.remove('call-focus-open')
+    return
+  }
+  overlay.hidden = false
+  document.body.classList.add('call-focus-open')
+  const entries = callFocusLeads()
+  const entry = entries[0]
+  if (!entry) {
+    const logged = state.callFocus.logged
+    const skipped = state.callFocus.skippedIds.length
+    overlay.innerHTML = '<div class="call-focus-card call-focus-done">' +
+      '<header class="call-focus-head"><div><p class="eyebrow">Ringeøkt</p><strong>Økt ferdig</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Lukk</button></header>' +
+      '<h2>Ingen flere i Ring nå-køen</h2>' +
+      '<ul class="call-focus-summary">' +
+        '<li><strong>' + escapeHtml(String(logged.no_answer)) + '</strong> ingen svar</li>' +
+        '<li><strong>' + escapeHtml(String(logged.interested)) + '</strong> interessert</li>' +
+        '<li><strong>' + escapeHtml(String(logged.mark_called)) + '</strong> ferdig</li>' +
+        '<li><strong>' + escapeHtml(String(logged.not_relevant)) + '</strong> ikke relevant</li>' +
+        (skipped ? '<li><strong>' + escapeHtml(String(skipped)) + '</strong> hoppet over uten logg</li>' : '') +
+      '</ul>' +
+      '<p class="call-focus-meta">Ingen svar-leads har fått oppfølging i morgen automatisk. Interesserte ligger i Interessert-køen.</p>' +
+    '</div>'
+    return
+  }
+  const lead = entry.lead
+  const company = lead.company || {}
+  const phone = lead.contact?.phone || lead.phone || ''
+  const callHref = phoneHref(phone)
+  overlay.innerHTML = '<div class="call-focus-card">' +
+    '<header class="call-focus-head"><div><p class="eyebrow">Ringeøkt</p><strong>' + escapeHtml(String(entries.length)) + ' igjen · ' + escapeHtml(String(callFocusLoggedCount())) + ' logget</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Avslutt</button></header>' +
+    '<div class="badge-row">' + websiteSalesBadge(lead) + badge(brregStatusLabel(company)) + badge(lead.sourceQuality?.locationMatchStatus) + fastBadge(lead) + '</div>' +
+    '<h2>' + escapeHtml(company.displayName || lead.companyName || 'Ukjent firma') + '</h2>' +
+    '<p class="call-focus-meta">' + escapeHtml([lead.contact?.city || lead.city, company.legalName || company.candidateLegalName].filter(Boolean).join(' · ') || 'Sted ukjent') + '</p>' +
+    (callHref
+      ? '<a class="call-focus-phone" href="' + escapeAttr(callHref) + '">' + escapeHtml(phone) + '</a><a class="call-focus-call" href="' + escapeAttr(callHref) + '">Ring nå</a>'
+      : '<p class="call-focus-phone disabled">Ingen telefon</p>') +
+    websiteSalesPanel(lead) +
+    '<label class="call-focus-note"><span>Kort notat (valgfritt, lagres med utfallet)</span><textarea id="callFocusNote" rows="2" placeholder="Hva skjedde i samtalen?"></textarea></label>' +
+    '<div class="call-focus-outcomes">' +
+      '<button type="button" class="call-focus-outcome warning" data-call-focus-outcome="no_answer">Ingen svar</button>' +
+      '<button type="button" class="call-focus-outcome positive" data-call-focus-outcome="interested">Interessert</button>' +
+      '<button type="button" class="call-focus-outcome" data-call-focus-outcome="mark_called">Ferdig</button>' +
+      '<button type="button" class="call-focus-outcome negative" data-call-focus-outcome="not_relevant">Ikke relevant</button>' +
+    '</div>' +
+    '<div class="call-focus-secondary"><button type="button" class="call-focus-skip" data-call-focus-skip>Hopp over uten logg</button><span class="call-focus-keys">Taster: 1 Ingen svar · 2 Interessert · 3 Ferdig · 4 Ikke relevant · Esc avslutt</span></div>' +
+  '</div>'
+}
+
+async function runCallFocusOutcome(action, button) {
+  const entry = callFocusLeads()[0]
+  if (!entry || !state.callFocus) return
+  const lead = entry.lead
+  const note = String(document.getElementById('callFocusNote')?.value || '').trim()
+  const current = { ...(lead.workflow || {}) }
+  if (note) current.notes = [cleanWorkflowNote(current.notes), note].filter(Boolean).join('\n')
+  const workflow = buildQuickWorkflow(action, current)
+  if (!workflow) return setStatus('failed: unknown quick action', 'failed')
+  workflow.owner = currentOwner() || workflow.owner || ''
+  if (button) { button.disabled = true; button.textContent = 'Lagrer...' }
+  try {
+    const response = await apiFetch('/api/workflow', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        leadId: lead.workflow?.leadId || entry.id,
+        runId: state.result?.runId,
+        leadName: lead.company?.displayName || lead.companyName || '',
+        workflow,
+      }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Workflow quick action failed')
+    lead.workflow = payload.workflow
+    state.callFocus.logged[action] = (state.callFocus.logged[action] || 0) + 1
+    await refreshCommandCenter()
+    clearStatus()
+    renderAll()
+  } catch (error) {
+    setStatus(`failed: ${error.message || 'Workflow quick action failed'}`, 'failed')
+    renderCallFocus()
+  }
+}
+
+function skipCallFocusLead() {
+  const entry = callFocusLeads()[0]
+  if (!entry || !state.callFocus) return
+  state.callFocus.skippedIds.push(entry.id)
+  renderCallFocus()
+}
+
+document.addEventListener('keydown', (event) => {
+  if (!state.callFocus) return
+  if (event.key === 'Escape') { exitCallFocus(); return }
+  const target = event.target
+  if (target && ['TEXTAREA', 'INPUT', 'SELECT'].includes(target.tagName)) return
+  const action = { 1: 'no_answer', 2: 'interested', 3: 'mark_called', 4: 'not_relevant' }[event.key]
+  if (action) runCallFocusOutcome(action)
+})
 
 function workflowPanel(lead) {
   const workflow = { status: 'new', queue: leadWorkQueue(lead), owner: currentOwner(), contacted: false, channel: '', response: '', personReached: '', notes: '', followUpDate: '', nextFollowUpAt: '', lastContactedAt: '', nextAction: 'review', outcome: '', archivedAt: '', activities: [], ...(lead.workflow || {}) }
@@ -2388,6 +2517,14 @@ document.addEventListener('click', (event) => {
     }
     return
   }
+  const startCallFocusButton = event.target.closest('[data-start-call-focus]')
+  if (startCallFocusButton) { startCallFocus(); return }
+  const callFocusOutcomeButton = event.target.closest('[data-call-focus-outcome]')
+  if (callFocusOutcomeButton) { runCallFocusOutcome(callFocusOutcomeButton.dataset.callFocusOutcome, callFocusOutcomeButton); return }
+  const callFocusSkipButton = event.target.closest('[data-call-focus-skip]')
+  if (callFocusSkipButton) { skipCallFocusLead(); return }
+  const callFocusExitButton = event.target.closest('[data-call-focus-exit]')
+  if (callFocusExitButton) { exitCallFocus(); return }
   const quickActionButton = event.target.closest('[data-workflow-action]')
   if (quickActionButton) {
     if (!quickActionButton.closest('.queue-row')) {

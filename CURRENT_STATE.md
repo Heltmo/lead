@@ -20,6 +20,7 @@ Lead Machine is focused on one product: a seller desk where users choose what th
 - Selected-lead enrichment without old browser-audit dependencies.
 - Notes, outcomes, activity log, follow-up dates, and exports.
 - Simplified search header: free-text search first, seller setup collapsed behind a summary toggle. Saved searches persist server-side (command center and export) but the management panel is removed from the seller desk.
+- Ringeøkt (call focus mode): one lead at a time in a full-screen card - big tel: link, website sales verdict, optional note, outcome buttons (Ingen svar / Interessert / Ferdig / Ikke relevant) that save through the normal workflow API and advance to the next call-ready lead automatically. Keyboard 1-4 + Esc.
 - Netlify hosted friend beta with token gate and Netlify Blobs/shared workspace support.
 
 ## Removed From Main Product
