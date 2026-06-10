@@ -18,7 +18,8 @@ Lead Machine is focused on one product: a seller desk where users choose what th
 - Ranked lead cards with phone, identity, location, source quality, and seller-fit context.
 - Website sales fit verdict (strong/review/weak) on every lead when the seller intent is Nettsider / IT — shown at the top of the selected lead, with no-website treated as a positive sales signal. Default seller intent is now web_it; rule calibration waits for real call feedback.
 - Selected-lead enrichment without old browser-audit dependencies.
-- Notes, outcomes, activity log, follow-up dates, saved markets, and exports.
+- Notes, outcomes, activity log, follow-up dates, and exports.
+- Simplified search header: free-text search first, seller setup collapsed behind a summary toggle. Saved searches persist server-side (command center and export) but the management panel is removed from the seller desk.
 - Netlify hosted friend beta with token gate and Netlify Blobs/shared workspace support.
 
 ## Removed From Main Product

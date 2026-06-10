@@ -22,15 +22,13 @@ const goal = fs.readFileSync(path.join(root, 'goals/saved-search-management-v1.g
 const lower = [server, store, app, css, goal].join('\n').toLowerCase()
 const implementation = [server, store, app, css].join('\n').toLowerCase()
 
+// Saved-search persistence stays server-side (it feeds the command center and
+// workspace export); the management UI was removed when the seller desk was
+// refocused on website sales, so UI controls are banned below.
 for (const required of [
   '/api/saved-searches',
   'handlesavedsearchpatch',
   'sortsavedsearches',
-  'saved-search-management',
-  'data-saved-search-pin',
-  'data-saved-search-label',
-  'renamesavedsearch',
-  'updatesavedsearch',
   'pinned',
   'label',
   'limit 30',
@@ -38,7 +36,7 @@ for (const required of [
   if (!lower.includes(required.toLowerCase())) throw new Error('Saved search management requirement missing: ' + required)
 }
 
-for (const banned of ['data-saved-search-delete', 'delete saved search', 'clear local workspace', 'drop table']) {
-  if (implementation.includes(banned)) throw new Error('Destructive saved-search behavior found too early: ' + banned)
+for (const banned of ['data-saved-search', 'saved-search-management', 'delete saved search', 'clear local workspace', 'drop table']) {
+  if (implementation.includes(banned)) throw new Error('Saved-search behavior that should stay removed/never exist found: ' + banned)
 }
 CHECK

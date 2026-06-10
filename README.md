@@ -4,7 +4,7 @@ Lead Machine is the seller desk product: sellers search for a market, review ran
 
 ## Current Product
 
-- `apps/lead-machine-demo`: browser seller desk for search, explicit seller work queues, lead list, notes, follow-ups, saved markets, and exports.
+- `apps/lead-machine-demo`: browser seller desk for search, explicit seller work queues, lead list, notes, follow-ups, and exports.
 - `core/lead-machine`: product runner that turns discovery into seller-ready lead packs.
 - `core/lead-discovery-agent`: Brreg, Google Places, mock, and manual-source discovery.
 - `core/company-profile`: conservative Brreg/company identity enrichment.

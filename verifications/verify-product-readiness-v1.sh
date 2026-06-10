@@ -27,9 +27,6 @@ for (const required of [
   'google usage stays capped: 25 for normal searches, 60 for norway-sweep beta runs',
   'selectedleaddeeponly',
   'readinesspanel',
-  'saved markets',
-  'return to useful searches',
-  'data-saved-search',
   'data-workspace-export',
   'sqlite_local',
 ]) {

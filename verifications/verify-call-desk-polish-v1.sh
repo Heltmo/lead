@@ -26,7 +26,6 @@ for (const required of [
   'follow_up_due',
   'call-focus-strip',
   'current-readiness',
-  'saved-search-rerun',
   'phone-ready',
   'slice(0, 8)',
   'leadcount',

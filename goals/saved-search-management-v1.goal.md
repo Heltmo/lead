@@ -27,3 +27,7 @@ Do not add CRM sync, outreach automation, email sending, telephony, auth, billin
 - Pinned searches sort before unpinned searches.
 - UI supports Pin, Rename, and Rerun.
 - Existing workspace persistence and live demo verifiers pass.
+
+## Status 2026-06-10
+
+The management UI (list with pin/rename/rerun) was removed from the seller desk when the product refocused on website-sales leads: it crowded out the search-and-call flow without helping the seller decide who to call. Saved searches still persist server-side with pin/label metadata (`/api/saved-searches`), feeding the command center and workspace export. Revisit a minimal saved-markets surface only if real seller usage asks for it.

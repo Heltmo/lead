@@ -139,14 +139,6 @@ document.addEventListener('click', (event) => {
   if (commandLeadButton) { selectCommandLead(commandLeadButton.dataset.commandLeadId || ''); return }
   const workspaceExport = event.target.closest('[data-workspace-export]')
   if (workspaceExport) { exportWorkspaceSnapshot(); return }
-  const pinSearch = event.target.closest('[data-saved-search-pin]')
-  if (pinSearch) { updateSavedSearch(pinSearch, { pinned: pinSearch.dataset.pinned !== 'true' }); return }
-  const labelSearch = event.target.closest('[data-saved-search-label]')
-  if (labelSearch) { renameSavedSearch(labelSearch); return }
-  const rerunSearch = event.target.closest('[data-rerun-search]')
-  if (rerunSearch) { applySavedSearch(rerunSearch); runSearch(); return }
-  const savedSearch = event.target.closest('[data-saved-search]')
-  if (savedSearch) applySavedSearch(savedSearch)
 })
 renderSummary(null)
 renderReadiness(null)
@@ -249,10 +241,6 @@ async function loadLatestRun() {
     state.selectedIndex = 0
     state.selectedLeadId = null
     if (payload.parsedQuery?.normalizedQuery) els.query.value = payload.parsedQuery.normalizedQuery
-    if (payload.summary?.sellerIntent && els.sellerIntent) els.sellerIntent.value = payload.summary.sellerIntent
-    applySellerProfile(payload.summary?.sellerProfile || payload.summary?.sellerIntentProfile || {})
-    if (payload.summary?.searchScope && els.searchScope) els.searchScope.value = payload.summary.searchScope
-    persistSellerSetup()
     if (payload.summary?.marketSweep && els.leadSort) els.leadSort.value = 'city'
     selectBestQueueForResult(payload)
     clearStatus()
@@ -359,18 +347,7 @@ function renderSummary(result) {
 
 function renderReadiness(result) {
   if (!els.readiness) return
-  const readiness = result?.readiness || defaultReadiness()
-  const savedSearches = Array.isArray(result?.savedSearches) ? result.savedSearches : []
-  const workspace = readiness.workspace || defaultWorkspace(readiness, savedSearches)
-  const savedCount = workspace.savedSearchCount || savedSearches.length || 0
-  const noteCount = workspace.workflowLeadCount || 0
-  const savedSearchList = savedSearches.length
-    ? '<div class="saved-searches saved-search-management">' + savedSearches.map(savedSearchButton).join('') + '</div>'
-    : '<p class="readiness-note">Lagrede søk dukker opp etter første kjøring.</p>'
-  els.readiness.innerHTML = '<details class="saved-market-panel saved-market-panel-compact">' +
-    '<summary class="saved-market-summary"><div><p class="eyebrow">Lagrede søk</p><h2>' + escapeHtml(String(savedCount) + ' søk') + '</h2><small>' + escapeHtml(String(noteCount) + ' leads med notater') + '</small></div><span class="saved-market-open">Åpne</span></summary>' +
-    '<div class="saved-market-body"><div class="saved-market-tools"><button type="button" class="quiet-export" data-workspace-export>Last ned testdata</button></div>' + savedSearchList + '</div>' +
-  '</details>' + marketSweepPanel(result)
+  els.readiness.innerHTML = '<div class="readiness-strip"><button type="button" class="quiet-export" data-workspace-export>Last ned testdata</button></div>' + marketSweepPanel(result)
 }
 
 
@@ -506,27 +483,6 @@ async function refreshCommandCenter() {
   } catch (_) {}
 }
 
-function defaultReadiness() {
-  return {
-    sourceGuard: { proffStatus: 'disabled_optional', googleStatus: 'cost_guarded', searchCap: 25 },
-    persistence: { status: 'sqlite_local', note: 'Local workspace keeps workflow and recent searches between reloads without SaaS auth or billing.' },
-  }
-}
-
-function defaultWorkspace(readiness, savedSearches) {
-  const persistence = readiness && readiness.persistence ? readiness.persistence : {}
-  return {
-    status: persistence.status || 'sqlite_local',
-    storageMode: persistence.status === 'local_json' ? 'Local JSON fallback' : 'SQLite local workspace',
-    workspaceDbPath: persistence.workspaceDbPath || '',
-    workflowLeadCount: 0,
-    savedSearchCount: Array.isArray(savedSearches) ? savedSearches.length : 0,
-    activityCount: 0,
-    canExport: false,
-    exportPath: '/api/workspace-export',
-  }
-}
-
 async function exportWorkspaceSnapshot() {
   try {
     setStatus('exporting workspace snapshot...', 'running')
@@ -548,54 +504,6 @@ async function exportWorkspaceSnapshot() {
   }
 }
 
-function savedSearchButton(search) {
-  const key = search.key || [search.query, search.sellerIntent, search.searchScope, search.provider].map((value) => String(value || '').toLowerCase()).join('::')
-  const profile = search.sellerProfile || {}
-  const attrs = 'data-saved-search="' + escapeAttr(search.query || '') + '" data-saved-search-key="' + escapeAttr(key) + '" data-provider="' + escapeAttr(search.provider || 'balanced') + '" data-seller-intent="' + escapeAttr(search.sellerIntent || 'general_b2b') + '" data-search-scope="' + escapeAttr(search.searchScope || 'regional') + '" data-seller-territory="' + escapeAttr(profile.territory || '') + '" data-good-customer="' + escapeAttr(profile.goodCustomer || '') + '" data-disqualifiers="' + escapeAttr(profile.disqualifiers || '') + '"'
-  const counts = String(search.leadCount || 0) + ' leads · ' + String(search.phoneCount || 0) + ' phone-ready'
-  const title = search.label || search.query || 'saved search'
-  const pinLabel = search.pinned ? 'Pinned' : 'Pin'
-  return '<section class="saved-search-item ' + (search.pinned ? 'pinned' : '') + '">' +
-    '<button type="button" class="saved-search-button" ' + attrs + '><strong>' + escapeHtml(title) + '</strong><small>' + escapeHtml(search.query || '') + ' · ' + escapeHtml(sellerIntentLabel(search.sellerIntent)) + ' · ' + escapeHtml(readable(search.searchScope || 'regional')) + ' · ' + escapeHtml(counts) + '</small></button>' +
-    '<div class="saved-search-actions"><button type="button" data-saved-search-pin data-saved-search-key="' + escapeAttr(key) + '" data-pinned="' + String(Boolean(search.pinned)) + '">' + escapeHtml(pinLabel) + '</button><button type="button" data-saved-search-label data-saved-search-key="' + escapeAttr(key) + '" data-current-label="' + escapeAttr(search.label || '') + '">Rename</button><button type="button" class="saved-search-rerun" data-rerun-search="' + escapeAttr(search.query || '') + '" data-provider="' + escapeAttr(search.provider || 'balanced') + '" data-seller-intent="' + escapeAttr(search.sellerIntent || 'general_b2b') + '" data-search-scope="' + escapeAttr(search.searchScope || 'regional') + '" data-seller-territory="' + escapeAttr(profile.territory || '') + '" data-good-customer="' + escapeAttr(profile.goodCustomer || '') + '" data-disqualifiers="' + escapeAttr(profile.disqualifiers || '') + '">Rerun</button></div>' +
-  '</section>'
-}
-
-function applySavedSearch(button) {
-  els.query.value = button.dataset.savedSearch || button.dataset.rerunSearch || ''
-  if (els.sellerIntent) els.sellerIntent.value = button.dataset.sellerIntent || 'general_b2b'
-  applySellerProfile({ territory: button.dataset.sellerTerritory || '', goodCustomer: button.dataset.goodCustomer || '', disqualifiers: button.dataset.disqualifiers || '' })
-  if (els.searchScope) els.searchScope.value = button.dataset.searchScope || 'regional'
-  persistSellerSetup()
-  if (els.provider && button.dataset.provider) els.provider.value = button.dataset.provider
-  els.query.focus()
-  setStatus('saved search loaded - click Kjør søk to refresh it', '')
-}
-
-async function renameSavedSearch(button) {
-  const current = button.dataset.currentLabel || ''
-  const label = window.prompt('Saved search label', current)
-  if (label === null) return
-  await updateSavedSearch(button, { label })
-}
-
-async function updateSavedSearch(button, patch) {
-  try {
-    setStatus('saving search...', 'running')
-    const response = await apiFetch('/api/saved-searches', {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ key: button.dataset.savedSearchKey || '', ...patch }),
-    })
-    const payload = await response.json()
-    if (!response.ok) throw new Error(payload.error || 'Saved search update failed')
-    if (state.result) state.result.savedSearches = payload.savedSearches || state.result.savedSearches || []
-    renderReadiness(state.result)
-    setStatus('saved search updated', '')
-  } catch (error) {
-    setStatus(error.message || 'saved search update failed', 'failed')
-  }
-}
 
 function compactRunStatus(summary = {}) {
   const mode = readable(summary.mode || 'fast')

@@ -34,9 +34,13 @@ button, input, select { font: inherit; }
 .search-examples { display: flex; flex-wrap: wrap; gap: 6px; }
 .search-examples button { height: auto; min-height: 27px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--muted); padding: 4px 9px; font-size: 12px; font-weight: 760; cursor: pointer; }
 .search-examples button:hover, .search-examples button:focus-visible { border-color: var(--green); color: var(--green); background: var(--green-soft); outline: none; }
-.seller-setup-panel { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(170px, .8fr) minmax(170px, .8fr) minmax(220px, 1.1fr) minmax(220px, 1.1fr) minmax(150px, .7fr); gap: 9px; align-items: end; padding: 10px; border: 1px solid #d5e4dc; border-radius: 8px; background: #f8fcfa; }
-.seller-setup-head { align-self: stretch; display: grid; align-items: center; min-height: 42px; padding: 8px 9px; border: 1px solid #d5e4dc; border-radius: 8px; background: #fff; }
-.seller-setup-head strong { display: block; font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+.seller-setup-collapse { grid-column: 1 / -1; border: 1px solid #d5e4dc; border-radius: 8px; background: #f8fcfa; }
+.seller-setup-collapse summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 46px; padding: 8px 12px; cursor: pointer; list-style: none; }
+.seller-setup-collapse summary::-webkit-details-marker { display: none; }
+.seller-setup-collapse summary strong { display: block; font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+.seller-setup-edit { flex: 0 0 auto; border: 1px solid #b8c8c0; border-radius: 999px; background: #fff; color: var(--green); padding: 5px 9px; font-size: 12px; font-weight: 900; }
+.seller-setup-collapse[open] .seller-setup-edit { background: var(--green-soft); border-color: var(--green); }
+.seller-setup-panel { display: grid; grid-template-columns: minmax(170px, .8fr) minmax(170px, .8fr) minmax(220px, 1.1fr) minmax(220px, 1.1fr) minmax(150px, .7fr); gap: 9px; align-items: end; padding: 0 12px 12px; }
 .seller-setup-panel label { min-width: 0; }
 .seller-setup-wide textarea { width: 100%; min-height: 42px; border: 1px solid #b8c8c0; border-radius: 8px; padding: 8px 10px; background: #fff; color: var(--ink); resize: vertical; line-height: 1.25; }
 .search-panel input, .search-panel select { width: 100%; height: 42px; border: 1px solid #b8c8c0; border-radius: 8px; padding: 0 12px; background: #fff; color: var(--ink); }
@@ -337,26 +341,12 @@ a { color: var(--blue); }
 @media (max-width: 620px) { .osint-summary { grid-template-columns: 1fr; } }
 
 .readiness-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 0; overflow: hidden; }
-.saved-market-panel { border-bottom: 1px solid var(--line); background: #fbfcfb; }
-.saved-market-panel-compact { display: block; }
-.saved-market-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; padding: 10px 12px; cursor: pointer; list-style: none; }
-.saved-market-summary::-webkit-details-marker { display: none; }
-.saved-market-summary h2 { margin: 0; font-size: 16px; line-height: 1.15; }
-.saved-market-summary small, .readiness-note { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.35; }
-.saved-market-open { flex: 0 0 auto; border: 1px solid #b8c8c0; border-radius: 999px; background: #fff; color: var(--green); padding: 5px 9px; font-size: 12px; font-weight: 900; }
-.saved-market-panel[open] .saved-market-open { background: var(--green-soft); border-color: var(--green); }
-.saved-market-body { display: grid; gap: 8px; padding: 0 12px 12px; }
-.saved-market-tools { display: flex; justify-content: flex-end; }
+.readiness-strip { display: flex; justify-content: flex-end; padding: 8px 12px; background: #fbfcfb; }
 .quiet-export { min-height: 34px; border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 7px 10px; font-weight: 850; cursor: pointer; white-space: nowrap; }
 .quiet-export:hover, .quiet-export:focus-visible { border-color: var(--green); background: var(--green-soft); outline: none; }
-.saved-searches { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 7px; align-items: stretch; max-height: 230px; overflow: auto; padding-right: 2px; }
-.saved-search-button { display: grid; gap: 2px; min-height: 44px; border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 7px 9px; text-align: left; cursor: pointer; min-width: 0; }
-.saved-search-button:hover, .saved-search-button:focus-visible { border-color: var(--green); background: var(--green-soft); outline: none; }
-.saved-search-button strong { font-size: 13px; line-height: 1.2; }
-.saved-search-button small { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .badge.disabled_optional, .badge.optional_disabled, .badge.cost_guarded, .badge.local_json, .badge.not_configured { background: #edf1ef; color: #44524b; }
 .badge.available_optional, .badge.optional_enabled, .badge.enabled_metered, .badge.metered_enabled { background: var(--green-soft); color: var(--green); }
-@media (max-width: 900px) { .saved-market-summary { align-items: stretch; } .saved-market-tools { justify-content: flex-start; } .quiet-export { justify-self: start; } }
+@media (max-width: 900px) { .readiness-strip { justify-content: flex-start; } }
 
 .call-focus-strip { display: grid; grid-template-columns: repeat(4, minmax(170px, 1fr)); gap: 8px; margin: 10px 0 12px; }
 .call-focus-strip .command-metric { background: #fff; border-color: #c7e5d6; }
@@ -373,13 +363,6 @@ a { color: var(--blue); }
 .verification-task-grid { display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr)); gap: 7px; }
 .verification-task { min-height: 70px; border: 1px solid #ead3a1; border-radius: 8px; background: #fff; padding: 8px 9px; }
 .verification-guidance-note { margin: 0; }
-.saved-search-item { display: grid; grid-template-columns: minmax(150px, 1fr) auto; gap: 5px; align-items: stretch; }
-.saved-search-item.pinned .saved-search-button { border-color: #b9dfcb; background: #f3faf7; }
-.saved-search-actions { display: flex; flex-wrap: wrap; gap: 5px; align-items: stretch; justify-content: flex-end; }
-.saved-search-actions button { border: 1px solid #b8c8c0; border-radius: 8px; background: #fff; color: var(--ink); padding: 7px 9px; font-size: 12px; font-weight: 850; cursor: pointer; }
-.saved-search-actions button:hover, .saved-search-actions button:focus-visible { border-color: var(--green); background: var(--green-soft); outline: none; }
-.saved-search-actions .saved-search-rerun { border-color: var(--green); background: var(--green); color: #fff; }
-.saved-search-actions .saved-search-rerun:hover, .saved-search-actions .saved-search-rerun:focus-visible { background: #0b6848; color: #fff; outline: none; }
 .badge.ready_to_call { background: var(--green-soft); color: var(--green); }
 .badge.verify_first, .badge.follow_up_due { background: var(--amber-soft); color: var(--amber); }
 .badge.needs_contact, .badge.later { background: #edf1ef; color: #44524b; }
@@ -395,7 +378,7 @@ a { color: var(--blue); }
 .city-group-heading span { font-weight: 900; }
 .city-group-heading strong { color: var(--muted); font-size: 12px; }
 @media (max-width: 900px) { .call-focus-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .summary-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .call-focus-strip, .saved-search-item { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .call-focus-strip { grid-template-columns: 1fr; } }
 
 .mobile-call-bar { display: none; }
 
@@ -421,13 +404,6 @@ a { color: var(--blue); }
   .search-examples button { min-height: 42px; border-radius: 10px; font-size: 13px; }
   .summary-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px; }
   .metric { min-height: 58px; padding: 9px; }
-
-  .saved-market-summary { min-height: 50px; padding: 9px 10px; }
-  .saved-market-summary h2 { font-size: 15px; }
-  .saved-market-body { padding: 0 10px 10px; }
-  .saved-searches { grid-template-columns: 1fr; max-height: 260px; }
-  .saved-search-actions { justify-content: stretch; }
-  .saved-search-actions button { flex: 1 1 auto; min-height: 40px; }
 
   .desk-grid { gap: 10px; }
   .lead-detail, .lead-list, .export-panel { padding: 10px; }
