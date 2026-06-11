@@ -530,6 +530,11 @@ a { color: var(--blue); }
 .website-audit-list { margin: 0; font-size: 13px; line-height: 1.4; }
 .website-audit-rerun { justify-self: start; min-height: 30px; padding: 4px 9px; font-size: 12px; }
 
+.opening-status { display: block; margin-top: 3px; font-size: 12px; font-weight: 800; }
+.opening-status.opening-open { color: var(--green); }
+.opening-status.opening-closed, .card-meta .opening-closed { color: var(--amber); }
+.call-focus-card .opening-status { font-size: 14px; }
+
 .start-call-focus { margin-left: auto; min-height: 38px; border: 1px solid var(--green); border-radius: 999px; background: var(--green); color: #fff; padding: 7px 14px; font-weight: 900; cursor: pointer; }
 .start-call-focus:hover, .start-call-focus:focus-visible { background: #0b6848; outline: none; }
 .start-call-focus[disabled] { border-color: var(--line); background: #edf1ef; color: var(--muted); cursor: not-allowed; }

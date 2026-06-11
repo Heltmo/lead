@@ -544,7 +544,7 @@ function renderLeads(visibleLeads) {
         <p class="queue-action"><strong>Next:</strong> <span class="sales-edge-action ${escapeAttr(salesEdge.key)}">${escapeHtml(salesEdge.label)}</span></p>
         <p class="card-signal">${escapeHtml(primarySignal)}</p>
         ${latestLeadNote(lead) ? '<p class="card-note">Notat: ' + escapeHtml(latestLeadNote(lead).length > 70 ? latestLeadNote(lead).slice(0, 67) + '...' : latestLeadNote(lead)) + '</p>' : ''}
-        <p class="card-meta">${escapeHtml(formatRating(places))} · ${escapeHtml(workflowCardNote(lead))}</p>
+        <p class="card-meta">${escapeHtml(formatRating(places))} · ${escapeHtml(workflowCardNote(lead))}${openingStatusFor(lead).state === 'closed' ? ' · <span class="opening-closed">' + escapeHtml(openingStatusFor(lead).label) + '</span>' : ''}</p>
       </button>
     `
   }).join('')
@@ -1023,6 +1023,54 @@ async function saveCardNote(button) {
   }
 }
 
+const OPENING_DAY_LABELS = ['søn.', 'man.', 'tir.', 'ons.', 'tor.', 'fre.', 'lør.']
+
+function openingStatusFor(lead) {
+  const hours = lead.places?.openingHours
+  const periods = Array.isArray(hours?.periods) ? hours.periods : []
+  if (!periods.length) return { state: 'unknown', label: '' }
+  const WEEK = 7 * 24 * 60
+  const DAY = 24 * 60
+  const now = new Date()
+  const nowMin = now.getDay() * DAY + now.getHours() * 60 + now.getMinutes()
+  const intervals = []
+  for (const period of periods) {
+    const open = period.open
+    if (!open || !Number.isFinite(Number(open.day))) continue
+    if (!period.close) return { state: 'open', label: 'Døgnåpent' }
+    const start = Number(open.day) * DAY + Number(open.hour || 0) * 60 + Number(open.minute || 0)
+    let end = Number(period.close.day) * DAY + Number(period.close.hour || 0) * 60 + Number(period.close.minute || 0)
+    if (end <= start) end += WEEK
+    intervals.push([start, end])
+  }
+  if (!intervals.length) return { state: 'unknown', label: '' }
+  for (const [start, end] of intervals) {
+    if ((nowMin >= start && nowMin < end) || (nowMin + WEEK >= start && nowMin + WEEK < end)) {
+      return { state: 'open', label: 'Åpent nå · stenger ' + clockLabel(end % WEEK % DAY) }
+    }
+  }
+  let next = null
+  for (const [start] of intervals) {
+    const delta = (start - nowMin + WEEK) % WEEK
+    if (!next || delta < next.delta) next = { delta, start }
+  }
+  const openDay = Math.floor((next.start % WEEK) / DAY)
+  const clock = clockLabel(next.start % DAY)
+  const today = openDay === now.getDay() && next.delta < DAY
+  return { state: 'closed', label: 'Stengt · åpner ' + (today ? clock : OPENING_DAY_LABELS[openDay] + ' ' + clock) }
+}
+
+function clockLabel(minutesOfDay) {
+  const safe = ((minutesOfDay % 1440) + 1440) % 1440
+  return String(Math.floor(safe / 60)).padStart(2, '0') + ':' + String(safe % 60).padStart(2, '0')
+}
+
+function openingStatusHtml(lead) {
+  const status = openingStatusFor(lead)
+  if (!status.label) return ''
+  return '<small class="opening-status opening-' + escapeAttr(status.state) + '">' + escapeHtml(status.label) + '</small>'
+}
+
 function websiteSalesFitLabel(verdict = {}) {
   const fit = String(verdict.websiteSalesFit || '').toLowerCase()
   if (fit === 'strong') return 'Sterk nettside-lead'
@@ -1434,7 +1482,7 @@ function sellerFlowPanel(lead, command, salesEdge) {
   const proof = verificationShortLabel(lead)
   return '<div class="seller-flow-hero queue-row">' +
     '<div class="seller-flow-top"><div class="seller-flow-title"><p class="eyebrow">Valgt lead</p><h2>' + escapeHtml(company.displayName || lead.companyName || 'Ukjent firma') + '</h2><small>' + escapeHtml(company.legalName || city || 'Juridisk navn ukjent') + '</small><div class="badge-row instant-badges">' + websiteSalesBadge(lead) + badge(queue) + sourceFusionBadge(lead) + badge(brregStatusLabel(company)) + fastBadge(lead) + '</div></div>' +
-    '<div class="seller-flow-contact"><span>Telefon</span>' + titlePhone(phone) + '<small>' + escapeHtml(command.bestContactNote) + '</small><button type="button" id="nextLeadButton" class="next-lead-button" ' + nextLeadDisabledAttr() + '>Neste lead</button></div></div>' +
+    '<div class="seller-flow-contact"><span>Telefon</span>' + titlePhone(phone) + '<small>' + escapeHtml(command.bestContactNote) + '</small>' + openingStatusHtml(lead) + '<button type="button" id="nextLeadButton" class="next-lead-button" ' + nextLeadDisabledAttr() + '>Neste lead</button></div></div>' +
     '<div class="seller-flow-steps" aria-label="Seller flow">' +
       '<section class="seller-flow-step"><span>1. Søk</span><strong>' + escapeHtml(city) + '</strong><small>' + escapeHtml(query + ' · ' + category) + '</small></section>' +
       '<section class="seller-flow-step seller-flow-step-main"><span>2. Ring</span><strong>' + escapeHtml(workQueueLabel(queue)) + '</strong><small>' + escapeHtml(salesEdge.note || callReadiness(lead).note) + '</small><div class="seller-flow-actions">' + primaryAction + secondaryCall + '</div></section>' +
@@ -1616,9 +1664,11 @@ function exitCallFocus() {
 function callFocusLeads(visibleLeads) {
   if (!state.callFocus) return []
   const leads = Array.isArray(visibleLeads) ? visibleLeads : getVisibleLeads(state.result?.leadPacks || [])
+  const openRank = { open: 0, unknown: 1, closed: 2 }
   return leads
     .filter(({ lead }) => leadWorkQueue(lead) === 'call_now')
     .filter(({ id }) => !state.callFocus.skippedIds.includes(id))
+    .sort((a, b) => openRank[openingStatusFor(a.lead).state] - openRank[openingStatusFor(b.lead).state])
 }
 
 function syncSelectedLeadToActiveCallFocus(visibleLeads) {
@@ -1712,7 +1762,7 @@ function renderCallFocus() {
     '<h2>' + escapeHtml(company.displayName || lead.companyName || 'Ukjent firma') + '</h2>' +
     '<p class="call-focus-meta">' + escapeHtml([lead.contact?.city || lead.city, company.legalName || company.candidateLegalName].filter(Boolean).join(' · ') || 'Sted ukjent') + '</p>' +
     (callHref
-      ? '<a class="call-focus-phone" href="' + escapeAttr(callHref) + '">' + escapeHtml(phone) + '</a><a class="call-focus-call" href="' + escapeAttr(callHref) + '">Ring nå</a>'
+      ? '<a class="call-focus-phone" href="' + escapeAttr(callHref) + '">' + escapeHtml(phone) + '</a>' + openingStatusHtml(lead) + '<a class="call-focus-call" href="' + escapeAttr(callHref) + '">Ring nå</a>'
       : '<p class="call-focus-phone disabled">Ingen telefon</p>') +
     callFocusWebsiteAction(lead) +
     websiteSalesPanel(lead) +

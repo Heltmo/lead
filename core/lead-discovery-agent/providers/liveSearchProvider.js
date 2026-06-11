@@ -185,6 +185,7 @@ function googlePlacesFieldMask() {
     'places.internationalPhoneNumber',
     'places.websiteUri',
     'places.businessStatus',
+    'places.regularOpeningHours',
     'places.rating',
     'places.userRatingCount',
     'places.types',
@@ -342,6 +343,7 @@ function normalizeProviderResult(result, defaults = {}) {
     rating: normalizeNumber(result.rating),
     reviewCount: normalizeNumber(result.reviewCount || result.userRatingCount || result.user_ratings_total),
     businessStatus: cleanText(result.businessStatus || result.business_status || ''),
+    openingHours: normalizeOpeningHours(result.regularOpeningHours || result.opening_hours || result.openingHours),
     providerTypes: Array.isArray(result.types) ? result.types.filter(Boolean).map(cleanText).filter(Boolean) : [],
     providerTitle: cleanText(result.title || result.name || ''),
     providerDisplayUrl: cleanText(result.displayUrl || result.display_url || result.meta_url?.netloc || result.meta_url?.hostname || ''),
@@ -363,6 +365,17 @@ function selectProviderBusinessName(result, website) {
   const title = stripSearchTitle(result.title || result.name || '', website)
   const fallback = domainBusinessName(website)
   return [explicit, title, fallback].find(Boolean) || ''
+}
+
+function normalizeOpeningHours(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const periods = Array.isArray(raw.periods) ? raw.periods.map((period) => ({
+    open: period.open ? { day: Number(period.open.day), hour: Number(period.open.hour || 0), minute: Number(period.open.minute || 0) } : null,
+    close: period.close ? { day: Number(period.close.day), hour: Number(period.close.hour || 0), minute: Number(period.close.minute || 0) } : null,
+  })).filter((period) => period.open) : []
+  const weekdayDescriptions = Array.isArray(raw.weekdayDescriptions) ? raw.weekdayDescriptions.filter(Boolean) : []
+  if (!periods.length && !weekdayDescriptions.length) return null
+  return { periods, weekdayDescriptions }
 }
 
 function extractProviderResults(payload) {

@@ -189,6 +189,7 @@ function buildFastLeadPack({ candidate, discovery, query, runId, companyProfile,
       placeId: candidate.placeId || null,
       rating: numberOrNull(candidate.rating),
       reviewCount: numberOrNull(candidate.reviewCount),
+      openingHours: candidate.openingHours || null,
     },
     website: {
       auditStatus: 'skipped_fast_mode',

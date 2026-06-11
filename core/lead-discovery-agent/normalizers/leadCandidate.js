@@ -49,6 +49,7 @@ function normalizeLeadCandidate(raw, defaults = {}) {
     address,
     placeId: firstClean(raw.placeId, raw.place_id),
     rating: normalizeNumber(raw.rating),
+    openingHours: raw.openingHours && typeof raw.openingHours === 'object' ? raw.openingHours : null,
     reviewCount: normalizeNumber(raw.reviewCount, raw.userRatingCount, raw.user_ratings_total),
     businessStatus: firstClean(raw.businessStatus, raw.business_status),
     providerTypes: Array.isArray(raw.providerTypes) ? raw.providerTypes.map(cleanString).filter(Boolean) : (Array.isArray(raw.types) ? raw.types.map(cleanString).filter(Boolean) : []),
@@ -137,6 +138,7 @@ function mergeCandidate(existing, candidate) {
   existing.placeId = existing.placeId || candidate.placeId || ''
   if (candidate.placeId && candidate.presenceSource) existing.presenceSource = candidate.presenceSource
   existing.rating = existing.rating || candidate.rating || ''
+  existing.openingHours = existing.openingHours || candidate.openingHours || null
   existing.reviewCount = existing.reviewCount || candidate.reviewCount || ''
   existing.businessStatus = existing.businessStatus || candidate.businessStatus || ''
   existing.providerTypes = uniqueValues([...(existing.providerTypes || []), ...(candidate.providerTypes || [])])
