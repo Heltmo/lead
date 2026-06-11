@@ -603,7 +603,7 @@ function renderWorkQueueTabs(leads) {
   els.workQueueTabs.innerHTML = WORK_QUEUES.map((queue) => {
     const active = queue.id === state.selectedQueue
     return '<button type="button" class="work-queue-tab ' + (active ? 'active' : '') + '" data-work-queue="' + escapeAttr(queue.id) + '"><span>' + escapeHtml(queue.label) + '</span><strong>' + escapeHtml(counts[queue.id] || 0) + '</strong></button>'
-  }).join('') + '<button type="button" class="start-call-focus" data-start-call-focus ' + (counts.call_now ? '' : 'disabled') + '>Start ringeøkt</button>'
+  }).join('') + '<button type="button" class="start-call-focus" data-start-call-focus ' + ((counts.call_now || 0) + (counts.verify_first || 0) ? '' : 'disabled') + '>Start ringeøkt</button>'
 }
 
 function workQueueCounts(leads) {
@@ -1644,7 +1644,6 @@ function selectNextVisibleLead() {
 }
 
 function startCallFocus() {
-  state.selectedQueue = 'call_now'
   state.callFocus = { skippedIds: [], logged: { no_answer: 0, interested: 0, mark_called: 0, not_relevant: 0 }, lastActiveId: '', lastActiveIndex: 0 }
   renderAll()
 }
@@ -1661,14 +1660,21 @@ function exitCallFocus() {
   if (returnEntry) focusLeadDetail({ block: 'start' })
 }
 
-function callFocusLeads(visibleLeads) {
+const CALL_FOCUS_QUEUE_RANK = { call_now: 0, verify_first: 1 }
+
+function callFocusLeads() {
   if (!state.callFocus) return []
-  const leads = Array.isArray(visibleLeads) ? visibleLeads : getVisibleLeads(state.result?.leadPacks || [])
+  const leads = state.result?.leadPacks || []
   const openRank = { open: 0, unknown: 1, closed: 2 }
-  return leads
-    .filter(({ lead }) => leadWorkQueue(lead) === 'call_now')
+  return leads.map((lead, index) => ({ lead, index, id: leadId(lead, index) }))
+    .filter(({ lead }) => CALL_FOCUS_QUEUE_RANK[leadWorkQueue(lead)] !== undefined)
+    .filter(({ lead }) => Boolean(lead.contact?.phone || lead.phone))
+    .filter(({ lead }) => matchesCityFilter(lead))
     .filter(({ id }) => !state.callFocus.skippedIds.includes(id))
-    .sort((a, b) => openRank[openingStatusFor(a.lead).state] - openRank[openingStatusFor(b.lead).state])
+    .sort((a, b) =>
+      (CALL_FOCUS_QUEUE_RANK[leadWorkQueue(a.lead)] - CALL_FOCUS_QUEUE_RANK[leadWorkQueue(b.lead)])
+      || (openRank[openingStatusFor(a.lead).state] - openRank[openingStatusFor(b.lead).state])
+      || (callQueueSortScore(b.lead) - callQueueSortScore(a.lead)))
 }
 
 function syncSelectedLeadToActiveCallFocus(visibleLeads) {
@@ -1740,7 +1746,7 @@ function renderCallFocus() {
     const skipped = state.callFocus.skippedIds.length
     overlay.innerHTML = '<div class="call-focus-card call-focus-done">' +
       '<header class="call-focus-head"><div><p class="eyebrow">Ringeøkt</p><strong>Økt ferdig</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Lukk</button></header>' +
-      '<h2>Ingen flere i Ring nå-køen</h2>' +
+      '<h2>Ingen flere ringbare leads</h2>' +
       '<ul class="call-focus-summary">' +
         '<li><strong>' + escapeHtml(String(logged.no_answer)) + '</strong> ingen svar</li>' +
         '<li><strong>' + escapeHtml(String(logged.interested)) + '</strong> interessert</li>' +
@@ -1758,7 +1764,7 @@ function renderCallFocus() {
   const callHref = phoneHref(phone)
   overlay.innerHTML = '<div class="call-focus-card">' +
     '<header class="call-focus-head"><div><p class="eyebrow">Ringeøkt</p><strong>' + escapeHtml(String(entries.length)) + ' igjen · ' + escapeHtml(String(callFocusLoggedCount())) + ' logget</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Avslutt</button></header>' +
-    '<div class="badge-row">' + websiteSalesBadge(lead) + badge(brregStatusLabel(company)) + badge(lead.sourceQuality?.locationMatchStatus) + fastBadge(lead) + '</div>' +
+    '<div class="badge-row">' + websiteSalesBadge(lead) + badge(leadWorkQueue(lead)) + badge(brregStatusLabel(company)) + badge(lead.sourceQuality?.locationMatchStatus) + fastBadge(lead) + '</div>' +
     '<h2>' + escapeHtml(company.displayName || lead.companyName || 'Ukjent firma') + '</h2>' +
     '<p class="call-focus-meta">' + escapeHtml([lead.contact?.city || lead.city, company.legalName || company.candidateLegalName].filter(Boolean).join(' · ') || 'Sted ukjent') + '</p>' +
     (callHref
@@ -2481,7 +2487,7 @@ function companyIdValue(company = {}) {
   if (company.organizationNumber) return company.organizationNumber
   if (company.candidateOrganizationNumber) return company.candidateOrganizationNumber
   if (isBrregUnavailable(company)) return 'Brreg ikke bekreftet'
-  return 'not verified'
+  return 'ikke verifisert'
 }
 
 function companyIdNote(company = {}) {
@@ -2671,6 +2677,8 @@ const HUMANIZE_NB = {
   missing_phone: 'Telefon mangler',
   missing_email: 'E-post mangler',
   candidate_org_number: 'Kandidat-org.nr',
+  identity_not_confirmed: 'Identitet ikke bekreftet',
+  no_match: 'Ingen Brreg-treff',
   org_not_confirmed_but_callable: 'Org.nr ikke bekreftet, men ringbar',
   phone_format_not_norwegian: 'Telefonnummeret ser utenlandsk ut',
   location_conflict: 'Stedskonflikt',
@@ -3119,7 +3127,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { new: 'Ny lead', reviewed: 'Vurdert', contacted: 'Kontaktet', follow_up: 'Oppfølging', interested: 'Interessert', rejected: 'Avvist', no_answer: 'Ingen svar', no_response: 'Ingen respons', negative: 'Negativ', neutral: 'Nøytral', meeting_booked: 'Møte booket', phone: 'Telefon', email: 'E-post', contact_form: 'Kontaktskjema', linkedin: 'LinkedIn', other: 'Annet', exact_location: 'Eksakt sted', regional_fallback: 'Regionalt treff', not_enabled: 'Ikke aktivert', disabled: 'Avslått', success: 'Vellykket', not_eligible: 'Ikke kvalifisert', manual_verify: 'Verifiser manuelt', confirmed_org: 'Bekreftet org.nr', candidate_org: 'Kandidat org.nr', no_match: 'Ingen treff', not_run: 'Ikke kjørt', brreg_unavailable: 'Brreg ikke bekreftet', phone_available: 'Telefon finnes', contact_missing: 'Kontakt mangler', audit_skipped: 'Raskt søk', completed: 'Fullført', good: 'God', strong: 'Sterk', weak: 'Svak', high: 'Høy', medium: 'Middels', low: 'Lav', verify: 'Verifiser', fast: 'Rask', deep: 'Dyp', mixed: 'Blandet', ready_to_call: 'Klar til å ringe', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Trenger kontakt', follow_up_due: 'Oppfølging forfalt', later: 'Senere', skip: 'Hopp over', queue_change: 'Køendring', follow_up_set: 'Oppfølging satt', contact_attempt: 'Kontaktforsøk', status_change: 'Statusendring', note: 'Notat', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Eksakt sted', nearby: 'Nærområde-treff', fallback: 'Regionalt treff', conflict: 'Konflikt', confirmed: 'Bekreftet firma', candidate: 'Kandidat org.nr', unknown: 'Ukjent', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Kontaktdata', contact_provider: 'Kontaktleverandør', website_contact_profile: 'Nettside-/kontaktprofil', workflow: 'Arbeidsflyt', vertical_exact: 'Eksakt kategori', vertical_synonym: 'Relatert kategori', vertical_broad: 'Bred kategori', vertical_weak: 'Svak kategori', synonym: 'Relatert', broad: 'Bred' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'Ny lead', reviewed: 'Vurdert', contacted: 'Kontaktet', follow_up: 'Oppfølging', interested: 'Interessert', rejected: 'Avvist', no_answer: 'Ingen svar', no_response: 'Ingen respons', negative: 'Negativ', neutral: 'Nøytral', meeting_booked: 'Møte booket', phone: 'Telefon', email: 'E-post', contact_form: 'Kontaktskjema', linkedin: 'LinkedIn', other: 'Annet', exact_location: 'Eksakt sted', regional_fallback: 'Regionalt treff', not_enabled: 'Ikke aktivert', disabled: 'Avslått', success: 'Vellykket', not_eligible: 'Ikke kvalifisert', manual_verify: 'Verifiser manuelt', confirmed_org: 'Bekreftet org.nr', candidate_org: 'Kandidat org.nr', no_match: 'Ingen treff', not_run: 'Ikke kjørt', brreg_unavailable: 'Brreg ikke bekreftet', phone_available: 'Telefon finnes', contact_missing: 'Kontakt mangler', audit_skipped: 'Raskt søk', completed: 'Fullført', good: 'God', strong: 'Sterk', weak: 'Svak', high: 'Høy', medium: 'Middels', low: 'Lav', verify: 'Verifiser', strong_fit: 'Sterk match', good_fit: 'God match', review_fit: 'Vurder match', weak_fit: 'Svak match', fast: 'Rask', deep: 'Dyp', mixed: 'Blandet', ready_to_call: 'Klar til å ringe', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Trenger kontakt', follow_up_due: 'Oppfølging forfalt', later: 'Senere', skip: 'Hopp over', queue_change: 'Køendring', follow_up_set: 'Oppfølging satt', contact_attempt: 'Kontaktforsøk', status_change: 'Statusendring', note: 'Notat', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Eksakt sted', nearby: 'Nærområde-treff', fallback: 'Regionalt treff', conflict: 'Konflikt', confirmed: 'Bekreftet firma', candidate: 'Kandidat org.nr', unknown: 'Ukjent', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Kontaktdata', contact_provider: 'Kontaktleverandør', website_contact_profile: 'Nettside-/kontaktprofil', workflow: 'Arbeidsflyt', vertical_exact: 'Eksakt kategori', vertical_synonym: 'Relatert kategori', vertical_broad: 'Bred kategori', vertical_weak: 'Svak kategori', synonym: 'Relatert', broad: 'Bred' }[value] || String(value).toUpperCase() }
 function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {
