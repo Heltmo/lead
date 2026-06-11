@@ -1,35 +1,4 @@
-const PROFESSIONS = [
-  { label: 'Rørlegger', value: 'rørlegger' },
-  { label: 'Elektriker', value: 'elektriker' },
-  { label: 'Tannlege', value: 'tannlege' },
-  { label: 'Advokat', value: 'advokat' },
-  { label: 'Fysioterapeut', value: 'fysioterapeut' },
-  { label: 'Regnskapsfører', value: 'regnskapsfører' },
-  { label: 'Restaurant', value: 'restaurant' },
-  { label: 'Bilverksted', value: 'bilverksted' },
-  { label: 'Frisør', value: 'frisør' },
-  { label: 'Eiendomsmegler', value: 'eiendomsmegler' },
-  { label: 'Personlig trener', value: 'personlig trener' },
-  { label: 'Hudpleie', value: 'hudpleie' },
-  { label: 'Treningssenter', value: 'treningssenter' },
-  { label: 'Massasje', value: 'massasje' },
-  { label: 'Skjønnhetsklinikk', value: 'skjønnhetsklinikk' },
-  { label: 'Kjøreskole', value: 'kjøreskole' },
-  { label: 'Vaktmester', value: 'vaktmester' },
-  { label: 'Vindusvask', value: 'vindusvask' },
-  { label: 'Båtservice', value: 'båtservice' },
-  { label: 'Fotograf', value: 'fotograf' },
-]
 
-const LOCATIONS = [
-  'Oslo', 'Bergen', 'Trondheim', 'Stavanger', 'Kristiansand', 'Drammen', 'Fredrikstad', 'Sarpsborg', 'Moss', 'Halden',
-  'Ålesund', 'Molde', 'Kristiansund', 'Bodø', 'Tromsø', 'Alta', 'Narvik', 'Harstad', 'Hamar', 'Lillehammer',
-  'Gjøvik', 'Elverum', 'Kongsvinger', 'Tønsberg', 'Sandefjord', 'Larvik', 'Skien', 'Porsgrunn', 'Arendal', 'Grimstad',
-  'Mandal', 'Flekkefjord', 'Bryne', 'Sandnes', 'Haugesund', 'Karmøy', 'Stord', 'Voss', 'Førde', 'Florø',
-  'Sogndal', 'Gol', 'Geilo', 'Hønefoss', 'Kongsberg', 'Notodden', 'Ringerike', 'Lillestrøm', 'Jessheim', 'Ski',
-  'Asker', 'Bærum', 'Lørenskog', 'Eidsvoll', 'Ullensaker', 'Nesodden', 'Nittedal', 'Råde', 'Rygge', 'Rolvsøy',
-  'Namsos', 'Steinkjer', 'Levanger', 'Stjørdal', 'Mo i Rana', 'Mosjøen', 'Brønnøysund', 'Sortland', 'Svolvær', 'Hammerfest',
-]
 
 const WORK_QUEUES = [
   { id: 'call_now', label: 'Ring nå' },
@@ -83,9 +52,6 @@ const QUICK_WORKFLOW_ACTIONS = [
 const els = {
   appHeader: document.querySelector('.app-header'),
   mobileActiveBar: document.getElementById('mobileActiveBar'),
-  profession: document.getElementById('professionSelect'),
-  location: document.getElementById('locationInput'),
-  locationOptions: document.getElementById('locationOptions'),
   query: document.getElementById('queryInput'),
   provider: document.getElementById('provider'),
   sellerTerritory: document.getElementById('sellerTerritory'),
@@ -115,15 +81,11 @@ const els = {
   owner: document.getElementById('ownerInput'),
 }
 
-initStructuredSearch()
 initSellerSetup()
 initOwnerControl()
 els.runButton.addEventListener('click', runSearch)
 els.query.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
 els.queryExamples.forEach((button) => button.addEventListener('click', () => { els.query.value = button.dataset.queryExample || ''; els.query.focus() }))
-els.location.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
-els.profession.addEventListener('change', syncQueryFromStructuredSearch)
-els.location.addEventListener('input', syncQueryFromStructuredSearch)
 els.leadSort.addEventListener('change', () => { clearMobileQueueDone(); state.selectedLeadId = null; state.mobileNoteOpenLeadId = ''; renderAll() })
 els.queuePresets.forEach((button) => button.addEventListener('click', () => applyQueuePreset(button.dataset.queuePreset)))
 els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { clearMobileQueueDone(); state.selectedLeadId = null; state.mobileNoteOpenLeadId = ''; renderAll() }))
@@ -153,12 +115,6 @@ renderCommandCenter(null)
 renderExport(null)
 clearStatus()
 loadLatestRun()
-
-function initStructuredSearch() {
-  els.profession.innerHTML = PROFESSIONS.map((item) => `<option value="${escapeAttr(item.value)}">${escapeHtml(item.label)}</option>`).join('')
-  els.locationOptions.innerHTML = LOCATIONS.map((location) => `<option value="${escapeAttr(location)}"></option>`).join('')
-  els.profession.value = 'rørlegger'
-}
 
 function initSellerSetup() {
   const stored = readSellerSetup()
@@ -232,12 +188,6 @@ function currentOwner() {
   const live = String(els.owner?.value || '').trim()
   if (live) return live
   try { return String(window.localStorage.getItem('leadMachineBetaOwner') || '').trim() } catch (_) { return '' }
-}
-
-function syncQueryFromStructuredSearch() {
-  const profession = els.profession.value.trim()
-  const location = els.location.value.trim()
-  if (profession && location) els.query.value = `${profession} i ${location}`
 }
 
 async function loadLatestRun() {
@@ -1007,17 +957,6 @@ function isLikelyNorwegianPhone(value) {
   return false
 }
 
-function callFocusStrip(lead, command) {
-  const readiness = callReadiness(lead)
-  const workflow = lead.workflow || {}
-  return '<section class="call-focus-strip">' +
-    commandMetric('Ringeklar?', readiness.label, readiness.note) +
-    commandMetric('Beste kontakt', command.bestContact, command.bestContactNote) +
-    commandMetric('Neste handling', command.nextAction, command.nextActionNote) +
-    commandMetric('Last log', workflow.activities && workflow.activities[0] ? formatActivityTime(workflow.activities[0].at) : 'Ingen logg ennå', workflow.activities && workflow.activities[0] ? activitySummary(workflow.activities[0]) : 'Lagre første notat.') +
-  '</section>'
-}
-
 function sellerRecommendedActionScore(lead) {
   return { contact: 90, verify: 35, review: 10, skip: -200 }[sellerRecommendedAction(lead)] || 0
 }
@@ -1316,49 +1255,6 @@ async function runWebsiteAudit(button) {
 
 function noWebsiteSignal() {
   return '<span class="no-website-signal">Ingen nettside funnet – salgsåpning</span>'
-}
-
-function workflowCounts(leads) {
-  return (Array.isArray(leads) ? leads : []).reduce((counts, lead) => {
-    const workflow = lead.workflow || {}
-    const contacted = workflow.contacted || ['contacted', 'follow_up', 'interested'].includes(workflow.status)
-    if (!contacted) counts.notContacted += 1
-    if (contacted) counts.contacted += 1
-    if (isFollowUpDue(lead)) counts.followUpDue += 1
-    if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') counts.interested += 1
-    return counts
-  }, { notContacted: 0, contacted: 0, followUpDue: 0, interested: 0 })
-}
-
-function workflowCountsLabel(leads) {
-  const counts = workflowCounts(leads)
-  return `nye:${counts.notContacted} kontaktet:${counts.contacted} oppfølging:${counts.followUpDue} interessert:${counts.interested}`
-}
-
-function todayCallQueue(leads) {
-  return (Array.isArray(leads) ? leads : [])
-    .map((lead, index) => ({ lead, index, reason: todayCallReason(lead) }))
-    .filter(({ lead, reason }) => Boolean(reason) && Boolean(lead.contact?.phone || lead.phone))
-    .sort((a, b) => todayCallScore(b.lead) - todayCallScore(a.lead))
-}
-
-function todayCallReason(lead) {
-  const workflow = lead.workflow || {}
-  if (workflow.status === 'rejected') return ''
-  if (isFollowUpDue(lead)) return followUpQueueReason(lead)
-  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') return 'Interested lead'
-  if (!workflow.contacted && !['contacted', 'follow_up'].includes(workflow.status)) return 'Ikke kontaktet ennå'
-  return ''
-}
-
-function todayCallScore(lead) {
-  const workflow = lead.workflow || {}
-  let score = bestLeadScore(lead)
-  score += callReadiness(lead).rank
-  if (isFollowUpDue(lead)) score += 1000
-  if (!workflow.contacted && !['contacted', 'follow_up', 'interested'].includes(workflow.status)) score += 500
-  if (workflow.status === 'interested' || workflow.response === 'interested' || workflow.response === 'meeting_booked') score += 300
-  return score
 }
 
 function isFollowUpDue(lead) {
@@ -1736,27 +1632,6 @@ function leadInfoDetails(lead, command) {
   return '<details class="detail-tool lead-info-collapse"><summary>Info om lead</summary>' +
     '<div class="lead-info-body">' + sellerDeskCards(lead, command, { includeDetails: false }) + sellerDeskCards(lead, command, { includeTop: false }) + sellerCommandCard(command) + osintPanel(lead) + '</div>' +
   '</details>'
-}
-
-function callSessionPanel(lead, command) {
-  const phone = lead.contact?.phone || lead.phone || ''
-  const callHref = phoneHref(phone)
-  const queue = leadWorkQueue(lead)
-  const verifyFirst = queue === 'verify_first'
-  const queueCount = workQueueLeads(state.result?.leadPacks || [], queue).length
-  return '<section class="call-session-panel queue-row" aria-label="Call session">' +
-    '<div class="call-session-copy"><p class="eyebrow">Neste handling</p><h3>' + escapeHtml(workQueueLabel(queue)) + ' · ' + escapeHtml(String(queueCount)) + ' leads</h3><p>' + escapeHtml(command.nextActionNote || callReadiness(lead).note) + '</p></div>' +
-    '<div class="call-session-actions">' +
-      (verifyFirst
-        ? '<button type="button" class="call-session-button primary" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verifiser firma</button>'
-        : (callHref ? '<a class="call-session-button primary" href="' + escapeAttr(callHref) + '">Ring nå</a>' : '<span class="call-session-button disabled">Ingen telefon</span>')) +
-      (verifyFirst && callHref ? '<a class="call-session-button" href="' + escapeAttr(callHref) + '">Ring hvis sjekket</a>' : '') +
-      '<button type="button" class="call-session-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ingen svar</button>' +
-      '<button type="button" class="call-session-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interessert</button>' +
-      '<button type="button" class="call-session-button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ferdig</button>' +
-      '<button type="button" class="call-session-button negative" data-workflow-action="not_relevant" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ikke relevant</button>' +
-      '<button type="button" class="call-session-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Neste lead</button>' +
-    '</div></section>'
 }
 
 function mobileCallBar(lead) {
@@ -2291,16 +2166,6 @@ function noteSaveErrorMessage(error) {
   return 'Could not save - ' + detail
 }
 
-function modeGuidance(summary) {
-  const mode = summary.mode || els.runMode.value || 'fast'
-  if (!summary || Object.keys(summary).length === 0) {
-    return mode === 'deep' ? 'Verifiser firma legger til bevismoduler for valgt lead.' : 'Raskt søk finner kandidater; verifiser bare leads som trenger mer kontekst.'
-  }
-  const included = Number(summary.includedLeadCount ?? summary.totalLeads ?? 0)
-  if (mode === 'fast' && included > 0) return 'Dette er kandidater. Bruk Verifiser firma bare på leads som trenger mer kontekst.'
-  return summary.nextRecommendedAction || 'Disse leadene har berikelsessignaler.'
-}
-
 function fastBadge(lead) {
   return isFastLead(lead) ? '<span class="badge audit-skipped">Raskt søk</span>' : ''
 }
@@ -2715,10 +2580,6 @@ function businessActivityLabel(company = {}) {
   return ''
 }
 
-function factCard(label, value, note) {
-  return `<div class="fact-card"><span>${escapeHtml(label)}</span><strong>${isHtml(value) ? value : escapeHtml(value)}</strong><small>${isHtml(note) ? note : escapeHtml(note)}</small></div>`
-}
-
 function sourceCard(title, status, rows) {
   return `<section class="source-card"><div class="source-title"><h3>${escapeHtml(title)}</h3>${badge(status)}</div>${kv(rows)}</section>`
 }
@@ -2876,17 +2737,6 @@ function isInternalLabel(text) {
 function isLawLead(lead) {
   const haystack = [lead.company?.displayName, lead.leadClass, lead.opportunityType, lead.contact?.website].filter(Boolean).join(' ').toLowerCase()
   return haystack.includes('advokat') || haystack.includes('law')
-}
-
-function nextSellerStep(lead) {
-  const priority = String(lead.callPriority || lead.priority || '').toLowerCase()
-  const match = String(lead.company?.matchStatus || '').toLowerCase()
-  if (match === 'manual_verify' || match === 'weak_match') return 'Verifiser firmaidentitet først'
-  if (priority === 'high') return 'Vurder først'
-  if (priority === 'medium') return 'Kortlist og se på bevisene'
-  if (priority === 'low') return 'Usable lead; weak digital angle'
-  if (priority === 'verify') return 'Manual verification required'
-  return 'Vurder kildedata'
 }
 
 function formatRating(places) {
@@ -3394,7 +3244,6 @@ function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escape
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
 function readable(value) { return { new: 'Ny lead', reviewed: 'Vurdert', contacted: 'Kontaktet', follow_up: 'Oppfølging', interested: 'Interessert', rejected: 'Avvist', no_answer: 'Ingen svar', no_response: 'Ingen respons', negative: 'Negativ', neutral: 'Nøytral', meeting_booked: 'Møte booket', phone: 'Telefon', email: 'E-post', contact_form: 'Kontaktskjema', linkedin: 'LinkedIn', other: 'Annet', exact_location: 'Eksakt sted', regional_fallback: 'Regionalt treff', not_enabled: 'Ikke aktivert', disabled: 'Avslått', success: 'Vellykket', not_eligible: 'Ikke kvalifisert', manual_verify: 'Verifiser manuelt', confirmed_org: 'Bekreftet org.nr', candidate_org: 'Kandidat org.nr', no_match: 'Ingen treff', not_run: 'Ikke kjørt', brreg_unavailable: 'Brreg ikke bekreftet', phone_available: 'Telefon finnes', contact_missing: 'Kontakt mangler', audit_skipped: 'Raskt søk', completed: 'Fullført', good: 'God', strong: 'Sterk', weak: 'Svak', high: 'Høy', medium: 'Middels', low: 'Lav', verify: 'Verifiser', strong_fit: 'Sterk match', good_fit: 'God match', review_fit: 'Vurder match', weak_fit: 'Svak match', fast: 'Rask', deep: 'Dyp', mixed: 'Blandet', ready_to_call: 'Klar til å ringe', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Trenger kontakt', follow_up_due: 'Oppfølging forfalt', later: 'Senere', skip: 'Hopp over', queue_change: 'Køendring', follow_up_set: 'Oppfølging satt', contact_attempt: 'Kontaktforsøk', status_change: 'Statusendring', note: 'Notat', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Eksakt sted', nearby: 'Nærområde-treff', fallback: 'Regionalt treff', conflict: 'Konflikt', confirmed: 'Bekreftet firma', candidate: 'Kandidat org.nr', unknown: 'Ukjent', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Kontaktdata', contact_provider: 'Kontaktleverandør', website_contact_profile: 'Nettside-/kontaktprofil', workflow: 'Arbeidsflyt', vertical_exact: 'Eksakt kategori', vertical_synonym: 'Relatert kategori', vertical_broad: 'Bred kategori', vertical_weak: 'Svak kategori', synonym: 'Relatert', broad: 'Bred' }[value] || String(value).toUpperCase() }
-function formatCounts(counts) { const entries = Object.entries(counts); return entries.length ? entries.map(([k,v]) => `${k}:${v}`).join(' ') : 'none' }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {
   if (!value) return ''

@@ -24,7 +24,6 @@ for (const required of [
   'verify_first',
   'needs_contact',
   'follow_up_due',
-  'call-focus-strip',
   'current-readiness',
   'med telefon',
   'slice(0, 8)',
