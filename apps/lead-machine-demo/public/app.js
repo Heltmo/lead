@@ -42,7 +42,7 @@ const WORK_QUEUES = [
 ]
 const WORK_QUEUE_IDS = new Set(WORK_QUEUES.map((queue) => queue.id))
 
-const state = { result: null, selectedIndex: 0, selectedLeadId: null, selectedQueue: 'call_now', cityFilter: '', callFocus: null, mobileNoteDrafts: {}, mobileNoteOpenLeadId: '', mobileSearchOpen: false, mobileQueueDone: null }
+const state = { result: null, selectedIndex: 0, selectedLeadId: null, selectedQueue: 'call_now', cityFilter: '', callFocus: null, mobileMoreOpen: false, mobileNoteDrafts: {}, mobileNoteOpenLeadId: '', mobileSearchOpen: false, mobileQueueDone: null }
 
 initBetaAccess()
 
@@ -141,6 +141,9 @@ document.addEventListener('click', (event) => {
   if (mobileEditSearch) { toggleMobileSearch(); return }
   const workspaceExport = event.target.closest('[data-workspace-export]')
   if (workspaceExport) { exportWorkspaceSnapshot(); return }
+  const mobileMoreToggle = event.target.closest('[data-mobile-more]')
+  if (mobileMoreToggle && !event.target.closest('[data-mobile-more-menu]')) { state.mobileMoreOpen = !state.mobileMoreOpen; renderAll(); return }
+  if (event.target.closest('[data-mobile-more-menu]')) state.mobileMoreOpen = false
   const cardNoteButton = event.target.closest('[data-save-card-note]')
   if (cardNoteButton) { saveCardNote(cardNoteButton); return }
   const websiteAuditButton = event.target.closest('[data-run-website-audit]')
@@ -375,9 +378,10 @@ function renderMobileActiveBar(result) {
   const query = activeSearchLabel(result)
   const queue = workQueueLabel(state.selectedQueue)
   const count = getVisibleLeads(result.leadPacks || []).length
+  const sessionCount = callFocusAvailableCount()
   els.mobileActiveBar.hidden = false
   els.mobileActiveBar.innerHTML = '<div class="mobile-active-copy"><strong>Lead Machine</strong><span>' + escapeHtml(query) + '</span></div>' +
-    '<div class="mobile-active-meta"><span>' + escapeHtml(queue) + ' · ' + escapeHtml(String(count)) + '</span><button type="button" data-mobile-edit-search>' + (state.mobileSearchOpen ? 'Lukk' : 'Søk') + '</button></div>'
+    '<div class="mobile-active-meta"><span>' + escapeHtml(queue) + ' · ' + escapeHtml(String(count)) + '</span><button type="button" class="mobile-session-start" data-start-call-focus ' + callFocusStartDisabledAttr() + '>Ringeøkt' + (sessionCount ? ' ' + escapeHtml(String(sessionCount)) : '') + '</button><button type="button" data-mobile-edit-search>' + (state.mobileSearchOpen ? 'Lukk' : 'Søk') + '</button></div>'
 }
 
 function activeSearchLabel(result = state.result) {
@@ -655,10 +659,18 @@ function applyQueuePreset(preset) {
 function renderWorkQueueTabs(leads) {
   if (!els.workQueueTabs) return
   const counts = workQueueCounts(leads || [])
-  els.workQueueTabs.innerHTML = WORK_QUEUES.map((queue) => {
+  const queueSelect = '<label class="queue-select-mobile"><span>Kø</span><select data-queue-select>' + WORK_QUEUES.map((queue) =>
+    '<option value="' + escapeAttr(queue.id) + '" ' + (queue.id === state.selectedQueue ? 'selected' : '') + '>' + escapeHtml(queue.label + ' · ' + (counts[queue.id] || 0)) + '</option>'
+  ).join('') + '</select></label>'
+  els.workQueueTabs.innerHTML = queueSelect + WORK_QUEUES.map((queue) => {
     const active = queue.id === state.selectedQueue
     return '<button type="button" class="work-queue-tab ' + (active ? 'active' : '') + '" data-work-queue="' + escapeAttr(queue.id) + '"><span>' + escapeHtml(queue.label) + '</span><strong>' + escapeHtml(counts[queue.id] || 0) + '</strong></button>'
   }).join('') + '<button type="button" class="start-call-focus" data-start-call-focus ' + ((counts.call_now || 0) + (counts.verify_first || 0) ? '' : 'disabled') + '>Start ringeøkt</button>'
+  const select = els.workQueueTabs.querySelector('[data-queue-select]')
+  if (select) select.addEventListener('change', () => {
+    state.selectedQueue = normalizeWorkQueue(select.value) || 'call_now'
+    renderAll()
+  })
 }
 
 function workQueueCounts(leads) {
@@ -1760,11 +1772,16 @@ function mobileCallBar(lead) {
     '<div class="mobile-call-main"><strong>' + escapeHtml(name) + '</strong><span>' + escapeHtml(phone || workQueueLabel(leadWorkQueue(lead))) + '</span></div>' +
     '<div class="mobile-call-actions">' +
     (callHref ? '<a class="mobile-call-button primary" href="' + escapeAttr(callHref) + '">Ring</a>' : '<span class="mobile-call-button disabled">Ingen tlf</span>') +
-    '<button type="button" class="mobile-call-button note-toggle ' + (noteOpen ? 'active' : '') + '" data-mobile-note-toggle data-lead-id="' + escapeAttr(id) + '" aria-expanded="' + escapeAttr(String(noteOpen)) + '">Notat</button>' +
     '<button type="button" class="mobile-call-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ingen svar</button>' +
     '<button type="button" class="mobile-call-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interessert</button>' +
-    '<button type="button" class="mobile-call-button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ferdig</button>' +
     '<button type="button" class="mobile-call-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Neste</button>' +
+    '<button type="button" class="mobile-call-button more-toggle ' + (state.mobileMoreOpen ? 'active' : '') + '" data-mobile-more aria-expanded="' + escapeAttr(String(Boolean(state.mobileMoreOpen))) + '">&#8943;</button>' +
+    '</div>' +
+    '<div class="mobile-more-menu" data-mobile-more-menu ' + (state.mobileMoreOpen ? '' : 'hidden') + '>' +
+      '<button type="button" data-start-call-focus ' + callFocusStartDisabledAttr() + '>Start ringeøkt</button>' +
+      '<button type="button" data-mobile-note-toggle data-lead-id="' + escapeAttr(id) + '">Notat</button>' +
+      '<button type="button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ferdig</button>' +
+      '<button type="button" data-workflow-action="not_relevant" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ikke relevant</button>' +
     '</div>' +
     '<section class="mobile-note-drawer" ' + (noteOpen ? '' : 'hidden') + '><label><span>Notat lagres med neste utfall</span><textarea data-mobile-note-input data-lead-id="' + escapeAttr(id) + '" rows="3" placeholder="Kort notat etter samtalen">' + escapeHtml(draft) + '</textarea></label><div class="mobile-note-actions"><button type="button" data-mobile-save-note data-index="' + escapeAttr(String(state.selectedIndex)) + '" data-lead-id="' + escapeAttr(id) + '">Lagre notat</button><small>Legges til, erstatter ikke tidligere notater.</small></div></section>' +
   '</aside>'
@@ -1848,7 +1865,11 @@ function selectNextVisibleLead() {
 }
 
 function startCallFocus() {
-  state.callFocus = { skippedIds: [], logged: { no_answer: 0, interested: 0, mark_called: 0, not_relevant: 0 }, lastActiveId: '', lastActiveIndex: 0 }
+  const selectedId = state.selectedLeadId || (state.result?.leadPacks?.[state.selectedIndex] ? leadId(state.result.leadPacks[state.selectedIndex], state.selectedIndex) : '')
+  const startLeadId = callFocusCandidates().some(({ id }) => id === selectedId) ? selectedId : ''
+  state.mobileNoteOpenLeadId = ''
+  state.mobileQueueDone = null
+  state.callFocus = { skippedIds: [], logged: { no_answer: 0, interested: 0, mark_called: 0, not_relevant: 0 }, lastActiveId: '', lastActiveIndex: 0, startLeadId }
   renderAll()
 }
 
@@ -1866,19 +1887,32 @@ function exitCallFocus() {
 
 const CALL_FOCUS_QUEUE_RANK = { call_now: 0, verify_first: 1 }
 
-function callFocusLeads() {
-  if (!state.callFocus) return []
+function callFocusCandidates() {
   const leads = state.result?.leadPacks || []
   const openRank = { open: 0, unknown: 1, closed: 2 }
+  const startLeadId = state.callFocus?.startLeadId || ''
   return leads.map((lead, index) => ({ lead, index, id: leadId(lead, index) }))
     .filter(({ lead }) => CALL_FOCUS_QUEUE_RANK[leadWorkQueue(lead)] !== undefined)
     .filter(({ lead }) => Boolean(lead.contact?.phone || lead.phone))
     .filter(({ lead }) => matchesCityFilter(lead))
-    .filter(({ id }) => !state.callFocus.skippedIds.includes(id))
     .sort((a, b) =>
-      (CALL_FOCUS_QUEUE_RANK[leadWorkQueue(a.lead)] - CALL_FOCUS_QUEUE_RANK[leadWorkQueue(b.lead)])
+      (startLeadId && a.id === startLeadId ? -1 : 0) - (startLeadId && b.id === startLeadId ? -1 : 0)
+      || (CALL_FOCUS_QUEUE_RANK[leadWorkQueue(a.lead)] - CALL_FOCUS_QUEUE_RANK[leadWorkQueue(b.lead)])
       || (openRank[openingStatusFor(a.lead).state] - openRank[openingStatusFor(b.lead).state])
       || (callQueueSortScore(b.lead) - callQueueSortScore(a.lead)))
+}
+
+function callFocusAvailableCount() {
+  return callFocusCandidates().length
+}
+
+function callFocusStartDisabledAttr() {
+  return callFocusAvailableCount() ? '' : 'disabled'
+}
+
+function callFocusLeads() {
+  if (!state.callFocus) return []
+  return callFocusCandidates().filter(({ id }) => !state.callFocus.skippedIds.includes(id))
 }
 
 function syncSelectedLeadToActiveCallFocus(visibleLeads) {
@@ -1978,13 +2012,15 @@ function renderCallFocus() {
     websiteSalesPanel(lead) +
     (latestLeadNote(lead) ? '<p class="call-focus-last-note">Siste notat: ' + escapeHtml(latestLeadNote(lead)) + '</p>' : '') +
     '<label class="call-focus-note"><span>Kort notat (valgfritt, lagres med utfallet)</span><textarea id="callFocusNote" rows="2" placeholder="Hva skjedde i samtalen?"></textarea></label>' +
-    '<div class="call-focus-outcomes">' +
-      '<button type="button" class="call-focus-outcome warning" data-call-focus-outcome="no_answer">Ingen svar</button>' +
-      '<button type="button" class="call-focus-outcome positive" data-call-focus-outcome="interested">Interessert</button>' +
-      '<button type="button" class="call-focus-outcome" data-call-focus-outcome="mark_called">Ferdig</button>' +
-      '<button type="button" class="call-focus-outcome negative" data-call-focus-outcome="not_relevant">Ikke relevant</button>' +
+    '<div class="call-focus-action-dock">' +
+      '<div class="call-focus-outcomes">' +
+        '<button type="button" class="call-focus-outcome warning" data-call-focus-outcome="no_answer">Ingen svar</button>' +
+        '<button type="button" class="call-focus-outcome positive" data-call-focus-outcome="interested">Interessert</button>' +
+        '<button type="button" class="call-focus-outcome" data-call-focus-outcome="mark_called">Ferdig</button>' +
+        '<button type="button" class="call-focus-outcome negative" data-call-focus-outcome="not_relevant">Ikke relevant</button>' +
+      '</div>' +
+      '<div class="call-focus-secondary"><button type="button" class="call-focus-skip" data-call-focus-skip>Hopp over uten logg</button><span class="call-focus-keys">Taster: 1 Ingen svar · 2 Interessert · 3 Ferdig · 4 Ikke relevant · Esc avslutt</span></div>' +
     '</div>' +
-    '<div class="call-focus-secondary"><button type="button" class="call-focus-skip" data-call-focus-skip>Hopp over uten logg</button><span class="call-focus-keys">Taster: 1 Ingen svar · 2 Interessert · 3 Ferdig · 4 Ikke relevant · Esc avslutt</span></div>' +
   '</div>'
 }
 

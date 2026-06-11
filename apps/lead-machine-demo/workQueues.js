@@ -141,9 +141,12 @@ function recommendedQueueForLead(lead = {}, workflow = {}, options = {}) {
   if (action === 'skip' || trustAction === 'skip') return 'archived'
   if (!quality.hasPhone) return 'verify_first'
   if (quality.foreignPhone || quality.severeLocationRisk) return 'verify_first'
-  // Sterk nettside-lead krever allerede telefon, eksakt sted og ikke kjede/offentlig -
-  // da skal selgeren få ringe selv om identiteten ikke er Brreg-bekreftet ennå.
-  if (String(lead.websiteSalesFit?.websiteSalesFit || '').toLowerCase() === 'strong') return 'call_now'
+  // For nettsidesalg er telefonen selve forutsetningen for å ringe - ikke org.nr.
+  // Dommen styrer køen: strong/review med telefon er ringbar (nettsiden sjekkes i
+  // ringeøkten via lenke/AI-sjekk), weak (kjede/offentlig/feil sted) må vurderes først.
+  const websiteFit = String(lead.websiteSalesFit?.websiteSalesFit || '').toLowerCase()
+  if (websiteFit === 'strong' || websiteFit === 'review') return 'call_now'
+  if (websiteFit === 'weak') return 'verify_first'
   if (trustAction === 'verify_first') return 'verify_first'
   if (quality.trustedToCall) return 'call_now'
   if (quality.needsVerifyBeforeCall) return 'verify_first'
