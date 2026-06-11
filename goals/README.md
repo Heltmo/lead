@@ -6,6 +6,8 @@ This is the ordered path from current beta to the end goal: a daily seller desk 
 
 Hermes owns orchestration. Codex owns scoped implementation and verification. Work one goal at a time, with small tickets and explicit checks.
 
+When an agent session coordinates lead-quality work (not code), follow `LEAD_OPERATIONS_ORCHESTRATOR_V1.md` - it maps the worker roles to existing modules and gates Phase 2 on validated call sessions.
+
 ## Goal Order
 
 1. `agent-development-loop-v1.goal.md` - make Hermes/Codex development repeatable.

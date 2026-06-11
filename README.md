@@ -30,6 +30,8 @@ Open `http://127.0.0.1:8787`.
 
 Use `HERMES_CODEX_LOOP.md` for Hermes-led development loops with Codex. Product agents inside Lead Machine are deferred to narrow, read-only lead verification until the seller desk foundation is stronger.
 
+For manual control-plane discipline when an agent session coordinates lead-quality work (ledger, narrow checks, readiness gate, no mutation without approval), use `LEAD_OPERATIONS_ORCHESTRATOR_V1.md` and `prompts/lead-operations-orchestrator.prompt.md`.
+
 ## Goal Chain
 
 Use `HERMES_START_HERE.md` and `goals/README.md` to run the Hermes/Codex path from current beta to the daily seller desk end state.
