@@ -45,6 +45,11 @@ function evaluateWebsiteSalesFit(lead = {}) {
   const locationStatus = String(sourceQuality.locationMatchStatus || 'unknown')
   const exactLocation = locationStatus === 'exact_location'
   const outOfArea = ['out_of_area', 'candidate_appears_outside_requested_location'].includes(locationStatus)
+  // Norway-sweep runs lose the per-city comparison, so locationMatchStatus is
+  // 'unknown' even though the lead has a real city - treat that as usable with
+  // a caution instead of making strong unreachable in sweep mode.
+  const cityKnown = Boolean(String(contact.city || lead.city || '').trim())
+  const usableLocation = exactLocation || (locationStatus === 'unknown' && cityKnown)
   const denyReason = publicOrChainReason(lead)
   const aiAudit = lead.website?.aiAudit && typeof lead.website.aiAudit === 'object' ? lead.website.aiAudit : null
   const aiWeakSite = Boolean(aiAudit && (aiAudit.outdated === 'ja' || (aiAudit.topIssues || []).length > 0))
@@ -76,7 +81,7 @@ function evaluateWebsiteSalesFit(lead = {}) {
   if (!activeCompany) caution.push('Firmaaktiviteten er uklar i Brreg.')
 
   const websiteSalesFit = verdictFor({
-    denyReason, hasPhone, outOfArea, exactLocation, websiteLeadType, employees, activeCompany, googleActivity, confirmedOrg, candidateOrg, centralLocationPage,
+    denyReason, hasPhone, outOfArea, usableLocation, websiteLeadType, employees, activeCompany, googleActivity, confirmedOrg, candidateOrg, centralLocationPage,
   })
   const recommendedAction = recommendedActionFor({ websiteSalesFit, websiteLeadType, denyReason, hasPhone })
 
@@ -90,7 +95,7 @@ function evaluateWebsiteSalesFit(lead = {}) {
 }
 
 function verdictFor(context) {
-  const { denyReason, hasPhone, outOfArea, exactLocation, websiteLeadType, employees, activeCompany, googleActivity, confirmedOrg, candidateOrg, centralLocationPage } = context
+  const { denyReason, hasPhone, outOfArea, usableLocation, websiteLeadType, employees, activeCompany, googleActivity, confirmedOrg, candidateOrg, centralLocationPage } = context
   if (denyReason) return 'weak'
   if (!hasPhone) return 'weak'
   if (outOfArea) return 'weak'
@@ -100,7 +105,7 @@ function verdictFor(context) {
   // no_website or weak_site from here: the core website-sales opening.
   if (employees >= 50) return 'review'
   if (!activeCompany) return 'review'
-  if (!exactLocation) return 'review'
+  if (!usableLocation) return 'review'
   if (googleActivity || confirmedOrg || candidateOrg) return 'strong'
   return 'review'
 }

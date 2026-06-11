@@ -148,4 +148,21 @@ function lead(overrides = {}) {
   assert(result.websiteLeadType === 'modern_site', 'modern site should be classified modern_site')
 }
 
+{
+  const result = evaluateWebsiteSalesFit(lead({
+    contact: { phone: '94 00 71 21', website: null, city: 'Oslo' },
+    sourceQuality: { locationMatchStatus: 'unknown' },
+  }))
+  assert(result.websiteSalesFit === 'strong', 'sweep leads with unknown-but-present city must still be able to go strong')
+  assert(result.caution.some((item) => item.includes('ikke bekreftet eksakt')), 'unknown location should keep the check-before-calling caution')
+}
+
+{
+  const result = evaluateWebsiteSalesFit(lead({
+    contact: { phone: '94 00 71 21', website: null, city: '' },
+    sourceQuality: { locationMatchStatus: 'unknown' },
+  }))
+  assert(result.websiteSalesFit === 'review', 'unknown location without any city stays review')
+}
+
 console.log('website-sales-fit smoke test passed')
