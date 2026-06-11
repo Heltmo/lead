@@ -42,7 +42,7 @@ const WORK_QUEUES = [
 ]
 const WORK_QUEUE_IDS = new Set(WORK_QUEUES.map((queue) => queue.id))
 
-const state = { result: null, selectedIndex: 0, selectedLeadId: null, selectedQueue: 'call_now', cityFilter: '', callFocus: null }
+const state = { result: null, selectedIndex: 0, selectedLeadId: null, selectedQueue: 'call_now', cityFilter: '', callFocus: null, mobileNoteDrafts: {}, mobileNoteOpenLeadId: '', mobileSearchOpen: false, mobileQueueDone: null }
 
 initBetaAccess()
 
@@ -81,6 +81,8 @@ const QUICK_WORKFLOW_ACTIONS = [
 
 
 const els = {
+  appHeader: document.querySelector('.app-header'),
+  mobileActiveBar: document.getElementById('mobileActiveBar'),
   profession: document.getElementById('professionSelect'),
   location: document.getElementById('locationInput'),
   locationOptions: document.getElementById('locationOptions'),
@@ -122,19 +124,21 @@ els.queryExamples.forEach((button) => button.addEventListener('click', () => { e
 els.location.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
 els.profession.addEventListener('change', syncQueryFromStructuredSearch)
 els.location.addEventListener('input', syncQueryFromStructuredSearch)
-els.leadSort.addEventListener('change', () => { state.selectedLeadId = null; renderAll() })
+els.leadSort.addEventListener('change', () => { clearMobileQueueDone(); state.selectedLeadId = null; state.mobileNoteOpenLeadId = ''; renderAll() })
 els.queuePresets.forEach((button) => button.addEventListener('click', () => applyQueuePreset(button.dataset.queuePreset)))
-els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { state.selectedLeadId = null; renderAll() }))
-els.clearLeadFilters.addEventListener('click', () => { els.leadFilters.forEach((filter) => { filter.checked = false }); state.cityFilter = ''; state.selectedLeadId = null; renderAll() })
+els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { clearMobileQueueDone(); state.selectedLeadId = null; state.mobileNoteOpenLeadId = ''; renderAll() }))
+els.clearLeadFilters.addEventListener('click', () => { els.leadFilters.forEach((filter) => { filter.checked = false }); clearMobileQueueDone(); state.cityFilter = ''; state.selectedLeadId = null; state.mobileNoteOpenLeadId = ''; renderAll() })
 document.addEventListener('click', (event) => {
   const workQueueButton = event.target.closest('[data-work-queue]')
-  if (workQueueButton) { state.selectedQueue = normalizeWorkQueue(workQueueButton.dataset.workQueue) || 'call_now'; state.selectedLeadId = null; renderAll(); return }
+  if (workQueueButton) { clearMobileQueueDone(); state.mobileNoteOpenLeadId = ''; state.selectedQueue = normalizeWorkQueue(workQueueButton.dataset.workQueue) || 'call_now'; state.selectedLeadId = null; renderAll(); return }
   const cityFilterButton = event.target.closest('[data-city-filter]')
-  if (cityFilterButton) { state.cityFilter = cityFilterButton.dataset.cityFilter || ''; state.selectedLeadId = null; renderAll(); return }
+  if (cityFilterButton) { clearMobileQueueDone(); state.mobileNoteOpenLeadId = ''; state.cityFilter = cityFilterButton.dataset.cityFilter || ''; state.selectedLeadId = null; renderAll(); return }
   const commandQueueButton = event.target.closest('[data-command-queue]')
-  if (commandQueueButton) { state.selectedQueue = normalizeWorkQueue(commandQueueButton.dataset.commandQueue) || state.selectedQueue; state.selectedLeadId = null; renderAll(); return }
+  if (commandQueueButton) { clearMobileQueueDone(); state.mobileNoteOpenLeadId = ''; state.selectedQueue = normalizeWorkQueue(commandQueueButton.dataset.commandQueue) || state.selectedQueue; state.selectedLeadId = null; renderAll(); return }
   const commandLeadButton = event.target.closest('[data-command-lead-id]')
-  if (commandLeadButton) { selectCommandLead(commandLeadButton.dataset.commandLeadId || ''); return }
+  if (commandLeadButton) { clearMobileQueueDone(); state.mobileNoteOpenLeadId = ''; selectCommandLead(commandLeadButton.dataset.commandLeadId || ''); return }
+  const mobileEditSearch = event.target.closest('[data-mobile-edit-search]')
+  if (mobileEditSearch) { toggleMobileSearch(); return }
   const workspaceExport = event.target.closest('[data-workspace-export]')
   if (workspaceExport) { exportWorkspaceSnapshot(); return }
   const cardNoteButton = event.target.closest('[data-save-card-note]')
@@ -242,6 +246,8 @@ async function loadLatestRun() {
     state.result = payload
     state.selectedIndex = 0
     state.selectedLeadId = null
+    state.mobileSearchOpen = false
+    state.mobileQueueDone = null
     if (payload.parsedQuery?.normalizedQuery) els.query.value = payload.parsedQuery.normalizedQuery
     if (payload.summary?.marketSweep && els.leadSort) els.leadSort.value = 'city'
     selectBestQueueForResult(payload)
@@ -260,6 +266,9 @@ async function runSearch() {
   state.result = null
   state.selectedIndex = 0
   state.selectedLeadId = null
+  state.mobileSearchOpen = false
+  state.mobileQueueDone = null
+  renderMobileActiveBar(null)
   renderLeads([])
   renderDetail(null)
   renderCommandCenter(null)
@@ -287,6 +296,8 @@ async function runSearch() {
     const payload = await response.json()
     if (!response.ok) throw new Error(payload.error || 'Run failed')
     state.result = payload
+    state.mobileSearchOpen = false
+    state.mobileQueueDone = null
     if (payload.summary?.marketSweep && els.leadSort) els.leadSort.value = 'city'
     selectBestQueueForResult(payload)
     const providerError = friendlyProviderError(payload.summary?.providerErrors)
@@ -313,6 +324,7 @@ function selectBestQueueForResult(result) {
 }
 
 function renderAll() {
+  renderMobileActiveBar(state.result)
   const leads = state.result?.leadPacks || []
   const visibleLeads = getVisibleLeads(leads)
   syncSelectedLeadToActiveCallFocus(visibleLeads)
@@ -329,7 +341,8 @@ function renderAll() {
   renderWorkQueueTabs(leads)
   renderWorkflowBoard(state.result)
   renderLeads(visibleLeads)
-  renderDetail(visibleLeads.length ? leads[state.selectedIndex] : null)
+  const showMobileQueueDone = Boolean(state.mobileQueueDone && state.mobileQueueDone.queue === state.selectedQueue)
+  renderDetail(showMobileQueueDone ? null : (visibleLeads.length ? leads[state.selectedIndex] : null))
   renderExport(state.result)
   renderCallFocus()
 }
@@ -345,6 +358,44 @@ function renderCityChips(result) {
   els.cityChips.innerHTML = allChip + cityEntries.map(([city, count]) => '<button type="button" class="city-chip ' + (normalizeCityName(city) === normalizeCityName(activeCity) ? 'active' : '') + '" data-city-filter="' + escapeAttr(city) + '"><strong>' + escapeHtml(city) + '</strong> ' + escapeHtml(String(count)) + '</button>').join('')
 }
 
+
+function renderMobileActiveBar(result) {
+  const hasLeads = Boolean(result && Array.isArray(result.leadPacks) && result.leadPacks.length)
+  document.body.classList.toggle('has-active-results', hasLeads)
+  document.body.classList.toggle('mobile-search-open', hasLeads && state.mobileSearchOpen)
+  document.body.classList.toggle('mobile-note-open', hasLeads && Boolean(state.mobileNoteOpenLeadId && state.mobileNoteOpenLeadId === state.selectedLeadId))
+  document.body.classList.toggle('mobile-queue-done', hasLeads && Boolean(state.mobileQueueDone))
+  els.appHeader?.classList.toggle('has-active-search', hasLeads)
+  if (!els.mobileActiveBar) return
+  if (!hasLeads) {
+    els.mobileActiveBar.hidden = true
+    els.mobileActiveBar.innerHTML = ''
+    return
+  }
+  const query = activeSearchLabel(result)
+  const queue = workQueueLabel(state.selectedQueue)
+  const count = getVisibleLeads(result.leadPacks || []).length
+  els.mobileActiveBar.hidden = false
+  els.mobileActiveBar.innerHTML = '<div class="mobile-active-copy"><strong>Lead Machine</strong><span>' + escapeHtml(query) + '</span></div>' +
+    '<div class="mobile-active-meta"><span>' + escapeHtml(queue) + ' · ' + escapeHtml(String(count)) + '</span><button type="button" data-mobile-edit-search>' + (state.mobileSearchOpen ? 'Lukk' : 'Søk') + '</button></div>'
+}
+
+function activeSearchLabel(result = state.result) {
+  return result?.parsedQuery?.normalizedQuery || result?.summary?.query || els.query?.value || 'Aktivt søk'
+}
+
+function toggleMobileSearch() {
+  state.mobileSearchOpen = !state.mobileSearchOpen
+  renderMobileActiveBar(state.result)
+  if (state.mobileSearchOpen) {
+    els.query?.focus()
+    els.query?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
+function clearMobileQueueDone() {
+  state.mobileQueueDone = null
+}
 
 function renderCommandCenter(result) {
   if (!els.commandCenter) return
@@ -549,6 +600,8 @@ function renderLeads(visibleLeads) {
     `
   }).join('')
   els.leadCards.querySelectorAll('.lead-card').forEach((button) => button.addEventListener('click', () => {
+    clearMobileQueueDone()
+    state.mobileNoteOpenLeadId = ''
     state.selectedIndex = Number(button.dataset.index)
     state.selectedLeadId = button.dataset.id
     renderAll()
@@ -587,6 +640,8 @@ function focusLeadDetail(options = {}) {
 }
 
 function applyQueuePreset(preset) {
+  clearMobileQueueDone()
+  state.mobileNoteOpenLeadId = ''
   els.leadFilters.forEach((filter) => { filter.checked = false })
   if (preset === 'callNow') state.selectedQueue = 'call_now'
   else if (preset === 'verify') state.selectedQueue = 'verify_first'
@@ -976,6 +1031,69 @@ function latestLeadNote(lead) {
   return lines[lines.length - 1] || ''
 }
 
+function mobileLeadDraftId(lead, index = state.selectedIndex) {
+  return leadId(lead, index)
+}
+
+function mobileNoteDraftFor(lead, index = state.selectedIndex) {
+  return state.mobileNoteDrafts[mobileLeadDraftId(lead, index)] || ''
+}
+
+function appendSellerNote(workflow = {}, text = '') {
+  const note = String(text || '').trim()
+  if (!note) return { ...workflow }
+  const owner = currentOwner()
+  const line = owner ? owner + ': ' + note : note
+  return { ...workflow, notes: [cleanWorkflowNote(workflow.notes), line].filter(Boolean).join('\n'), owner: owner || workflow.owner || '' }
+}
+
+function clearMobileNoteDraftFor(lead, index = state.selectedIndex) {
+  const id = mobileLeadDraftId(lead, index)
+  delete state.mobileNoteDrafts[id]
+  if (state.mobileNoteOpenLeadId === id) state.mobileNoteOpenLeadId = ''
+}
+
+async function saveMobileNote(button) {
+  const index = Number(button.dataset.index ?? state.selectedIndex)
+  const lead = state.result?.leadPacks?.[index]
+  if (!lead) return setStatus('feilet: ingen valgt lead for notat', 'failed')
+  const id = mobileLeadDraftId(lead, index)
+  const input = button.closest('.mobile-call-bar')?.querySelector('[data-mobile-note-input]')
+  const text = String(input?.value || state.mobileNoteDrafts[id] || '').trim()
+  if (!text) { input?.focus(); return }
+  const workflow = appendSellerNote(lead.workflow || {}, text)
+  state.selectedIndex = index
+  state.selectedLeadId = id
+  const originalText = button.textContent
+  button.disabled = true
+  button.textContent = 'Lagrer...'
+  setStatus('lagrer notat...', 'running')
+  try {
+    const response = await apiFetch('/api/workflow', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        leadId: lead.workflow?.leadId || id,
+        runId: state.result?.runId,
+        leadName: lead.company?.displayName || lead.companyName || '',
+        workflow,
+      }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Lagring av notat feilet')
+    lead.workflow = payload.workflow
+    syncLeadQueueQuality(lead)
+    clearMobileNoteDraftFor(lead, index)
+    setStatus('notat lagret', '')
+    renderAll()
+  } catch (error) {
+    setStatus('feilet: ' + (error.message || 'lagring av notat'), 'failed')
+  } finally {
+    button.disabled = false
+    button.textContent = originalText || 'Lagre notat'
+  }
+}
+
 function leadNotePanel(lead) {
   const lines = leadNoteLines(lead)
   const latest = lines[lines.length - 1] || ''
@@ -1328,9 +1446,31 @@ function updateFilterSummary(visible, total) {
   els.leadFilterSummary.textContent = active.length ? `${prefix} · ${active.join(', ')}` : `${prefix} · no filters applied`
 }
 
+function mobileQueueFinishedPanel() {
+  const queue = workQueueLabel(state.selectedQueue)
+  const query = activeSearchLabel(state.result)
+  const counts = workQueueCounts(state.result?.leadPacks || [])
+  const nextQueue = WORK_QUEUES.find((item) => item.id !== state.selectedQueue && counts[item.id] > 0)
+  return '<section class="mobile-queue-finished empty-state">' +
+    '<p class="eyebrow">Kø ferdig</p>' +
+    '<h2>Ingen flere leads i ' + escapeHtml(queue) + '</h2>' +
+    '<p>' + escapeHtml(query) + ' er ferdig for denne køen. Velg en annen kø eller åpne søkefeltet for å finne flere.</p>' +
+    '<div class="mobile-queue-finished-actions">' +
+      (nextQueue ? '<button type="button" data-work-queue="' + escapeAttr(nextQueue.id) + '">Åpne ' + escapeHtml(nextQueue.label) + '</button>' : '') +
+      '<button type="button" data-mobile-edit-search>Søk</button>' +
+    '</div>' +
+  '</section>'
+}
+
 function renderDetail(lead) {
   if (!lead) {
-    els.leadDetail.innerHTML = '<div class="empty-state">Kjør et søk for å se firmaprofil, kontaktdata, bevis og obs-punkter.</div>'
+    if (state.mobileQueueDone && state.mobileQueueDone.queue === state.selectedQueue) {
+      els.leadDetail.innerHTML = mobileQueueFinishedPanel()
+    } else if (state.result?.leadPacks?.length) {
+      els.leadDetail.innerHTML = '<div class="empty-state">Ingen leads i ' + escapeHtml(workQueueLabel(state.selectedQueue)) + '. Velg en annen kø eller juster filter.</div>'
+    } else {
+      els.leadDetail.innerHTML = '<div class="empty-state">Kjør et søk for å se firmaprofil, kontaktdata, bevis og obs-punkter.</div>'
+    }
     return
   }
   const company = lead.company || {}
@@ -1346,6 +1486,7 @@ function renderDetail(lead) {
   const salesEdge = salesEdgeAction(lead)
   els.leadDetail.innerHTML = `
     <section class="instant-lead-view">
+      ${mobileDecisionCard(lead, command, salesEdge)}
       ${sellerFlowPanel(lead, command, salesEdge)}
     </section>
 
@@ -1464,6 +1605,64 @@ function renderDetail(lead) {
   })
 }
 
+function mobileDecisionCard(lead, command, salesEdge) {
+  const company = lead.company || {}
+  const phone = lead.contact?.phone || lead.phone || ''
+  const city = leadCity(lead)
+  const queue = leadWorkQueue(lead)
+  const readiness = callReadiness(lead)
+  const websiteFact = mobileWebsiteFact(lead)
+  const brregFact = mobileBrregFact(lead)
+  const fitFact = mobileSellerFitFact(lead, command)
+  const note = latestLeadNote(lead)
+  const proof = verificationShortLabel(lead)
+  return '<section class="mobile-decision-card queue-row" aria-label="Mobil beslutningskort">' +
+    '<div class="mobile-decision-head"><div><p class="eyebrow">Valgt lead</p><h2>' + escapeHtml(company.displayName || lead.companyName || 'Ukjent firma') + '</h2><small>' + escapeHtml([city, phone].filter(Boolean).join(' · ') || 'Kontakt mangler') + '</small></div><div class="badge-row">' + websiteSalesBadge(lead) + badge(queue) + badge(readiness.key) + sellerFitBadge(lead) + badge(brregStatusLabel(company)) + '</div></div>' +
+    '<div class="mobile-decision-facts">' +
+      mobileDecisionFact('Nettside', websiteFact.value, websiteFact.note, websiteFact.href) +
+      mobileDecisionFact('Kilde', brregFact.value, brregFact.note) +
+      mobileDecisionFact('Selgermatch', fitFact.value, fitFact.note) +
+      mobileDecisionFact('Siste notat', note || 'Ingen notat', note ? 'Lagret på leaden' : 'Bruk Notat i bunnlinjen') +
+    '</div>' +
+    '<details class="mobile-decision-more"><summary>Detaljer</summary><div class="mobile-decision-detail-grid">' +
+      commandMetric('Neste handling', salesEdge.label || command.nextAction, salesEdge.note || command.nextActionNote) +
+      commandMetric('Ringeklar', readiness.label, readiness.note) +
+      commandMetric('Bevis', proof.title, proof.note) +
+    '</div></details>' +
+  '</section>'
+}
+
+function mobileDecisionFact(label, value, note, href = '') {
+  const content = href
+    ? '<a href="' + escapeAttr(href) + '" target="_blank" rel="noreferrer">' + escapeHtml(value) + '</a>'
+    : escapeHtml(String(value || 'Ukjent'))
+  return '<div class="mobile-decision-fact"><span>' + escapeHtml(label) + '</span><strong>' + content + '</strong><small>' + escapeHtml(String(note || '')) + '</small></div>'
+}
+
+function mobileWebsiteFact(lead) {
+  const url = websiteValue(lead.contact?.website || lead.website)
+  const verdict = lead.websiteSalesFit || {}
+  if (!url) return { value: 'Ingen funnet', note: 'Salgsåpning for nettsidesalg', href: '' }
+  if (verdict.websiteSalesFit) return { value: websiteSalesFitLabel(verdict), note: websiteSalesActionLabel(verdict.recommendedAction) || 'Åpne og vurder selv', href: url }
+  return { value: displayUrl(url), note: 'Åpne og vurder selv', href: url }
+}
+
+function mobileBrregFact(lead) {
+  const company = lead.company || {}
+  const fusion = sourceFusionForLead(lead)
+  const value = company.organizationNumber ? 'Bekreftet org.nr' : company.candidateOrganizationNumber ? 'Kandidat org.nr' : humanize(brregStatusLabel(company))
+  const note = company.organizationNumber || company.candidateOrganizationNumber || sourceFusionFooter(fusion)
+  return { value, note }
+}
+
+function mobileSellerFitFact(lead, command) {
+  const fit = lead.sellerFit || {}
+  return {
+    value: humanize(fit.sellerFit || command.sellerReadinessKey || 'review'),
+    note: humanize(fit.recommendedAction || command.nextAction || 'review'),
+  }
+}
+
 function sellerFlowPanel(lead, command, salesEdge) {
   const company = lead.company || {}
   const contact = lead.contact || {}
@@ -1554,18 +1753,21 @@ function mobileCallBar(lead) {
   const phone = contact.phone || lead.phone || ''
   const callHref = phoneHref(phone)
   const name = company.displayName || lead.companyName || 'Valgt lead'
-  const verifyFirst = leadWorkQueue(lead) === 'verify_first'
-  return '<aside class="mobile-call-bar queue-row" aria-label="Mobile call actions">' +
+  const id = mobileLeadDraftId(lead, state.selectedIndex)
+  const draft = mobileNoteDraftFor(lead, state.selectedIndex)
+  const noteOpen = state.mobileNoteOpenLeadId === id
+  return '<aside class="mobile-call-bar queue-row" aria-label="Mobile ringehandlinger" data-mobile-lead-id="' + escapeAttr(id) + '">' +
     '<div class="mobile-call-main"><strong>' + escapeHtml(name) + '</strong><span>' + escapeHtml(phone || workQueueLabel(leadWorkQueue(lead))) + '</span></div>' +
     '<div class="mobile-call-actions">' +
-    (verifyFirst
-      ? '<button type="button" class="mobile-call-button primary" data-run-verify-enrich data-index="' + escapeAttr(String(state.selectedIndex)) + '">Verify</button>'
-      : (callHref ? '<a class="mobile-call-button primary" href="' + escapeAttr(callHref) + '">Ring</a>' : '<span class="mobile-call-button disabled">Ingen tlf</span>')) +
+    (callHref ? '<a class="mobile-call-button primary" href="' + escapeAttr(callHref) + '">Ring</a>' : '<span class="mobile-call-button disabled">Ingen tlf</span>') +
+    '<button type="button" class="mobile-call-button note-toggle ' + (noteOpen ? 'active' : '') + '" data-mobile-note-toggle data-lead-id="' + escapeAttr(id) + '" aria-expanded="' + escapeAttr(String(noteOpen)) + '">Notat</button>' +
     '<button type="button" class="mobile-call-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ingen svar</button>' +
     '<button type="button" class="mobile-call-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interessert</button>' +
     '<button type="button" class="mobile-call-button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ferdig</button>' +
     '<button type="button" class="mobile-call-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Neste</button>' +
-    '</div></aside>'
+    '</div>' +
+    '<section class="mobile-note-drawer" ' + (noteOpen ? '' : 'hidden') + '><label><span>Notat lagres med neste utfall</span><textarea data-mobile-note-input data-lead-id="' + escapeAttr(id) + '" rows="3" placeholder="Kort notat etter samtalen">' + escapeHtml(draft) + '</textarea></label><div class="mobile-note-actions"><button type="button" data-mobile-save-note data-index="' + escapeAttr(String(state.selectedIndex)) + '" data-lead-id="' + escapeAttr(id) + '">Lagre notat</button><small>Legges til, erstatter ikke tidligere notater.</small></div></section>' +
+  '</aside>'
 }
 
 function queueGuidanceNote(lead = {}) {
@@ -1633,6 +1835,8 @@ function nextLeadDisabledAttr() {
 }
 
 function selectNextVisibleLead() {
+  clearMobileQueueDone()
+  state.mobileNoteOpenLeadId = ''
   const visibleLeads = getVisibleLeads(state.result?.leadPacks || [])
   if (visibleLeads.length <= 1) return
   const currentPosition = Math.max(0, visibleLeads.findIndex(({ id }) => id === state.selectedLeadId))
@@ -2734,6 +2938,13 @@ function renderExport(result) {
   copy?.addEventListener('click', () => navigator.clipboard?.writeText(result.outputDir))
 }
 
+document.addEventListener('input', (event) => {
+  const mobileNoteInput = event.target.closest('[data-mobile-note-input]')
+  if (!mobileNoteInput) return
+  const id = mobileNoteInput.dataset.leadId || state.selectedLeadId || ''
+  if (id) state.mobileNoteDrafts[id] = mobileNoteInput.value
+})
+
 document.addEventListener('submit', (event) => {
   if (event.target && event.target.id === 'workflowForm') saveWorkflow(event)
 })
@@ -2759,6 +2970,16 @@ document.addEventListener('click', (event) => {
     }
     return
   }
+  const mobileNoteToggle = event.target.closest('[data-mobile-note-toggle]')
+  if (mobileNoteToggle) {
+    const id = mobileNoteToggle.dataset.leadId || state.selectedLeadId || ''
+    state.mobileNoteOpenLeadId = state.mobileNoteOpenLeadId === id ? '' : id
+    renderAll()
+    if (state.mobileNoteOpenLeadId) setTimeout(() => document.querySelector('[data-mobile-note-input]')?.focus(), 0)
+    return
+  }
+  const mobileSaveNoteButton = event.target.closest('[data-mobile-save-note]')
+  if (mobileSaveNoteButton) { saveMobileNote(mobileSaveNoteButton); return }
   const startCallFocusButton = event.target.closest('[data-start-call-focus]')
   if (startCallFocusButton) { startCallFocus(); return }
   const callFocusOutcomeButton = event.target.closest('[data-call-focus-outcome]')
@@ -2801,10 +3022,14 @@ async function runWorkflowQuickAction(button) {
   const lead = state.result?.leadPacks?.[index]
   if (!lead) return setStatus('feilet: ingen valgt lead for hurtighandling', 'failed')
   const action = button.dataset.workflowAction
-  const workflow = buildQuickWorkflow(action, lead.workflow || {})
+  const mobileBar = button.closest('.mobile-call-bar')
+  const draft = mobileBar ? String(mobileBar.querySelector('[data-mobile-note-input]')?.value || state.mobileNoteDrafts[mobileLeadDraftId(lead, index)] || '').trim() : ''
+  const current = draft ? appendSellerNote(lead.workflow || {}, draft) : (lead.workflow || {})
+  const workflow = buildQuickWorkflow(action, current)
   if (!workflow) return setStatus('feilet: ukjent hurtighandling', 'failed')
   workflow.owner = currentOwner() || workflow.owner || ''
   const advanceQueue = Boolean(button.closest('.queue-row'))
+  const fromMobileBar = Boolean(mobileBar)
   state.selectedIndex = index
   state.selectedLeadId = leadId(lead, index)
   const originalText = button.textContent
@@ -2826,11 +3051,13 @@ async function runWorkflowQuickAction(button) {
     if (!response.ok) throw new Error(payload.error || 'Workflow quick action failed')
     lead.workflow = payload.workflow
     syncLeadQueueQuality(lead)
+    if (fromMobileBar) clearMobileNoteDraftFor(lead, index)
     await refreshCommandCenter()
     clearStatus()
-    if (advanceQueue) selectNextQueueLead(lead)
+    const advanced = advanceQueue ? selectNextQueueLead(lead) : false
+    if (fromMobileBar && advanceQueue && !advanced) state.mobileQueueDone = { queue: state.selectedQueue, action }
     renderAll()
-    if (advanceQueue) focusLeadDetail({ block: 'nearest' })
+    if (advanceQueue && advanced) focusLeadDetail({ block: 'nearest' })
   } catch (error) {
     setStatus(`failed: ${error.message || 'Workflow quick action failed'}`, 'failed')
   } finally {
@@ -2901,9 +3128,12 @@ function selectNextQueueLead(previousLead) {
   const leads = state.result?.leadPacks || []
   const previousId = leadId(previousLead, state.selectedIndex)
   const next = workQueueLeads(leads, state.selectedQueue).find(({ lead, index }) => leadId(lead, index) !== previousId)
-  if (!next) return
+  if (!next) return false
+  clearMobileQueueDone()
+  state.mobileNoteOpenLeadId = ''
   state.selectedIndex = next.index
   state.selectedLeadId = leadId(next.lead, next.index)
+  return true
 }
 
 function buildQuickWorkflow(action, current = {}) {
