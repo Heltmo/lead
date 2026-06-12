@@ -18,6 +18,7 @@ const { parseLeadQuery } = require('../../apps/lead-machine-demo/queryParser')
 const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
 const { evaluateSellerFit, normalizeSellerIntent, normalizeSellerProfile } = require('../../core/seller-fit/sellerFit')
 const { evaluateWebsiteSalesFit } = require('../../core/website-sales-fit/websiteSalesFit')
+const { auditWebsite } = require('../../core/website-audit/websiteAudit')
 const { buildNorwaySweepRunOptions, NORWAY_SWEEP_MAX_RESULTS } = require('../../core/lead-discovery-agent/providers/norwaySweep')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
@@ -47,6 +48,10 @@ exports.handler = async function handler(event) {
       const result = await hostedDeepQualifyFromEvent(event, state)
       await writeHostedState(state)
       return result.error ? jsonResponse(result.statusCode || 400, result) : jsonResponse(200, result)
+    }
+    if (event.httpMethod === 'POST' && apiPath === '/api/website-audit') {
+      const result = await hostedWebsiteAuditFromEvent(event)
+      return result.error ? jsonResponse(result.statusCode || 502, { error: result.error }) : jsonResponse(200, result)
     }
     if (event.httpMethod === 'GET' && apiPath === '/api/workspace-export') return jsonResponse(200, exportSnapshot(state))
     if (event.httpMethod === 'GET' && apiPath === '/api/latest-run') {
@@ -306,6 +311,23 @@ async function hostedDeepQualifyFromEvent(event, state) {
     hosted: true,
     ...HOSTED_VERIFY_ENRICH_BOUNDARY,
   }
+}
+
+async function hostedWebsiteAuditFromEvent(event) {
+  const body = parseJsonBody(event)
+  const lead = body.lead && typeof body.lead === 'object' ? body.lead : null
+  if (!lead) return { error: 'Lead er påkrevd', statusCode: 400 }
+  const websiteUrl = selectedHostedWebsiteUrl(lead)
+  if (!websiteUrl) return { error: 'Leaden har ingen nettside å sjekke - ingen nettside er allerede et sterkt salgssignal', statusCode: 400 }
+  const result = await auditWebsite({
+    url: websiteUrl,
+    companyName: lead.company?.displayName || lead.companyName || '',
+    city: lead.contact?.city || lead.city || '',
+  })
+  if (!result.ok) return { error: result.error, statusCode: 502 }
+  const updated = JSON.parse(JSON.stringify(lead))
+  updated.website = { ...(updated.website || {}), aiAudit: result.audit }
+  return { audit: result.audit, websiteSalesFit: evaluateWebsiteSalesFit(updated), model: result.model, usage: result.usage }
 }
 
 async function hostedSelectedCompanyProfile(lead = {}) {
