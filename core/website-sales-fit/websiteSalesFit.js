@@ -52,8 +52,12 @@ function evaluateWebsiteSalesFit(lead = {}) {
   const usableLocation = exactLocation || (locationStatus === 'unknown' && cityKnown)
   const denyReason = publicOrChainReason(lead)
   const aiAudit = lead.website?.aiAudit && typeof lead.website.aiAudit === 'object' ? lead.website.aiAudit : null
-  const aiWeakSite = Boolean(aiAudit && (aiAudit.outdated === 'ja' || (aiAudit.topIssues || []).length > 0))
-  const aiModernSite = Boolean(aiAudit && aiAudit.outdated === 'nei' && !(aiAudit.topIssues || []).length)
+  // Drive off the AI's own sales-candidate verdict, not the presence of topIssues:
+  // the audit schema always asks for "maks 3 problemer", so even a modern, professional
+  // site comes back with 1-3 nitpicks (missing meta description, long price list). Reading
+  // topIssues.length as weakness flipped nearly every audited site to a strong lead.
+  const aiWeakSite = Boolean(aiAudit && (aiAudit.outdated === 'ja' || aiAudit.candidate === 'sterk_kandidat'))
+  const aiModernSite = Boolean(aiAudit && aiAudit.candidate === 'ikke_kandidat' && aiAudit.outdated !== 'ja')
   const weakSiteEvidence = hasWebsite ? (aiWeakSite ? String(aiAudit.summary || 'AI-sjekken fant svakheter på siden.') : firstWeakSiteEvidence(lead)) : ''
   const centralLocationPage = hasWebsite && looksLikeCentralLocationPage(websiteUrl, contact.city || lead.city)
 

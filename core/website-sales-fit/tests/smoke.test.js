@@ -149,6 +149,18 @@ function lead(overrides = {}) {
 }
 
 {
+  // Real-world modern site: AI says ikke_kandidat + outdated nei, but still returns
+  // the 1-3 nitpicks the schema asks for. Must NOT flip to a strong weak-site lead.
+  const result = evaluateWebsiteSalesFit(lead({
+    contact: { phone: '93 01 78 54', website: 'https://monarchy.no', city: 'Bergen' },
+    places: { rating: 4.8, reviewCount: 55 },
+    website: { auditStatus: 'not_run', topEvidence: [], aiAudit: { outdated: 'nei', summary: 'Moderne og velholdt frisørside.', topIssues: ['Mangler meta-beskrivelse', 'Lang prisliste', 'Ingen kontaktskjema'], missing: [], candidate: 'ikke_kandidat', estimatedEra: 'ca. 2022-2024' } },
+  }))
+  assert(result.websiteSalesFit === 'review', 'modern site with nitpick topIssues must stay review, not strong')
+  assert(result.websiteLeadType === 'modern_site', 'nitpicks on a non-candidate site must not classify weak_site')
+}
+
+{
   const result = evaluateWebsiteSalesFit(lead({
     contact: { phone: '94 00 71 21', website: null, city: 'Oslo' },
     sourceQuality: { locationMatchStatus: 'unknown' },
