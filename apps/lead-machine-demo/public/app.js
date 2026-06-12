@@ -1300,8 +1300,19 @@ function syncLeadQueueQuality(lead) {
   }
 }
 
+// MUST stay byte-identical to server.js leadWorkflowId() and netlify/functions/api.js
+// hostedLeadId(). Field order: org, candidateOrg, placeId, displayName, (city).
+// The trailing index is dropped whenever any stable id exists, so a business keeps
+// its workflow state (no-answer, follow-up) when it reappears at a different position
+// in a later search. Only fully id-less rows fall back to a per-position key.
 function leadId(lead, index) {
-  return [lead.company?.organizationNumber, lead.company?.candidateOrganizationNumber, lead.places?.placeId, lead.company?.displayName, index].filter(Boolean).join('::')
+  const org = lead.company?.organizationNumber
+  const candidateOrg = lead.company?.candidateOrganizationNumber
+  const placeId = lead.places?.placeId
+  const name = lead.company?.displayName
+  if (org || candidateOrg || placeId) return [org, candidateOrg, placeId, name].filter(Boolean).join('::')
+  if (name) return [name, lead.contact?.city || lead.city].filter(Boolean).join('::')
+  return `lead::${index}`
 }
 
 function leadQueueActionLabel(lead) {

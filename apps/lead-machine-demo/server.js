@@ -1122,15 +1122,20 @@ function attachQueueQualityToLeads(leadPacks) {
   })
 }
 
+// MUST stay byte-identical to public/app.js leadId() and netlify/functions/api.js
+// hostedLeadId(). Field order: org, candidateOrg, placeId, displayName, (city).
+// This is the workflow-store key, so dropping the trailing index is what lets a
+// lead re-attach its saved workflow when it reappears in a later search.
 function leadWorkflowId(lead = {}, index = 0) {
-  const parts = [
-    lead.company && lead.company.organizationNumber,
-    lead.company && lead.company.candidateOrganizationNumber,
-    lead.places && lead.places.placeId,
-    lead.company && lead.company.displayName,
-    index,
-  ].filter(Boolean)
-  return parts.join('::') || `lead::${index}`
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const org = company.organizationNumber
+  const candidateOrg = company.candidateOrganizationNumber
+  const placeId = lead.places && lead.places.placeId
+  const name = company.displayName
+  if (org || candidateOrg || placeId) return [org, candidateOrg, placeId, name].filter(Boolean).join('::')
+  if (name) return [name, contact.city || lead.city].filter(Boolean).join('::')
+  return `lead::${index}`
 }
 
 function filterCallListLeads(leads, view) {
