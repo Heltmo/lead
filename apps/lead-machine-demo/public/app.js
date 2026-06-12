@@ -1773,19 +1773,49 @@ function exitCallFocus() {
 
 const CALL_FOCUS_QUEUE_RANK = { call_now: 0, verify_first: 1 }
 
+// How the ringeøkt blends website-sales signal: take this many no-website leads
+// (the strongest opening), then this many with a website, and repeat. Keeps
+// variety in the session instead of grinding one type in a row.
+const CALL_FOCUS_NO_WEBSITE_CHUNK = 3
+const CALL_FOCUS_HAS_WEBSITE_CHUNK = 2
+
+function interleaveByWebsite(entries) {
+  const noWeb = entries.filter(({ lead }) => !websiteValue(lead.contact?.website || lead.website))
+  const hasWeb = entries.filter(({ lead }) => websiteValue(lead.contact?.website || lead.website))
+  const blended = []
+  let i = 0
+  let j = 0
+  while (i < noWeb.length || j < hasWeb.length) {
+    for (let n = 0; n < CALL_FOCUS_NO_WEBSITE_CHUNK && i < noWeb.length; n++) blended.push(noWeb[i++])
+    for (let h = 0; h < CALL_FOCUS_HAS_WEBSITE_CHUNK && j < hasWeb.length; h++) blended.push(hasWeb[j++])
+  }
+  return blended
+}
+
 function callFocusCandidates() {
   const leads = state.result?.leadPacks || []
   const openRank = { open: 0, unknown: 1, closed: 2 }
   const startLeadId = state.callFocus?.startLeadId || ''
-  return leads.map((lead, index) => ({ lead, index, id: leadId(lead, index) }))
+  const sorted = leads.map((lead, index) => ({ lead, index, id: leadId(lead, index) }))
     .filter(({ lead }) => CALL_FOCUS_QUEUE_RANK[leadWorkQueue(lead)] !== undefined)
     .filter(({ lead }) => Boolean(lead.contact?.phone || lead.phone))
     .filter(({ lead }) => matchesCityFilter(lead))
     .sort((a, b) =>
-      (startLeadId && a.id === startLeadId ? -1 : 0) - (startLeadId && b.id === startLeadId ? -1 : 0)
-      || (CALL_FOCUS_QUEUE_RANK[leadWorkQueue(a.lead)] - CALL_FOCUS_QUEUE_RANK[leadWorkQueue(b.lead)])
+      (CALL_FOCUS_QUEUE_RANK[leadWorkQueue(a.lead)] - CALL_FOCUS_QUEUE_RANK[leadWorkQueue(b.lead)])
       || (openRank[openingStatusFor(a.lead).state] - openRank[openingStatusFor(b.lead).state])
       || (callQueueSortScore(b.lead) - callQueueSortScore(a.lead)))
+  // Blend by website presence within each queue bucket so call_now still leads,
+  // and best-first order survives inside each website stream (filter keeps order).
+  const blended = []
+  for (const rank of [0, 1]) {
+    blended.push(...interleaveByWebsite(sorted.filter(({ lead }) => CALL_FOCUS_QUEUE_RANK[leadWorkQueue(lead)] === rank)))
+  }
+  // Keep the lead you started the session on pinned to the front.
+  if (startLeadId) {
+    const pinnedIndex = blended.findIndex(({ id }) => id === startLeadId)
+    if (pinnedIndex > 0) blended.unshift(blended.splice(pinnedIndex, 1)[0])
+  }
+  return blended
 }
 
 function callFocusAvailableCount() {
