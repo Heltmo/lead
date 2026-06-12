@@ -594,6 +594,9 @@ body.call-focus-open { overflow: hidden; }
 .call-focus-exit { min-height: 36px; border: 1px solid #b8c8c0; border-radius: 999px; background: #fff; color: var(--ink); padding: 6px 12px; font-weight: 850; cursor: pointer; }
 .call-focus-exit:hover, .call-focus-exit:focus-visible { border-color: var(--green); background: var(--green-soft); outline: none; }
 .call-focus-card h2 { margin: 0; font-size: 28px; line-height: 1.15; }
+.google-name-link { color: inherit; text-decoration: none; }
+.google-name-link:hover, .google-name-link:focus-visible { text-decoration: underline; text-decoration-thickness: 2px; outline: none; }
+.google-name-link .google-hint { font-size: 0.6em; color: var(--muted); vertical-align: super; }
 .call-focus-meta { margin: 0; color: var(--muted); }
 .call-focus-phone { font-size: 34px; font-weight: 900; color: var(--green); text-decoration: none; line-height: 1.1; }
 .call-focus-phone.disabled { color: var(--muted); margin: 0; }

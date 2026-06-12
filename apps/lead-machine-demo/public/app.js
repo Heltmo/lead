@@ -1537,7 +1537,7 @@ function mobileDecisionCard(lead, command, salesEdge) {
   const note = latestLeadNote(lead)
   const proof = verificationShortLabel(lead)
   return '<section class="mobile-decision-card queue-row" aria-label="Mobil beslutningskort">' +
-    '<div class="mobile-decision-head"><div><p class="eyebrow">Valgt lead</p><h2>' + escapeHtml(company.displayName || lead.companyName || 'Ukjent firma') + '</h2><small>' + escapeHtml([city, phone].filter(Boolean).join(' · ') || 'Kontakt mangler') + '</small></div><div class="badge-row">' + websiteSalesBadge(lead) + badge(queue) + badge(readiness.key) + sellerFitBadge(lead) + badge(brregStatusLabel(company)) + '</div></div>' +
+    '<div class="mobile-decision-head"><div><p class="eyebrow">Valgt lead</p><h2>' + googleNameLink(lead, company.displayName || lead.companyName || 'Ukjent firma') + '</h2><small>' + escapeHtml([city, phone].filter(Boolean).join(' · ') || 'Kontakt mangler') + '</small></div><div class="badge-row">' + websiteSalesBadge(lead) + badge(queue) + badge(readiness.key) + sellerFitBadge(lead) + badge(brregStatusLabel(company)) + '</div></div>' +
     '<div class="mobile-decision-facts">' +
       mobileDecisionFact('Nettside', websiteFact.value, websiteFact.note, websiteFact.href) +
       mobileDecisionFact('Kilde', brregFact.value, brregFact.note) +
@@ -1600,7 +1600,7 @@ function sellerFlowPanel(lead, command, salesEdge) {
   const secondaryCall = verifyFirst && callHref ? '<a class="seller-flow-secondary" href="' + escapeAttr(callHref) + '">Ring hvis sjekket</a>' : ''
   const proof = verificationShortLabel(lead)
   return '<div class="seller-flow-hero queue-row">' +
-    '<div class="seller-flow-top"><div class="seller-flow-title"><p class="eyebrow">Valgt lead</p><h2>' + escapeHtml(company.displayName || lead.companyName || 'Ukjent firma') + '</h2><small>' + escapeHtml(company.legalName || city || 'Juridisk navn ukjent') + '</small><div class="badge-row instant-badges">' + websiteSalesBadge(lead) + badge(queue) + sourceFusionBadge(lead) + badge(brregStatusLabel(company)) + fastBadge(lead) + '</div></div>' +
+    '<div class="seller-flow-top"><div class="seller-flow-title"><p class="eyebrow">Valgt lead</p><h2>' + googleNameLink(lead, company.displayName || lead.companyName || 'Ukjent firma') + '</h2><small>' + escapeHtml(company.legalName || city || 'Juridisk navn ukjent') + '</small><div class="badge-row instant-badges">' + websiteSalesBadge(lead) + badge(queue) + sourceFusionBadge(lead) + badge(brregStatusLabel(company)) + fastBadge(lead) + '</div></div>' +
     '<div class="seller-flow-contact"><span>Telefon</span>' + titlePhone(phone) + '<small>' + escapeHtml(command.bestContactNote) + '</small>' + openingStatusHtml(lead) + '<button type="button" id="nextLeadButton" class="next-lead-button" ' + nextLeadDisabledAttr() + '>Neste lead</button></div></div>' +
     '<div class="seller-flow-steps" aria-label="Seller flow">' +
       '<section class="seller-flow-step"><span>1. Søk</span><strong>' + escapeHtml(city) + '</strong><small>' + escapeHtml(query + ' · ' + category) + '</small></section>' +
@@ -1955,7 +1955,7 @@ function renderCallFocus() {
   overlay.innerHTML = '<div class="call-focus-card">' +
     '<header class="call-focus-head"><div><p class="eyebrow">' + callFocusModeLabel() + '</p><strong>' + escapeHtml(String(entries.length)) + ' igjen · ' + escapeHtml(String(callFocusLoggedCount())) + ' logget</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Avslutt</button></header>' +
     '<div class="badge-row">' + websiteSalesBadge(lead) + badge(leadWorkQueue(lead)) + badge(brregStatusLabel(company)) + badge(lead.sourceQuality?.locationMatchStatus) + fastBadge(lead) + '</div>' +
-    '<h2>' + escapeHtml(company.displayName || lead.companyName || 'Ukjent firma') + '</h2>' +
+    '<h2>' + googleNameLink(lead, company.displayName || lead.companyName || 'Ukjent firma') + '</h2>' +
     '<p class="call-focus-meta">' + escapeHtml([lead.contact?.city || lead.city, company.legalName || company.candidateLegalName].filter(Boolean).join(' · ') || 'Sted ukjent') + '</p>' +
     (callHref
       ? '<a class="call-focus-phone" href="' + escapeAttr(callHref) + '">' + escapeHtml(phone) + '</a>' + openingStatusHtml(lead) + '<a class="call-focus-call" href="' + escapeAttr(callHref) + '">Ring nå</a>'
@@ -3291,6 +3291,23 @@ function phoneHref(value) {
   const raw = String(value || '').trim()
   const digits = raw.replace(/[^+\d]/g, '')
   return digits ? `tel:${digits}` : ''
+}
+
+// One-click research: Google the business (name + city) in a new tab, so the
+// seller doesn't have to retype it mid-call. The knowledge panel gives reviews,
+// website, and opening hours at a glance.
+function googleSearchUrl(lead = {}) {
+  const name = lead.company?.displayName || lead.companyName || ''
+  if (!name) return ''
+  const city = lead.contact?.city || lead.city || ''
+  return 'https://www.google.com/search?q=' + encodeURIComponent([name, city].filter(Boolean).join(' '))
+}
+
+function googleNameLink(lead, label) {
+  const url = googleSearchUrl(lead)
+  const safeLabel = escapeHtml(label)
+  if (!url) return safeLabel
+  return '<a class="google-name-link" href="' + escapeAttr(url) + '" target="_blank" rel="noopener" title="Søk opp bedriften på Google">' + safeLabel + '<span class="google-hint" aria-hidden="true"> ↗</span></a>'
 }
 
 function phoneLink(value) {
