@@ -370,7 +370,7 @@ function commandPrimaryMove(command = {}) {
     return {
       title: 'Neste: følg opp ' + (overdue.company || 'lead'),
       note: [overdue.city, overdue.phone, (overdue.reasons || [])[0]].filter(Boolean).join(' · '),
-      actions: commandActionButton('Åpne lead', { leadId: overdue.leadId }, 'primary') + commandActionButton('Åpne kø', { queue: 'follow_up_today' }),
+      actions: commandActionButton('Åpne lead', { leadId: overdue.leadId }, 'primary') + '<button type="button" data-start-callback-focus ' + callbackFocusStartDisabledAttr() + '>Start ring-tilbake-økt</button>' + commandActionButton('Åpne kø', { queue: 'follow_up_today' }),
     }
   }
   const callLead = Array.isArray(command.callTheseFirst) ? command.callTheseFirst[0] : null
@@ -616,6 +616,7 @@ function renderWorkQueueTabs(leads) {
     const active = queue.id === state.selectedQueue
     return '<button type="button" class="work-queue-tab ' + (active ? 'active' : '') + '" data-work-queue="' + escapeAttr(queue.id) + '"><span>' + escapeHtml(queue.label) + '</span><strong>' + escapeHtml(counts[queue.id] || 0) + '</strong></button>'
   }).join('') + '<button type="button" class="start-call-focus" data-start-call-focus ' + ((counts.call_now || 0) + (counts.verify_first || 0) ? '' : 'disabled') + '>Start ringeøkt</button>'
+    + '<button type="button" class="start-call-focus start-callback-focus" data-start-callback-focus ' + callbackFocusStartDisabledAttr() + '>Start ring-tilbake-økt</button>'
   const select = els.workQueueTabs.querySelector('[data-queue-select]')
   if (select) select.addEventListener('change', () => {
     state.selectedQueue = normalizeWorkQueue(select.value) || 'call_now'
@@ -1750,12 +1751,12 @@ function selectNextVisibleLead() {
   focusLeadDetail({ block: 'start' })
 }
 
-function startCallFocus() {
+function startCallFocus(mode = 'new') {
   const selectedId = state.selectedLeadId || (state.result?.leadPacks?.[state.selectedIndex] ? leadId(state.result.leadPacks[state.selectedIndex], state.selectedIndex) : '')
-  const startLeadId = callFocusCandidates().some(({ id }) => id === selectedId) ? selectedId : ''
+  const startLeadId = callFocusCandidates(mode).some(({ id }) => id === selectedId) ? selectedId : ''
   state.mobileNoteOpenLeadId = ''
   state.mobileQueueDone = null
-  state.callFocus = { skippedIds: [], logged: { no_answer: 0, interested: 0, mark_called: 0, not_relevant: 0 }, lastActiveId: '', lastActiveIndex: 0, startLeadId }
+  state.callFocus = { mode, skippedIds: [], logged: { no_answer: 0, interested: 0, mark_called: 0, not_relevant: 0 }, lastActiveId: '', lastActiveIndex: 0, startLeadId }
   renderAll()
 }
 
@@ -1792,11 +1793,38 @@ function interleaveByWebsite(entries) {
   return blended
 }
 
-function callFocusCandidates() {
+function pinStartLead(entries, startLeadId) {
+  if (!startLeadId) return entries
+  const pinnedIndex = entries.findIndex(({ id }) => id === startLeadId)
+  if (pinnedIndex > 0) entries.unshift(entries.splice(pinnedIndex, 1)[0])
+  return entries
+}
+
+function followUpDueValue(lead) {
+  return String(lead.workflow?.nextFollowUpAt || lead.workflow?.followUpDate || '')
+}
+
+// 'new' mode = fresh leads (Ring nå / Verifiser, blended 3:2 by website).
+// 'callback' mode = the ring-tilbake-økt: only due follow-ups (the follow_up_today
+// queue — yesterday's no-answers + due interested), oldest due first, no blend.
+function callFocusCandidates(mode = state.callFocus?.mode || 'new') {
   const leads = state.result?.leadPacks || []
-  const openRank = { open: 0, unknown: 1, closed: 2 }
   const startLeadId = state.callFocus?.startLeadId || ''
-  const sorted = leads.map((lead, index) => ({ lead, index, id: leadId(lead, index) }))
+  const entries = leads.map((lead, index) => ({ lead, index, id: leadId(lead, index) }))
+
+  if (mode === 'callback') {
+    const callbacks = entries
+      .filter(({ lead }) => leadWorkQueue(lead) === 'follow_up_today')
+      .filter(({ lead }) => Boolean(lead.contact?.phone || lead.phone))
+      .filter(({ lead }) => matchesCityFilter(lead))
+      .sort((a, b) =>
+        followUpDueValue(a.lead).localeCompare(followUpDueValue(b.lead))
+        || (callQueueSortScore(b.lead) - callQueueSortScore(a.lead)))
+    return pinStartLead(callbacks, startLeadId)
+  }
+
+  const openRank = { open: 0, unknown: 1, closed: 2 }
+  const sorted = entries
     .filter(({ lead }) => CALL_FOCUS_QUEUE_RANK[leadWorkQueue(lead)] !== undefined)
     .filter(({ lead }) => Boolean(lead.contact?.phone || lead.phone))
     .filter(({ lead }) => matchesCityFilter(lead))
@@ -1811,19 +1839,23 @@ function callFocusCandidates() {
     blended.push(...interleaveByWebsite(sorted.filter(({ lead }) => CALL_FOCUS_QUEUE_RANK[leadWorkQueue(lead)] === rank)))
   }
   // Keep the lead you started the session on pinned to the front.
-  if (startLeadId) {
-    const pinnedIndex = blended.findIndex(({ id }) => id === startLeadId)
-    if (pinnedIndex > 0) blended.unshift(blended.splice(pinnedIndex, 1)[0])
-  }
-  return blended
+  return pinStartLead(blended, startLeadId)
 }
 
 function callFocusAvailableCount() {
-  return callFocusCandidates().length
+  return callFocusCandidates('new').length
 }
 
 function callFocusStartDisabledAttr() {
   return callFocusAvailableCount() ? '' : 'disabled'
+}
+
+function callbackFocusAvailableCount() {
+  return callFocusCandidates('callback').length
+}
+
+function callbackFocusStartDisabledAttr() {
+  return callbackFocusAvailableCount() ? '' : 'disabled'
 }
 
 function callFocusLeads() {
@@ -1870,6 +1902,10 @@ function callFocusLoggedCount() {
   return Object.values(state.callFocus?.logged || {}).reduce((sum, count) => sum + Number(count || 0), 0)
 }
 
+function callFocusModeLabel() {
+  return state.callFocus?.mode === 'callback' ? 'Ring-tilbake-økt' : 'Ringeøkt'
+}
+
 function callFocusWebsiteAction(lead) {
   const url = websiteValue(lead.contact?.website || lead.website)
   if (!url) {
@@ -1899,7 +1935,7 @@ function renderCallFocus() {
     const logged = state.callFocus.logged
     const skipped = state.callFocus.skippedIds.length
     overlay.innerHTML = '<div class="call-focus-card call-focus-done">' +
-      '<header class="call-focus-head"><div><p class="eyebrow">Ringeøkt</p><strong>Økt ferdig</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Lukk</button></header>' +
+      '<header class="call-focus-head"><div><p class="eyebrow">' + callFocusModeLabel() + '</p><strong>Økt ferdig</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Lukk</button></header>' +
       '<h2>Ingen flere ringbare leads</h2>' +
       '<ul class="call-focus-summary">' +
         '<li><strong>' + escapeHtml(String(logged.no_answer)) + '</strong> ingen svar</li>' +
@@ -1917,7 +1953,7 @@ function renderCallFocus() {
   const phone = lead.contact?.phone || lead.phone || ''
   const callHref = phoneHref(phone)
   overlay.innerHTML = '<div class="call-focus-card">' +
-    '<header class="call-focus-head"><div><p class="eyebrow">Ringeøkt</p><strong>' + escapeHtml(String(entries.length)) + ' igjen · ' + escapeHtml(String(callFocusLoggedCount())) + ' logget</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Avslutt</button></header>' +
+    '<header class="call-focus-head"><div><p class="eyebrow">' + callFocusModeLabel() + '</p><strong>' + escapeHtml(String(entries.length)) + ' igjen · ' + escapeHtml(String(callFocusLoggedCount())) + ' logget</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Avslutt</button></header>' +
     '<div class="badge-row">' + websiteSalesBadge(lead) + badge(leadWorkQueue(lead)) + badge(brregStatusLabel(company)) + badge(lead.sourceQuality?.locationMatchStatus) + fastBadge(lead) + '</div>' +
     '<h2>' + escapeHtml(company.displayName || lead.companyName || 'Ukjent firma') + '</h2>' +
     '<p class="call-focus-meta">' + escapeHtml([lead.contact?.city || lead.city, company.legalName || company.candidateLegalName].filter(Boolean).join(' · ') || 'Sted ukjent') + '</p>' +
@@ -2908,7 +2944,9 @@ document.addEventListener('click', (event) => {
   const mobileSaveNoteButton = event.target.closest('[data-mobile-save-note]')
   if (mobileSaveNoteButton) { saveMobileNote(mobileSaveNoteButton); return }
   const startCallFocusButton = event.target.closest('[data-start-call-focus]')
-  if (startCallFocusButton) { startCallFocus(); return }
+  if (startCallFocusButton) { startCallFocus('new'); return }
+  const startCallbackFocusButton = event.target.closest('[data-start-callback-focus]')
+  if (startCallbackFocusButton) { startCallFocus('callback'); return }
   const callFocusOutcomeButton = event.target.closest('[data-call-focus-outcome]')
   if (callFocusOutcomeButton) { runCallFocusOutcome(callFocusOutcomeButton.dataset.callFocusOutcome, callFocusOutcomeButton); return }
   const callFocusSkipButton = event.target.closest('[data-call-focus-skip]')
