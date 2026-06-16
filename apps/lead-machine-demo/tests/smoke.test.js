@@ -636,6 +636,8 @@ async function main() {
   assert(lower.includes('oppfølging'), 'UI should include a follow-up queue preset')
   assert(lower.includes('queue-action'), 'Lead cards should show a next queue action')
   assert(lower.includes('sales-edge-action'), 'Lead cards should render the Sales Edge action label')
+  assert(lower.includes('lead-list-table-head') && lower.includes('sist kontaktet'), 'Lead queue should render a compact table-style header')
+  assert(lower.includes('lead-table-row') && lower.includes('leadlastcontactlabel'), 'Lead queue should render compact rows with last-contact labels')
   assert(lower.includes('current-call-board'), 'UI should render one current queue item instead of a dense board')
   assert(lower.includes('workqueuelabel'), 'Workflow board should label the selected work queue')
   assert(lower.includes('done'), 'Queue quick actions should include a compact done outcome')

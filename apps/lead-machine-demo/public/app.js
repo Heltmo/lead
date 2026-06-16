@@ -630,27 +630,32 @@ function renderLeads(visibleLeads) {
     return
   }
   let previousCity = ''
-  els.leadCards.innerHTML = visibleLeads.map(({ lead, index, id }) => {
+  const tableHead = '<div class="lead-list-table-head" aria-hidden="true"><span>Navn</span><span>Telefon</span><span>Status</span><span>Sist kontaktet</span></div>'
+  els.leadCards.innerHTML = tableHead + visibleLeads.map(({ lead, index, id }) => {
     const contact = lead.contact || {}
     const places = lead.places || {}
     const company = lead.company || {}
     const primarySignal = sellerSignals(lead)[0] || humanize(lead.opportunityType || 'Lead pack')
     const salesEdge = salesEdgeAction(lead)
     const city = leadCity(lead)
+    const phone = contact.phone || lead.phone || 'telefon ukjent'
+    const displayName = company.displayName || lead.companyName || 'Ukjent firma'
+    const latestNote = latestLeadNote(lead)
+    const opening = openingStatusFor(lead)
+    const shortNote = latestNote ? (latestNote.length > 70 ? latestNote.slice(0, 67) + '...' : latestNote) : ''
     const cityHeading = state.result?.summary?.marketSweep && city !== previousCity ? '<div class="city-group-heading"><span>' + escapeHtml(city) + '</span><strong>' + escapeHtml(cityCountLabel(city)) + '</strong></div>' : ''
     previousCity = city
-    return `
-      ${cityHeading}
-      <button class="lead-card ${id === state.selectedLeadId ? 'active' : ''}" type="button" data-index="${index}" data-id="${escapeAttr(id)}">
-        <div class="badge-row">${websiteSalesBadge(lead)}${badge(callReadiness(lead).key)}${sellerFitBadge(lead)}${badge(lead.callPriority || lead.priority)}${badge(workflowStatus(lead))}${verticalMatchBadge(lead)}${badge(lead.sourceQuality?.locationMatchStatus)}${badge(brregStatusLabel(company))}${fastBadge(lead)}</div>
-        <h3>${escapeHtml(company.displayName || lead.companyName || 'Ukjent firma')}</h3>
-        <p>${escapeHtml(contact.city || lead.city || 'unknown')} · ${escapeHtml(contact.phone || lead.phone || 'telefon ukjent')}</p>
-        <p class="queue-action"><strong>Next:</strong> <span class="sales-edge-action ${escapeAttr(salesEdge.key)}">${escapeHtml(salesEdge.label)}</span></p>
-        <p class="card-signal">${escapeHtml(primarySignal)}</p>
-        ${latestLeadNote(lead) ? '<p class="card-note">Notat: ' + escapeHtml(latestLeadNote(lead).length > 70 ? latestLeadNote(lead).slice(0, 67) + '...' : latestLeadNote(lead)) + '</p>' : ''}
-        <p class="card-meta">${escapeHtml(formatRating(places))} · ${escapeHtml(workflowCardNote(lead))}${openingStatusFor(lead).state === 'closed' ? ' · <span class="opening-closed">' + escapeHtml(openingStatusFor(lead).label) + '</span>' : ''}</p>
-      </button>
-    `
+    return cityHeading +
+      '<button class="lead-card lead-table-row ' + (id === state.selectedLeadId ? 'active' : '') + '" type="button" data-index="' + escapeAttr(String(index)) + '" data-id="' + escapeAttr(id) + '">' +
+        '<span class="lead-row-name"><strong>' + escapeHtml(displayName) + '</strong><small>' + escapeHtml(contact.city || lead.city || 'unknown') + ' · ' + escapeHtml(primarySignal) + '</small></span>' +
+        '<span class="lead-row-phone">' + escapeHtml(phone) + '</span>' +
+        '<span class="lead-row-status"><span class="badge-row lead-row-badges">' + websiteSalesBadge(lead) + badge(leadWorkQueue(lead)) + sellerFitBadge(lead) + badge(callReadiness(lead).key) + fastBadge(lead) + '</span>' +
+          '<span class="queue-action"><strong>Neste:</strong> <span class="sales-edge-action ' + escapeAttr(salesEdge.key) + '">' + escapeHtml(salesEdge.label) + '</span></span></span>' +
+        '<span class="lead-row-last"><strong>' + escapeHtml(leadStatusText(lead)) + '</strong><small>' + escapeHtml(leadLastContactLabel(lead)) + '</small>' +
+          '<small class="card-signal">' + escapeHtml(workflowCardNote(lead)) + '</small>' +
+          (shortNote ? '<small class="card-note">Notat: ' + escapeHtml(shortNote) + '</small>' : '') +
+          '<small class="card-meta">' + escapeHtml(formatRating(places)) + (opening.state === 'closed' ? ' · <span class="opening-closed">' + escapeHtml(opening.label) + '</span>' : '') + '</small></span>' +
+      '</button>'
   }).join('')
   els.leadCards.querySelectorAll('.lead-card').forEach((button) => button.addEventListener('click', () => {
     clearMobileQueueDone()
@@ -2337,6 +2342,21 @@ function workflowCardNote(lead) {
   if (workflow.followUpDate) return `follow-up ${workflow.followUpDate}`
   if (workflow.response) return readable(workflow.response)
   return lead.contact?.website ? 'website found' : 'nettside ukjent'
+}
+
+function leadStatusText(lead) {
+  if (isSalesLead(lead)) return positiveOutcomeLabel(lead)
+  const workflow = lead.workflow || {}
+  if (workflow.response) return readable(workflow.response)
+  return workQueueLabel(leadWorkQueue(lead))
+}
+
+function leadLastContactLabel(lead) {
+  const workflow = lead.workflow || {}
+  const activities = Array.isArray(workflow.activities) ? workflow.activities : []
+  const latestActivity = activities.reduce((latest, activity) => String(activity.at || '') > latest ? String(activity.at || '') : latest, '')
+  const value = workflow.lastContactedAt || latestActivity || workflow.updatedAt || ''
+  return value ? formatActivityTime(value) : 'Aldri'
 }
 
 async function saveWorkflow(event) {
