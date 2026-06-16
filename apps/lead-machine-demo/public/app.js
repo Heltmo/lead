@@ -74,14 +74,11 @@ const els = {
   leadFilters: Array.from(document.querySelectorAll('.lead-filter')),
   clearLeadFilters: document.getElementById('clearLeadFilters'),
   leadFilterSummary: document.getElementById('leadFilterSummary'),
-  queryExamples: Array.from(document.querySelectorAll('[data-query-example]')),
-  owner: document.getElementById('ownerInput'),
 }
 
 initOwnerControl()
 els.runButton.addEventListener('click', runSearch)
 els.query.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
-els.queryExamples.forEach((button) => button.addEventListener('click', () => { els.query.value = button.dataset.queryExample || ''; els.query.focus() }))
 els.leadSort.addEventListener('change', () => { clearMobileQueueDone(); state.selectedLeadId = null; state.mobileNoteOpenLeadId = ''; renderAll() })
 els.queuePresets.forEach((button) => button.addEventListener('click', () => applyQueuePreset(button.dataset.queuePreset)))
 els.leadFilters.forEach((filter) => filter.addEventListener('change', () => { clearMobileQueueDone(); state.selectedLeadId = null; state.mobileNoteOpenLeadId = ''; renderAll() }))
