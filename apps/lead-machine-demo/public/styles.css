@@ -568,17 +568,6 @@ a { color: var(--blue); }
 .sales-angles-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.4; display: grid; gap: 6px; }
 .sales-angles-list small { color: var(--muted); }
 .sales-angles-rerun { justify-self: start; min-height: 30px; padding: 4px 9px; font-size: 12px; }
-.website-audit-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-.website-audit-row small { color: var(--muted); font-size: 12px; }
-.website-audit-row button, .website-audit-rerun { min-height: 36px; border: 1px solid var(--green); border-radius: 8px; background: #fff; color: var(--green); padding: 7px 12px; font-weight: 850; cursor: pointer; }
-.website-audit-row button:hover, .website-audit-rerun:hover, .website-audit-row button:focus-visible, .website-audit-rerun:focus-visible { background: var(--green-soft); outline: none; }
-.website-audit-row button[disabled], .website-audit-rerun[disabled] { opacity: .6; cursor: wait; }
-.website-audit-result { margin-top: 10px; padding: 10px 12px; border: 1px solid #d5e4dc; border-radius: 10px; background: #fff; display: grid; gap: 4px; }
-.website-audit-head { margin: 0; font-size: 14px; line-height: 1.4; }
-.website-audit-meta { margin: 0; color: var(--muted); font-size: 12px; }
-.website-audit-list { margin: 0; font-size: 13px; line-height: 1.4; }
-.website-audit-rerun { justify-self: start; min-height: 30px; padding: 4px 9px; font-size: 12px; }
-
 .opening-status { display: block; margin-top: 3px; font-size: 12px; font-weight: 800; }
 .opening-status.opening-open { color: var(--green); }
 .opening-status.opening-closed, .card-meta .opening-closed { color: var(--amber); }

@@ -103,8 +103,6 @@ document.addEventListener('click', (event) => {
   if (event.target.closest('[data-mobile-more-menu]')) state.mobileMoreOpen = false
   const cardNoteButton = event.target.closest('[data-save-card-note]')
   if (cardNoteButton) { saveCardNote(cardNoteButton); return }
-  const websiteAuditButton = event.target.closest('[data-run-website-audit]')
-  if (websiteAuditButton) { runWebsiteAudit(websiteAuditButton); return }
   const salesAnglesButton = event.target.closest('[data-run-sales-angles]')
   if (salesAnglesButton) { runSalesAngles(salesAnglesButton); return }
 })
@@ -1126,7 +1124,6 @@ function websiteSalesPanel(lead) {
     ${caution.length ? `<ul class="website-sales-caution">${caution.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
     ${deepHint}
     ${salesAnglesBlock(lead)}
-    ${websiteAuditBlock(lead)}
   </section>`
 }
 
@@ -1149,22 +1146,6 @@ function salesAnglesBlock(lead) {
 function evidenceList(items) {
   const list = Array.isArray(items) ? items.filter(Boolean).slice(0, 3) : []
   return list.length ? '<br><small>Bevis: ' + escapeHtml(list.join(' · ')) + '</small>' : ''
-}
-
-function websiteAuditBlock(lead) {
-  const url = websiteValue(lead.contact?.website || lead.website)
-  if (!url) return ''
-  const audit = lead.website?.aiAudit
-  if (!audit) {
-    return '<div class="website-audit-row"><button type="button" data-run-website-audit>Kjør nettsidesjekk</button><small>Henter siden og gir en kort vurdering. Kjøres manuelt.</small></div>'
-  }
-  return '<div class="website-audit-result">' +
-    '<p class="website-audit-head"><strong>Nettsidesjekk:</strong> ' + escapeHtml(audit.summary || '') + '</p>' +
-    '<p class="website-audit-meta">Laget: ' + escapeHtml(audit.estimatedEra || 'ukjent') + ' · Utdatert: ' + escapeHtml(audit.outdated || 'usikkert') + (audit.auditedAt ? ' · sjekket ' + escapeHtml(String(audit.auditedAt).slice(0, 10)) : '') + '</p>' +
-    ((audit.topIssues || []).length ? '<p class="website-audit-list"><strong>Problemer:</strong> ' + escapeHtml(audit.topIssues.join(' · ')) + '</p>' : '') +
-    ((audit.missing || []).length ? '<p class="website-audit-list"><strong>Mangler:</strong> ' + escapeHtml(audit.missing.join(' · ')) + '</p>' : '') +
-    '<button type="button" class="website-audit-rerun" data-run-website-audit>Kjør på nytt</button>' +
-  '</div>'
 }
 
 async function persistLeadNote(lead, index, line) {
@@ -1249,36 +1230,6 @@ async function readApiJson(response, fallbackMessage) {
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
-async function runWebsiteAudit(button) {
-  const index = state.selectedIndex
-  const lead = state.result?.leadPacks?.[index]
-  if (!lead) return setStatus('feilet: ingen valgt lead for nettsidesjekk', 'failed')
-  const originalText = button.textContent
-  button.disabled = true
-  button.textContent = 'Sjekker nettsiden...'
-  setStatus('kjører nettsidesjekk...', 'running')
-  try {
-    const response = await apiFetch('/api/website-audit', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ lead }),
-    })
-    const payload = await response.json()
-    if (!response.ok) throw new Error(payload.error || 'Nettsidesjekken feilet')
-    lead.website = { ...(lead.website || {}), aiAudit: payload.audit }
-    if (payload.websiteSalesFit) lead.websiteSalesFit = payload.websiteSalesFit
-    if (payload.audit?.summary) {
-      try { await persistLeadNote(lead, index, 'Nettsidesjekk: ' + payload.audit.summary) } catch (_) {}
-    }
-    setStatus('nettsidesjekk fullført', '')
-    renderAll()
-  } catch (error) {
-    setStatus('feilet: ' + (error.message || 'nettsidesjekken feilet'), 'failed')
-    button.disabled = false
-    button.textContent = originalText
-  }
-}
-
 function noWebsiteSignal() {
   return '<span class="no-website-signal">Ingen nettside funnet – salgsåpning</span>'
 }
