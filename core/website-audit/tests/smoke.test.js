@@ -39,6 +39,21 @@ const GOOD_API_BODY = {
   }],
 }
 
+async function withoutAuditKeyEnv(fn) {
+  const previousProjectKey = process.env.LEAD_MACHINE_ANTHROPIC_API_KEY
+  const previousLegacyKey = process.env.ANTHROPIC_API_KEY
+  delete process.env.LEAD_MACHINE_ANTHROPIC_API_KEY
+  delete process.env.ANTHROPIC_API_KEY
+  try {
+    return await fn()
+  } finally {
+    if (previousProjectKey === undefined) delete process.env.LEAD_MACHINE_ANTHROPIC_API_KEY
+    else process.env.LEAD_MACHINE_ANTHROPIC_API_KEY = previousProjectKey
+    if (previousLegacyKey === undefined) delete process.env.ANTHROPIC_API_KEY
+    else process.env.ANTHROPIC_API_KEY = previousLegacyKey
+  }
+}
+
 async function main() {
   {
     const signals = extractSignals(SAMPLE_HTML, 'https://example.no')
@@ -61,8 +76,8 @@ async function main() {
   }
 
   {
-    const result = await auditWebsite({ url: 'example.no', apiKey: '', fetcher: fakeFetch({ apiBody: GOOD_API_BODY }) })
-    assert(!result.ok && result.error.includes('ANTHROPIC_API_KEY'), 'missing key should explain itself')
+    const result = await withoutAuditKeyEnv(() => auditWebsite({ url: 'example.no', apiKey: '', fetcher: fakeFetch({ apiBody: GOOD_API_BODY }) }))
+    assert(!result.ok && result.error.includes('LEAD_MACHINE_ANTHROPIC_API_KEY'), 'missing key should explain itself')
   }
 
   {

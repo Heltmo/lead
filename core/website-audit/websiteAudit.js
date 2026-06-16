@@ -7,6 +7,8 @@
 // (Messages API, structured outputs) i stedet for SDK-en.
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
+const PROJECT_API_KEY_ENV = 'LEAD_MACHINE_ANTHROPIC_API_KEY'
+const LEGACY_API_KEY_ENV = 'ANTHROPIC_API_KEY'
 const DEFAULT_MODEL = 'claude-opus-4-8'
 const MAX_HTML_BYTES = 300000
 const MAX_TEXT_CHARS = 7000
@@ -27,9 +29,9 @@ const AUDIT_SCHEMA = {
 
 async function auditWebsite({ url, companyName = '', city = '', apiKey, model, fetcher, timeoutMs = 20000 } = {}) {
   const doFetch = fetcher || globalThis.fetch
-  const key = apiKey || process.env.ANTHROPIC_API_KEY || ''
+  const key = apiKey || process.env[PROJECT_API_KEY_ENV] || process.env[LEGACY_API_KEY_ENV] || ''
   if (!url) return { ok: false, error: 'mangler nettside-URL' }
-  if (!key) return { ok: false, error: 'ANTHROPIC_API_KEY mangler - legg den i .env og restart serveren' }
+  if (!key) return { ok: false, error: PROJECT_API_KEY_ENV + ' mangler - legg den i .env og restart serveren' }
   if (typeof doFetch !== 'function') return { ok: false, error: 'fetch er ikke tilgjengelig i denne Node-versjonen' }
 
   const page = await fetchPage(url, doFetch, timeoutMs)
