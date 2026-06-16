@@ -54,10 +54,6 @@ const els = {
   mobileActiveBar: document.getElementById('mobileActiveBar'),
   query: document.getElementById('queryInput'),
   provider: document.getElementById('provider'),
-  sellerTerritory: document.getElementById('sellerTerritory'),
-  idealCustomer: document.getElementById('idealCustomer'),
-  disqualifiers: document.getElementById('disqualifiers'),
-  sellerSetupSummary: document.getElementById('sellerSetupSummary'),
   runMode: document.getElementById('runMode'),
   maxResults: document.getElementById('maxResults'),
   searchScope: document.getElementById('searchScope'),
@@ -81,7 +77,6 @@ const els = {
   owner: document.getElementById('ownerInput'),
 }
 
-initSellerSetup()
 initOwnerControl()
 els.runButton.addEventListener('click', runSearch)
 els.query.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch() })
@@ -116,64 +111,8 @@ renderExport(null)
 clearStatus()
 loadLatestRun()
 
-function initSellerSetup() {
-  const stored = readSellerSetup()
-  applySellerProfile(stored)
-  if (stored.setupVersion !== 2) persistSellerSetup()
-  ;[els.sellerTerritory, els.idealCustomer, els.disqualifiers, els.searchScope].filter(Boolean).forEach((field) => {
-    const eventName = field.tagName === 'SELECT' ? 'change' : 'input'
-    field.addEventListener(eventName, persistSellerSetup)
-  })
-  renderSellerSetupSummary()
-}
-
-function readSellerSetup() {
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem('leadMachineSellerSetup') || '{}')
-    return parsed && typeof parsed === 'object' ? parsed : {}
-  } catch (_) {
-    return {}
-  }
-}
-
 function currentSellerProfile() {
-  return {
-    territory: setupText(els.sellerTerritory?.value, 120),
-    goodCustomer: setupText(els.idealCustomer?.value, 260),
-    disqualifiers: setupText(els.disqualifiers?.value, 260),
-  }
-}
-
-function applySellerProfile(profile = {}) {
-  if (!profile || typeof profile !== 'object') return
-  if (profile.searchScope && els.searchScope) els.searchScope.value = profile.searchScope
-  if (els.sellerTerritory) els.sellerTerritory.value = setupText(profile.territory, 120)
-  if (els.idealCustomer) els.idealCustomer.value = setupText(profile.goodCustomer, 260)
-  if (els.disqualifiers) els.disqualifiers.value = setupText(profile.disqualifiers, 260)
-  renderSellerSetupSummary()
-}
-
-function persistSellerSetup() {
-  const profile = {
-    setupVersion: 2,
-    sellerIntent: 'web_it',
-    searchScope: els.searchScope?.value || 'regional',
-    ...currentSellerProfile(),
-  }
-  try { window.localStorage.setItem('leadMachineSellerSetup', JSON.stringify(profile)) } catch (_) {}
-  renderSellerSetupSummary()
-}
-
-function renderSellerSetupSummary() {
-  if (!els.sellerSetupSummary) return
-  const profile = currentSellerProfile()
-  const territory = profile.territory || (els.searchScope?.value === 'regional' ? 'Hele Norge' : 'Sted i søket')
-  const hints = [profile.goodCustomer ? 'god kunde satt' : '', profile.disqualifiers ? 'ikke prioriter satt' : ''].filter(Boolean).join(' · ')
-  els.sellerSetupSummary.textContent = [territory, hints].filter(Boolean).join(' · ')
-}
-
-function setupText(value, max) {
-  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max)
+  return { territory: '', goodCustomer: '', disqualifiers: '' }
 }
 
 function initOwnerControl() {
@@ -239,7 +178,7 @@ async function runSearch() {
         query,
         provider: els.provider.value,
         maxResults: Number(els.maxResults.value),
-        searchScope: els.searchScope.value,
+        searchScope: els.searchScope?.value || 'regional',
         sellerIntent: 'web_it',
         sellerProfile: currentSellerProfile(),
         mode: els.runMode.value,
@@ -2279,7 +2218,7 @@ function deepEnrichmentModules(lead, command) {
     { name: 'Sosiale/kildesignaler', status: 'not_enabled', summary: 'Senere modul: Facebook, LinkedIn, nyheter og offentlige kildelenker.' },
     { name: 'Beslutningstakere', status: 'not_enabled', summary: 'Senere modul: offentlige rolle-/kontakthint når tilgjengelig.' },
     { name: 'Nylig aktivitet', status: 'not_enabled', summary: 'Senere modul: ansettelser, nyheter, nettsideendringer og offentlig aktivitet.' },
-    { name: 'Selgermatch-sammendrag', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Bruker selgeroppsettet pluss kontakt-, firma-, sted- og kildesignaler.' },
+    { name: 'Selgermatch-sammendrag', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Bruker kontakt-, firma-, sted- og kildesignaler.' },
     { name: 'OSINT public evidence', status: lead.osint ? 'completed' : 'not_run', summary: lead.osint ? osintSummaryText(lead.osint) : 'Runs on selected-lead enrichment from public business evidence.' },
   ]
   return `<details class="detail-tool enrichment-modules">
