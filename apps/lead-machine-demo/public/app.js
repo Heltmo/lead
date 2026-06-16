@@ -6,7 +6,7 @@ const WORK_QUEUES = [
   { id: 'follow_up_today', label: 'Oppfølging i dag' },
   { id: 'interested', label: 'Interessert' },
   { id: 'verify_first', label: 'Må verifiseres' },
-  { id: 'not_relevant', label: 'Ikke relevant' },
+  { id: 'not_relevant', label: 'Nei' },
   { id: 'archived', label: 'Arkiv' },
 ]
 const WORK_QUEUE_IDS = new Set(WORK_QUEUES.map((queue) => queue.id))
@@ -41,10 +41,10 @@ function withBetaToken(url) {
 }
 
 const QUICK_WORKFLOW_ACTIONS = [
-  { id: 'mark_called', label: 'Ferdig', shortLabel: 'Ferdig', tone: 'neutral' },
-  { id: 'no_answer', label: 'Ingen svar', shortLabel: 'Ingen svar', tone: 'warning' },
+  { id: 'sale', label: 'Salg', shortLabel: 'Salg', tone: 'positive' },
   { id: 'interested', label: 'Interessert', shortLabel: 'Interessert', tone: 'positive' },
-  { id: 'not_relevant', label: 'Ikke relevant', shortLabel: 'Hopp over', tone: 'negative' },
+  { id: 'no_answer', label: 'Ingen svar', shortLabel: 'Ingen svar', tone: 'warning' },
+  { id: 'not_relevant', label: 'Nei', shortLabel: 'Nei', tone: 'negative' },
   { id: 'archive', label: 'Arkiv', tone: 'neutral' },
 ]
 
@@ -455,7 +455,7 @@ function queueVerificationPanel(lead, index, queueId) {
 
 function quickActionsHtml(index, variant = 'full') {
   const actions = variant === 'queue'
-    ? QUICK_WORKFLOW_ACTIONS.filter((action) => ['mark_called', 'no_answer', 'interested', 'not_relevant'].includes(action.id))
+    ? QUICK_WORKFLOW_ACTIONS.filter((action) => ['sale', 'interested', 'no_answer', 'not_relevant'].includes(action.id))
     : QUICK_WORKFLOW_ACTIONS
   return `<div class="quick-actions ${variant === 'queue' ? 'compact' : ''}" aria-label="Quick workflow actions">
     ${actions.map((action) => `<button type="button" class="quick-action ${escapeAttr(action.tone)}" data-workflow-action="${escapeAttr(action.id)}" data-index="${index}">${escapeHtml(variant === 'queue' ? (action.shortLabel || action.label) : action.label)}</button>`).join('')}
@@ -604,7 +604,7 @@ function fallbackLeadWorkQueue(lead) {
   const response = String(workflow.response || '').toLowerCase()
   const outcome = String(workflow.outcome || '').toLowerCase()
   if (explicit === 'archived' || workflow.archivedAt) return 'archived'
-  if (status === 'rejected' || explicit === 'not_relevant' || outcome.includes('not relevant') || outcome.includes('rejected')) return 'not_relevant'
+  if (status === 'rejected' || explicit === 'not_relevant' || outcome.includes('not relevant') || outcome.includes('rejected') || outcome.includes('nei')) return 'not_relevant'
   if (isFollowUpDue(lead)) return 'follow_up_today'
   if (status === 'interested' || response === 'interested' || response === 'meeting_booked' || explicit === 'interested') return 'interested'
   if (response === 'no_answer' || response === 'no_response' || status === 'follow_up' || explicit === 'no_answer') return 'no_answer'
@@ -1298,7 +1298,7 @@ function leadQueueActionLabel(lead) {
 
 function salesEdgeAction(lead = {}) {
   const workflow = lead.workflow || {}
-  const rejected = workflow.status === 'rejected' || workflow.queue === 'not_relevant' || String(workflow.outcome || '').toLowerCase().includes('not relevant')
+  const rejected = workflow.status === 'rejected' || workflow.queue === 'not_relevant' || (/not relevant|nei/.test(String(workflow.outcome || '').toLowerCase()))
   if (rejected) return { key: 'skip', label: 'Hopp over', note: 'Marked not relevant; keep out of seller focus.' }
   const backendQuality = queueQualityForLead(lead)
   if (backendQuality) return salesEdgeActionFromQueueQuality(backendQuality)
@@ -1581,7 +1581,7 @@ function sellerFlowPanel(lead, command, salesEdge) {
     '<div class="seller-flow-steps" aria-label="Seller flow">' +
       '<section class="seller-flow-step"><span>1. Søk</span><strong>' + escapeHtml(city) + '</strong><small>' + escapeHtml(query + ' · ' + category) + '</small></section>' +
       '<section class="seller-flow-step seller-flow-step-main"><span>2. Ring</span><strong>' + escapeHtml(workQueueLabel(queue)) + '</strong><small>' + escapeHtml(salesEdge.note || callReadiness(lead).note) + '</small><div class="seller-flow-actions">' + primaryAction + secondaryCall + '</div></section>' +
-      '<section class="seller-flow-step"><span>3. Noter</span><strong>Logg utfall</strong><small>Velg Ingen svar, Interessert eller Ferdig. Skriv kort notat og sett oppfølging under.</small></section>' +
+      '<section class="seller-flow-step"><span>3. Noter</span><strong>Logg utfall</strong><small>Velg Salg, Interessert, Ingen svar eller Nei. Skriv kort notat og sett oppfølging under.</small></section>' +
     '</div>' +
     '<div class="seller-flow-outcomes">' + quickActionsHtml(state.selectedIndex, 'queue') + '</div>' +
     (verifyFirst ? verificationGuidancePanel(lead) : '') +
@@ -1635,16 +1635,16 @@ function mobileCallBar(lead) {
     '<div class="mobile-call-main"><strong>' + escapeHtml(name) + '</strong><span>' + escapeHtml(phone || workQueueLabel(leadWorkQueue(lead))) + '</span></div>' +
     '<div class="mobile-call-actions">' +
     (callHref ? '<a class="mobile-call-button primary" href="' + escapeAttr(callHref) + '">Ring</a>' : '<span class="mobile-call-button disabled">Ingen tlf</span>') +
-    '<button type="button" class="mobile-call-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ingen svar</button>' +
+    '<button type="button" class="mobile-call-button positive" data-workflow-action="sale" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Salg</button>' +
     '<button type="button" class="mobile-call-button positive" data-workflow-action="interested" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Interessert</button>' +
+    '<button type="button" class="mobile-call-button warning" data-workflow-action="no_answer" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ingen svar</button>' +
     '<button type="button" class="mobile-call-button" data-next-visible-lead ' + nextLeadDisabledAttr() + '>Neste</button>' +
     '<button type="button" class="mobile-call-button more-toggle ' + (state.mobileMoreOpen ? 'active' : '') + '" data-mobile-more aria-expanded="' + escapeAttr(String(Boolean(state.mobileMoreOpen))) + '">&#8943;</button>' +
     '</div>' +
     '<div class="mobile-more-menu" data-mobile-more-menu ' + (state.mobileMoreOpen ? '' : 'hidden') + '>' +
       '<button type="button" data-start-call-focus ' + callFocusStartDisabledAttr() + '>Start ringeøkt</button>' +
       '<button type="button" data-mobile-note-toggle data-lead-id="' + escapeAttr(id) + '">Notat</button>' +
-      '<button type="button" data-workflow-action="mark_called" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ferdig</button>' +
-      '<button type="button" data-workflow-action="not_relevant" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Ikke relevant</button>' +
+      '<button type="button" data-workflow-action="not_relevant" data-index="' + escapeAttr(String(state.selectedIndex)) + '">Nei</button>' +
     '</div>' +
     '<section class="mobile-note-drawer" ' + (noteOpen ? '' : 'hidden') + '><label><span>Notat lagres med neste utfall</span><textarea data-mobile-note-input data-lead-id="' + escapeAttr(id) + '" rows="3" placeholder="Kort notat etter samtalen">' + escapeHtml(draft) + '</textarea></label><div class="mobile-note-actions"><button type="button" data-mobile-save-note data-index="' + escapeAttr(String(state.selectedIndex)) + '" data-lead-id="' + escapeAttr(id) + '">Lagre notat</button><small>Legges til, erstatter ikke tidligere notater.</small></div></section>' +
   '</aside>'
@@ -1667,7 +1667,7 @@ function verificationGuidancePanel(lead) {
     '<div class="verification-task-grid">' + guidance.tasks.map((task) => (
       '<div class="verification-task"><strong>' + escapeHtml(task.title) + '</strong><span>' + escapeHtml(task.note) + '</span></div>'
     )).join('') + '</div>' +
-    '<p class="verification-guidance-note">Etter sjekk: flytt leaden til Ring nå hvis den stemmer, eller Ikke relevant hvis matchen er feil.</p>' +
+    '<p class="verification-guidance-note">Etter sjekk: flytt leaden til Ring nå hvis den stemmer, eller logg Nei hvis matchen er feil.</p>' +
   '</section>'
 }
 
@@ -1732,7 +1732,7 @@ function startCallFocus(mode = 'new') {
   const startLeadId = callFocusCandidates(mode).some(({ id }) => id === selectedId) ? selectedId : ''
   state.mobileNoteOpenLeadId = ''
   state.mobileQueueDone = null
-  state.callFocus = { mode, skippedIds: [], logged: { no_answer: 0, interested: 0, mark_called: 0, not_relevant: 0 }, lastActiveId: '', lastActiveIndex: 0, startLeadId }
+  state.callFocus = { mode, skippedIds: [], logged: { sale: 0, interested: 0, no_answer: 0, not_relevant: 0 }, lastActiveId: '', lastActiveIndex: 0, startLeadId }
   renderAll()
 }
 
@@ -1907,6 +1907,15 @@ function isSalesLead(lead = {}) {
   return leadWorkQueue(lead) === 'interested' || status === 'interested' || response === 'interested' || response === 'meeting_booked'
 }
 
+function positiveOutcomeLabel(lead = {}) {
+  const workflow = lead.workflow || {}
+  const response = String(workflow.response || '').toLowerCase()
+  const outcome = String(workflow.outcome || '').toLowerCase()
+  if (response === 'meeting_booked' || outcome.includes('sale') || outcome.includes('salg')) return 'Salg'
+  if (response === 'interested' || outcome.includes('interessert')) return 'Interessert'
+  return 'SALG'
+}
+
 function workflowSortTime(workflow = {}) {
   const activities = Array.isArray(workflow.activities) ? workflow.activities : []
   const latestActivity = activities.reduce((latest, activity) => String(activity.at || '') > latest ? String(activity.at || '') : latest, '')
@@ -1938,7 +1947,7 @@ function salesLeadRow({ lead }) {
   const followUp = workflow.nextFollowUpAt || workflow.followUpDate || ''
   const note = latestLeadNote(lead) || workflow.nextAction || (followUp ? 'Oppfølging ' + followUp : '')
   return '<li>' +
-    '<div><span class="call-focus-sales-tag">SALG</span><strong>' + escapeHtml(leadDisplayName(lead)) + '</strong></div>' +
+    '<div><span class="call-focus-sales-tag">' + escapeHtml(positiveOutcomeLabel(lead)) + '</span><strong>' + escapeHtml(leadDisplayName(lead)) + '</strong></div>' +
     '<small>' + escapeHtml([city, phone].filter(Boolean).join(' · ') || 'Kontaktinfo mangler') + '</small>' +
     (note ? '<p>' + escapeHtml(note) + '</p>' : '') +
   '</li>'
@@ -1949,10 +1958,10 @@ function callFocusSessionPanel() {
   const skipped = state.callFocus?.skippedIds?.length || 0
   return '<section class="call-focus-side-panel call-focus-session-panel"><div class="call-focus-side-head"><span>Logg</span><strong>Denne økten</strong></div>' +
     '<div class="call-focus-session-grid">' +
-      '<div><strong>' + escapeHtml(String(logged.interested || 0)) + '</strong><span>SALG</span></div>' +
+      '<div><strong>' + escapeHtml(String(logged.sale || 0)) + '</strong><span>Salg</span></div>' +
+      '<div><strong>' + escapeHtml(String(logged.interested || 0)) + '</strong><span>Interessert</span></div>' +
       '<div><strong>' + escapeHtml(String(logged.no_answer || 0)) + '</strong><span>Ingen svar</span></div>' +
-      '<div><strong>' + escapeHtml(String(logged.mark_called || 0)) + '</strong><span>Ferdig</span></div>' +
-      '<div><strong>' + escapeHtml(String(logged.not_relevant || 0)) + '</strong><span>Ikke relevant</span></div>' +
+      '<div><strong>' + escapeHtml(String(logged.not_relevant || 0)) + '</strong><span>Nei</span></div>' +
       '<div><strong>' + escapeHtml(String(skipped)) + '</strong><span>Hoppet over</span></div>' +
     '</div></section>'
 }
@@ -1961,7 +1970,7 @@ function callFocusHistoryPanel(lead = {}) {
   const workflow = lead.workflow || {}
   const activities = (Array.isArray(workflow.activities) ? workflow.activities : []).slice(-6).reverse()
   const notes = leadNoteLines(lead).slice(-3).reverse()
-  const status = isSalesLead(lead) ? '<span class="call-focus-sales-tag">SALG</span>' : badge(leadWorkQueue(lead))
+  const status = isSalesLead(lead) ? '<span class="call-focus-sales-tag">' + escapeHtml(positiveOutcomeLabel(lead)) + '</span>' : badge(leadWorkQueue(lead))
   return '<section class="call-focus-side-panel call-focus-history-panel"><div class="call-focus-side-head"><span>Historikk</span><strong>' + escapeHtml(leadDisplayName(lead)) + '</strong></div>' +
     '<div class="call-focus-history-status">' + status + '<small>' + escapeHtml(workflow.response ? readable(workflow.response) : 'Ingen respons lagret') + '</small></div>' +
     (activities.length ? '<ol class="call-focus-history-list">' + activities.map((activity) => '<li><div><strong>' + escapeHtml(readable(activity.type || activity.status || 'note')) + '</strong><span>' + escapeHtml(formatActivityTime(activity.at)) + '</span></div><p>' + escapeHtml(activitySummary(activity)) + '</p></li>').join('') + '</ol>' : '<p class="call-focus-side-empty">Ingen historikk på denne leaden ennå.</p>') +
@@ -1989,10 +1998,10 @@ function renderCallFocus() {
       '<header class="call-focus-head"><div><p class="eyebrow">' + callFocusModeLabel() + '</p><strong>Økt ferdig</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Lukk</button></header>' +
       '<h2>Ingen flere ringbare leads</h2>' +
       '<ul class="call-focus-summary">' +
-        '<li><strong>' + escapeHtml(String(logged.no_answer)) + '</strong> ingen svar</li>' +
-        '<li><strong>' + escapeHtml(String(logged.interested)) + '</strong> SALG</li>' +
-        '<li><strong>' + escapeHtml(String(logged.mark_called)) + '</strong> ferdig</li>' +
-        '<li><strong>' + escapeHtml(String(logged.not_relevant)) + '</strong> ikke relevant</li>' +
+        '<li><strong>' + escapeHtml(String(logged.sale || 0)) + '</strong> salg</li>' +
+        '<li><strong>' + escapeHtml(String(logged.interested || 0)) + '</strong> interessert</li>' +
+        '<li><strong>' + escapeHtml(String(logged.no_answer || 0)) + '</strong> ingen svar</li>' +
+        '<li><strong>' + escapeHtml(String(logged.not_relevant || 0)) + '</strong> nei</li>' +
         (skipped ? '<li><strong>' + escapeHtml(String(skipped)) + '</strong> hoppet over uten logg</li>' : '') +
       '</ul>' +
       '<p class="call-focus-meta">Ingen svar-leads har fått oppfølging i morgen automatisk. Leads lagret positivt ligger under SALG.</p>' +
@@ -2019,12 +2028,12 @@ function renderCallFocus() {
     '<label class="call-focus-note"><span>Kort notat (valgfritt, lagres med utfallet)</span><textarea id="callFocusNote" rows="2" placeholder="Hva skjedde i samtalen?"></textarea></label>' +
     '<div class="call-focus-action-dock">' +
       '<div class="call-focus-outcomes">' +
-        '<button type="button" class="call-focus-outcome warning" data-call-focus-outcome="no_answer">Ingen svar</button>' +
+        '<button type="button" class="call-focus-outcome positive" data-call-focus-outcome="sale">Salg</button>' +
         '<button type="button" class="call-focus-outcome positive" data-call-focus-outcome="interested">Interessert</button>' +
-        '<button type="button" class="call-focus-outcome" data-call-focus-outcome="mark_called">Ferdig</button>' +
-        '<button type="button" class="call-focus-outcome negative" data-call-focus-outcome="not_relevant">Ikke relevant</button>' +
+        '<button type="button" class="call-focus-outcome warning" data-call-focus-outcome="no_answer">Ingen svar</button>' +
+        '<button type="button" class="call-focus-outcome negative" data-call-focus-outcome="not_relevant">Nei</button>' +
       '</div>' +
-      '<div class="call-focus-secondary"><button type="button" class="call-focus-skip" data-call-focus-skip>Hopp over uten logg</button><span class="call-focus-keys">Taster: 1 Ingen svar · 2 Interessert · 3 Ferdig · 4 Ikke relevant · Esc avslutt</span></div>' +
+      '<div class="call-focus-secondary"><button type="button" class="call-focus-skip" data-call-focus-skip>Hopp over uten logg</button><span class="call-focus-keys">Taster: 1 Salg · 2 Interessert · 3 Ingen svar · 4 Nei · Esc avslutt</span></div>' +
     '</div>' +
   '</div>' +
   callFocusSalesSidebar(lead) +
@@ -2081,7 +2090,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') { exitCallFocus(); return }
   const target = event.target
   if (target && ['TEXTAREA', 'INPUT', 'SELECT'].includes(target.tagName)) return
-  const action = { 1: 'no_answer', 2: 'interested', 3: 'mark_called', 4: 'not_relevant' }[event.key]
+  const action = { 1: 'sale', 2: 'interested', 3: 'no_answer', 4: 'not_relevant' }[event.key]
   if (action) runCallFocusOutcome(action)
 })
 
@@ -3162,10 +3171,10 @@ function buildQuickWorkflow(action, current = {}) {
   const now = new Date().toISOString()
   const tomorrow = isoDateOffset(1)
   const nextWeek = isoDateOffset(7)
-  if (action === 'mark_called') return { ...base, status: 'contacted', queue: 'archived', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: base.response || 'neutral', followUpDate: '', nextFollowUpAt: '', nextAction: 'done' }
+  if (action === 'sale') return { ...base, status: 'interested', queue: 'interested', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'meeting_booked', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: base.nextAction && base.nextAction !== 'review' ? base.nextAction : 'følg opp salg', outcome: 'sale' }
   if (action === 'no_answer') return { ...base, status: 'follow_up', queue: 'no_answer', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'no_answer', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: 'ring igjen' }
   if (action === 'interested') return { ...base, status: 'interested', queue: 'interested', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'interested', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: base.nextAction && base.nextAction !== 'review' ? base.nextAction : 'følg opp interessert lead', outcome: base.outcome || 'interested' }
-  if (action === 'not_relevant') return { ...base, status: 'rejected', queue: 'not_relevant', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'negative', followUpDate: '', nextFollowUpAt: '', nextAction: 'do not contact', outcome: 'not relevant' }
+  if (action === 'not_relevant') return { ...base, status: 'rejected', queue: 'not_relevant', contacted: true, lastContactedAt: base.lastContactedAt || now, channel: base.channel || 'phone', response: 'negative', followUpDate: '', nextFollowUpAt: '', nextAction: 'ikke kontakt igjen', outcome: 'nei' }
   if (action === 'follow_up_tomorrow') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: tomorrow, nextFollowUpAt: tomorrow, nextAction: 'følg opp i morgen' }
   if (action === 'follow_up_next_week') return { ...base, status: 'follow_up', queue: base.queue === 'interested' ? 'interested' : 'no_answer', followUpDate: nextWeek, nextFollowUpAt: nextWeek, nextAction: 'følg opp neste uke' }
   if (action === 'archive') return { ...base, queue: 'archived', archivedAt: base.archivedAt || now, nextAction: 'archived' }
@@ -3394,7 +3403,7 @@ function section(title, content) { return `<section class="detail-section"><h3>$
 function kv(items) { return items.map(([k,v]) => `<div class="kv"><span>${escapeHtml(k)}</span><span>${isHtml(v) ? v : escapeHtml(v)}</span></div>`).join('') }
 function bullets(items) { return items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>' }
 function badge(value) { if (!value) return ''; const text = readable(value); return `<span class="badge ${escapeAttr(String(value).toLowerCase())}">${escapeHtml(text)}</span>` }
-function readable(value) { return { new: 'Ny lead', reviewed: 'Vurdert', contacted: 'Kontaktet', follow_up: 'Oppfølging', interested: 'Interessert', rejected: 'Avvist', no_answer: 'Ingen svar', no_response: 'Ingen respons', negative: 'Negativ', neutral: 'Nøytral', meeting_booked: 'Møte booket', phone: 'Telefon', email: 'E-post', contact_form: 'Kontaktskjema', linkedin: 'LinkedIn', other: 'Annet', exact_location: 'Eksakt sted', regional_fallback: 'Regionalt treff', not_enabled: 'Ikke aktivert', disabled: 'Avslått', success: 'Vellykket', not_eligible: 'Ikke kvalifisert', manual_verify: 'Verifiser manuelt', confirmed_org: 'Bekreftet org.nr', candidate_org: 'Kandidat org.nr', no_match: 'Ingen treff', not_run: 'Ikke kjørt', brreg_unavailable: 'Brreg ikke bekreftet', phone_available: 'Telefon finnes', contact_missing: 'Kontakt mangler', audit_skipped: 'Raskt søk', completed: 'Fullført', good: 'God', strong: 'Sterk', weak: 'Svak', high: 'Høy', medium: 'Middels', low: 'Lav', verify: 'Verifiser', strong_fit: 'Sterk match', good_fit: 'God match', review_fit: 'Vurder match', weak_fit: 'Svak match', fast: 'Rask', deep: 'Dyp', mixed: 'Blandet', ready_to_call: 'Klar til å ringe', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Ikke relevant', archived: 'Arkiv', needs_contact: 'Trenger kontakt', follow_up_due: 'Oppfølging forfalt', later: 'Senere', skip: 'Hopp over', queue_change: 'Køendring', follow_up_set: 'Oppfølging satt', contact_attempt: 'Kontaktforsøk', status_change: 'Statusendring', note: 'Notat', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Eksakt sted', nearby: 'Nærområde-treff', fallback: 'Regionalt treff', conflict: 'Konflikt', confirmed: 'Bekreftet firma', candidate: 'Kandidat org.nr', unknown: 'Ukjent', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Kontaktdata', contact_provider: 'Kontaktleverandør', website_contact_profile: 'Nettside-/kontaktprofil', workflow: 'Arbeidsflyt', vertical_exact: 'Eksakt kategori', vertical_synonym: 'Relatert kategori', vertical_broad: 'Bred kategori', vertical_weak: 'Svak kategori', synonym: 'Relatert', broad: 'Bred' }[value] || String(value).toUpperCase() }
+function readable(value) { return { new: 'Ny lead', reviewed: 'Vurdert', contacted: 'Kontaktet', follow_up: 'Oppfølging', interested: 'Interessert', rejected: 'Avvist', no_answer: 'Ingen svar', no_response: 'Ingen respons', negative: 'Nei', neutral: 'Nøytral', meeting_booked: 'Salg', phone: 'Telefon', email: 'E-post', contact_form: 'Kontaktskjema', linkedin: 'LinkedIn', other: 'Annet', exact_location: 'Eksakt sted', regional_fallback: 'Regionalt treff', not_enabled: 'Ikke aktivert', disabled: 'Avslått', success: 'Vellykket', not_eligible: 'Ikke kvalifisert', manual_verify: 'Verifiser manuelt', confirmed_org: 'Bekreftet org.nr', candidate_org: 'Kandidat org.nr', no_match: 'Ingen treff', not_run: 'Ikke kjørt', brreg_unavailable: 'Brreg ikke bekreftet', phone_available: 'Telefon finnes', contact_missing: 'Kontakt mangler', audit_skipped: 'Raskt søk', completed: 'Fullført', good: 'God', strong: 'Sterk', weak: 'Svak', high: 'Høy', medium: 'Middels', low: 'Lav', verify: 'Verifiser', strong_fit: 'Sterk match', good_fit: 'God match', review_fit: 'Vurder match', weak_fit: 'Svak match', fast: 'Rask', deep: 'Dyp', mixed: 'Blandet', ready_to_call: 'Klar til å ringe', call_now: 'Ring nå', no_answer: 'Ingen svar', verify_first: 'Må verifiseres', follow_up_today: 'Oppfølging i dag', not_relevant: 'Nei', archived: 'Arkiv', needs_contact: 'Trenger kontakt', follow_up_due: 'Oppfølging forfalt', later: 'Senere', skip: 'Hopp over', queue_change: 'Køendring', follow_up_set: 'Oppfølging satt', contact_attempt: 'Kontaktforsøk', status_change: 'Statusendring', note: 'Notat', call: 'Trygg å ringe', review: 'Bør vurderes', exact: 'Eksakt sted', nearby: 'Nærområde-treff', fallback: 'Regionalt treff', conflict: 'Konflikt', confirmed: 'Bekreftet firma', candidate: 'Kandidat org.nr', unknown: 'Ukjent', google_places: 'Google Places', brreg: 'Brreg', contact_data: 'Kontaktdata', contact_provider: 'Kontaktleverandør', website_contact_profile: 'Nettside-/kontaktprofil', workflow: 'Arbeidsflyt', vertical_exact: 'Eksakt kategori', vertical_synonym: 'Relatert kategori', vertical_broad: 'Bred kategori', vertical_weak: 'Svak kategori', synonym: 'Relatert', broad: 'Bred' }[value] || String(value).toUpperCase() }
 function link(value) { const href = websiteValue(value); return href && href !== 'unknown' ? `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(href)}">${escapeHtml(displayUrl(href))}</a>` : 'unknown' }
 function websiteValue(value) {
   if (!value) return ''

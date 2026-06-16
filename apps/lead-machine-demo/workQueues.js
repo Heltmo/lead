@@ -4,7 +4,7 @@ const WORK_QUEUES = [
   { id: 'follow_up_today', label: 'Oppfølging i dag' },
   { id: 'interested', label: 'Interessert' },
   { id: 'verify_first', label: 'Må verifiseres' },
-  { id: 'not_relevant', label: 'Ikke relevant' },
+  { id: 'not_relevant', label: 'Nei' },
   { id: 'archived', label: 'Arkiv' },
 ]
 
@@ -254,7 +254,7 @@ function workflowQueueFromWorkflow(workflow = {}, options = {}) {
 
   const allowExplicit = options.allowExplicit !== false
   if (workflow.archivedAt || allowExplicit && explicit === 'archived') return 'archived'
-  if (status === 'rejected' || allowExplicit && explicit === 'not_relevant' || outcome.includes('not relevant') || outcome.includes('rejected')) return 'not_relevant'
+  if (status === 'rejected' || allowExplicit && explicit === 'not_relevant' || outcome.includes('not relevant') || outcome.includes('rejected') || outcome.includes('nei')) return 'not_relevant'
   if (followUpDate && isDateDue(followUpDate, options.today)) return 'follow_up_today'
   if (status === 'interested' || response === 'interested' || response === 'meeting_booked' || allowExplicit && explicit === 'interested') return 'interested'
   if (response === 'no_answer' || response === 'no_response' || allowExplicit && explicit === 'no_answer' || status === 'follow_up') return 'no_answer'
