@@ -1133,12 +1133,12 @@ function websiteSalesPanel(lead) {
 function salesAnglesBlock(lead) {
   const analysis = lead.salesAngles
   if (!analysis) {
-    return '<div class="sales-angles-row"><button type="button" data-run-sales-angles>Finn salgsvinkler</button><small>GPT søker offentlig nettinfo for valgt lead og foreslår korte, kildebaserte vinkler. Kjøres manuelt.</small></div>'
+    return '<div class="sales-angles-row"><button type="button" data-run-sales-angles>Finn salgsvinkler</button><small>Søker offentlig nettinfo for valgt lead og foreslår korte, kildebaserte vinkler. Kjøres manuelt.</small></div>'
   }
   const angles = Array.isArray(analysis.angles) ? analysis.angles : []
   const risks = Array.isArray(analysis.risks) ? analysis.risks : []
   return '<div class="sales-angles-result">' +
-    '<p class="sales-angles-head"><strong>AI-vinkler:</strong> ' + escapeHtml(analysis.summary || '') + '</p>' +
+    '<p class="sales-angles-head"><strong>Salgsvinkler:</strong> ' + escapeHtml(analysis.summary || '') + '</p>' +
     (angles.length ? '<ul class="sales-angles-list">' + angles.map((angle) => '<li><strong>' + escapeHtml(angle.title || 'Vinkel') + ':</strong> ' + escapeHtml(angle.offer || angle.why || '') + (angle.why ? '<br><span>' + escapeHtml(angle.why) + '</span>' : '') + evidenceList(angle.evidence) + '</li>').join('') + '</ul>' : '') +
     (risks.length ? '<p class="sales-angles-risk"><strong>Sjekk først:</strong> ' + escapeHtml(risks.join(' · ')) + '</p>' : '') +
     (analysis.nextStep ? '<p class="sales-angles-next"><strong>Neste:</strong> ' + escapeHtml(analysis.nextStep) + '</p>' : '') +
@@ -1156,10 +1156,10 @@ function websiteAuditBlock(lead) {
   if (!url) return ''
   const audit = lead.website?.aiAudit
   if (!audit) {
-    return '<div class="website-audit-row"><button type="button" data-run-website-audit>Kjør nettsidesjekk</button><small>AI henter siden og gir en kort vurdering. Koster noen øre per sjekk.</small></div>'
+    return '<div class="website-audit-row"><button type="button" data-run-website-audit>Kjør nettsidesjekk</button><small>Henter siden og gir en kort vurdering. Kjøres manuelt.</small></div>'
   }
   return '<div class="website-audit-result">' +
-    '<p class="website-audit-head"><strong>AI-sjekk:</strong> ' + escapeHtml(audit.summary || '') + '</p>' +
+    '<p class="website-audit-head"><strong>Nettsidesjekk:</strong> ' + escapeHtml(audit.summary || '') + '</p>' +
     '<p class="website-audit-meta">Laget: ' + escapeHtml(audit.estimatedEra || 'ukjent') + ' · Utdatert: ' + escapeHtml(audit.outdated || 'usikkert') + (audit.auditedAt ? ' · sjekket ' + escapeHtml(String(audit.auditedAt).slice(0, 10)) : '') + '</p>' +
     ((audit.topIssues || []).length ? '<p class="website-audit-list"><strong>Problemer:</strong> ' + escapeHtml(audit.topIssues.join(' · ')) + '</p>' : '') +
     ((audit.missing || []).length ? '<p class="website-audit-list"><strong>Mangler:</strong> ' + escapeHtml(audit.missing.join(' · ')) + '</p>' : '') +
@@ -1194,7 +1194,7 @@ async function runSalesAngles(button) {
   const originalText = button.textContent
   button.disabled = true
   button.textContent = 'Søker vinkler...'
-  setStatus('starter AI-søk etter salgsvinkler...', 'running')
+  setStatus('starter søk etter salgsvinkler...', 'running')
   try {
     const response = await apiFetch('/api/sales-angles', {
       method: 'POST',
@@ -1225,7 +1225,7 @@ async function pollSalesAngles(lead, responseId) {
     const payload = await readApiJson(response, 'Salgsvinkel-status feilet')
     if (!response.ok) throw new Error(payload.error || 'Salgsvinkel-status feilet')
     if (payload.pending) {
-      setStatus('søker etter salgsvinkler med AI... ' + (payload.status || 'venter'), 'running')
+      setStatus('søker etter salgsvinkler... ' + (payload.status || 'venter'), 'running')
       continue
     }
     if (!payload.salesAngles) throw new Error(payload.error || 'Salgsvinkel-søket feilet')
@@ -1256,7 +1256,7 @@ async function runWebsiteAudit(button) {
   const originalText = button.textContent
   button.disabled = true
   button.textContent = 'Sjekker nettsiden...'
-  setStatus('kjører nettsidesjekk med AI...', 'running')
+  setStatus('kjører nettsidesjekk...', 'running')
   try {
     const response = await apiFetch('/api/website-audit', {
       method: 'POST',
@@ -1268,7 +1268,7 @@ async function runWebsiteAudit(button) {
     lead.website = { ...(lead.website || {}), aiAudit: payload.audit }
     if (payload.websiteSalesFit) lead.websiteSalesFit = payload.websiteSalesFit
     if (payload.audit?.summary) {
-      try { await persistLeadNote(lead, index, 'AI-sjekk: ' + payload.audit.summary) } catch (_) {}
+      try { await persistLeadNote(lead, index, 'Nettsidesjekk: ' + payload.audit.summary) } catch (_) {}
     }
     setStatus('nettsidesjekk fullført', '')
     renderAll()
