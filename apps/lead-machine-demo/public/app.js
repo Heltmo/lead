@@ -1548,107 +1548,13 @@ function renderDetail(lead) {
 
     ${websiteSalesPanel(lead)}
 
-    ${leadNotePanel(lead)}
-
     ${mobileCallBar(lead)}
 
     ${workflowPanel(lead)}
 
-    ${leadInfoDetails(lead, command)}
+    ${enrichmentTool(lead)}
 
-    <section class="detail-tools">
-      <details class="detail-tool">
-        <summary>Hvorfor vurdere?</summary>
-        <section class="leverage-panel compact">
-          <div>
-            <p class="eyebrow">Selgerkontekst</p>
-            <h3>Grunner til å vurdere</h3>
-          </div>
-          ${bullets(leverage)}
-        </section>
-      </details>
-      ${enrichmentTool(lead)}
-      <details class="detail-tool">
-        <summary>Sources</summary>
-        <div class="source-grid">
-        ${sourceCard('Google Places', places.provider || 'available', [
-          ['Vurdering', formatRating(places)],
-          ['Sted-ID', places.placeId || 'unknown'],
-          ['Omtaler', places.reviewCount ?? 'unknown'],
-        ])}
-        ${sourceCard('Nettsidesjekk', website.auditStatus || 'available', [
-          ['Kontaktbarhet', website.contactability || 'unknown'],
-          ['Toppsignal', (website.topEvidence || [])[0] || 'none'],
-          ['CTA-profil', website.ctaProfile ? 'available' : 'unknown'],
-        ])}
-        ${brregSourceCard(company)}
-        ${sourceCard('Kildestrategi', sourceStrategyStatus(company, sourceQuality, places), [
-          ['Identitetskilde', isBrregUnavailable(company) ? 'brreg not confirmed' : (sourceQuality.identitySource || company.source || 'unknown')],
-          ['Synlighetskilde', sourceQuality.presenceSource || places.provider || 'unknown'],
-          ['Strategi', sourceStrategyLabel(company, sourceQuality)],
-        ])}
-        ${sourceCard('Økonomi / Proff', economy.status || 'not_enabled', [
-          ['Omsetning', economy.revenue ?? 'not enabled'],
-          ['Resultat', economy.profit ?? 'not enabled'],
-          ['Ansatte', economy.employees ?? 'not enabled'],
-          ['Kilde', economy.source || 'not enabled'],
-          ['Varsler', normalizeList(economy.warnings).map(humanize).join(', ') || 'none'],
-        ])}
-        ${sourceCard('Treffkvalitet', discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown', [
-          ['Score', discoveryQuality.score == null ? 'unknown' : `${discoveryQuality.score}/100`],
-          ['Bransjetreff', readable(sourceQuality.verticalMatchStatus || 'unknown')],
-          ['Matchet ord', sourceQuality.verticalMatchedTerm || 'unknown'],
-          ['Grunner', (discoveryQuality.reasons || []).slice(0, 3).map(humanize).join(', ') || 'unknown'],
-          ['Varsler', (discoveryQuality.warnings || []).slice(0, 3).map(humanize).join(', ') || 'none'],
-        ])}
-        </div>
-      </details>
-      ${deepEnrichmentModules(lead, command)}
-      <details class="detail-tool">
-        <summary>Rådata</summary>
-    ${section('Firma og kontakt', kv([
-      ['Bekreftet org.nr', company.organizationNumber || 'none'],
-      ['Kandidat org.nr', company.candidateOrganizationNumber || 'none'],
-      ['Juridisk navn', company.legalName || 'unknown'],
-      ['Kandidat juridisk navn', company.candidateLegalName || 'none'],
-      ['Organisasjonsform', company.organizationForm || 'unknown'],
-      ['Registrert adresse', company.registeredAddress || 'unknown'],
-      ['Kommune', company.municipality || 'unknown'],
-      ['NACE', [company.naceCode, company.naceDescription].filter(Boolean).join(' - ') || 'unknown'],
-      ['Ansatte', company.employees ?? 'unknown'],
-      ['Registrert', company.registrationDate || 'unknown'],
-      ['Status', company.activeStatus || 'unknown'],
-      ['Treffstatus', readable(company.matchStatus || 'not_run')],
-      ['Treffsikkerhet', company.matchConfidence ?? 'unknown'],
-      ['Varsler', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
-      ['Brreg-kilde', link(company.sourceUrl)],
-      ['Nettside', link(websiteValue(contact.website || lead.website))],
-      ['Telefon', phoneLink(contact.phone || lead.phone || 'unknown')],
-      ['E-post', contact.email || lead.email || 'unknown'],
-      ['Adresse', contact.address || lead.address || 'unknown'],
-      ['City', contact.city || lead.city || 'unknown'],
-    ]))}
-    ${candidateSection(company)}
-    ${section('Lead-innsikt', kv([
-      ['Selgermodus', humanize(lead.sellerFit?.sellerIntent || state.result?.summary?.sellerIntent || 'general_b2b')],
-      ['Selgermatch', humanize(lead.sellerFit?.sellerFit || 'unknown')],
-      ['Anbefalt handling', humanize(lead.sellerFit?.recommendedAction || 'unknown')],
-      ['Lead-klasse', humanize(lead.leadClass || 'unknown')],
-      ['Mulighet', humanize(lead.opportunityType || 'unknown')],
-      ['Salgsletthet', readable(ranking.salesEase || 'unknown')],
-      ['Smertescore', ranking.painScore ?? 'unknown'],
-      ['Sted', readable(sourceQuality.locationMatchStatus || 'unknown')],
-      ['Bransjetreff', readable(sourceQuality.verticalMatchStatus || 'unknown')],
-      ['Matchet ord', sourceQuality.verticalMatchedTerm || 'unknown'],
-      ['Økonomi', readable(economy.status || 'not_enabled')],
-      ['Treffsikkerhet', readable(discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown')],
-      ['Identitetskilde', sourceQuality.identitySource || company.source || 'unknown'],
-      ['Synlighetskilde', sourceQuality.presenceSource || places.provider || 'unknown'],
-    ]))}
-    ${section('Bevis', bullets((website.topEvidence || lead.topEvidence || lead.evidence || []).map(humanizeEvidence)))}
-    ${section('Obs', bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)))}
-      </details>
-    </section>
+    ${supportInfoPanel(lead, command)}
   `
   const nextButton = document.getElementById('nextLeadButton')
   if (nextButton) nextButton.addEventListener('click', selectNextVisibleLead)
@@ -1776,10 +1682,83 @@ function verificationShortLabel(lead = {}) {
   return { title: trustActionLabel(fusion.recommendedTrustAction || fusion.leadConfidence || 'review'), note: sourceFusionFooter(fusion) }
 }
 
-function leadInfoDetails(lead, command) {
-  return '<details class="detail-tool lead-info-collapse"><summary>Info om lead</summary>' +
-    '<div class="lead-info-body">' + sellerDeskCards(lead, command, { includeDetails: false }) + sellerDeskCards(lead, command, { includeTop: false }) + sellerCommandCard(command) + osintPanel(lead) + '</div>' +
-  '</details>'
+function supportInfoPanel(lead, command) {
+  const company = lead.company || {}
+  const contact = lead.contact || {}
+  const ranking = lead.ranking || {}
+  const website = lead.website || {}
+  const sourceQuality = lead.sourceQuality || {}
+  const places = lead.places || {}
+  const economy = lead.economy || {}
+  const discoveryQuality = sourceQuality.discoveryQuality || {}
+  const leverage = sellerSignals(lead)
+  return '<details class="detail-tool support-info-panel"><summary>Mer info</summary>' +
+    '<div class="support-info-body">' +
+      '<section class="support-info-section support-priority"><div><p class="eyebrow">Selgerkontekst</p><h3>Hvorfor vurdere?</h3></div>' + bullets(leverage) + '</section>' +
+      sellerDeskCards(lead, command, { includeDetails: false }) +
+      sellerCommandCard(command) +
+      '<section class="support-info-section"><div><p class="eyebrow">Kilder</p><h3>Bevis og datakilder</h3></div><div class="source-grid">' +
+        sourceCard('Google Places', places.provider || 'available', [
+          ['Vurdering', formatRating(places)],
+          ['Sted-ID', places.placeId || 'unknown'],
+          ['Omtaler', places.reviewCount ?? 'unknown'],
+        ]) +
+        sourceCard('Nettsidesjekk', website.auditStatus || 'available', [
+          ['Kontaktbarhet', website.contactability || 'unknown'],
+          ['Toppsignal', (website.topEvidence || [])[0] || 'none'],
+          ['CTA-profil', website.ctaProfile ? 'available' : 'unknown'],
+        ]) +
+        brregSourceCard(company) +
+        sourceCard('Kildestrategi', sourceStrategyStatus(company, sourceQuality, places), [
+          ['Identitetskilde', isBrregUnavailable(company) ? 'brreg not confirmed' : (sourceQuality.identitySource || company.source || 'unknown')],
+          ['Synlighetskilde', sourceQuality.presenceSource || places.provider || 'unknown'],
+          ['Strategi', sourceStrategyLabel(company, sourceQuality)],
+        ]) +
+        sourceCard('Treffkvalitet', discoveryQuality.level || sourceQuality.discoveryConfidence || 'unknown', [
+          ['Score', discoveryQuality.score == null ? 'unknown' : String(discoveryQuality.score) + '/100'],
+          ['Bransjetreff', readable(sourceQuality.verticalMatchStatus || 'unknown')],
+          ['Matchet ord', sourceQuality.verticalMatchedTerm || 'unknown'],
+          ['Grunner', (discoveryQuality.reasons || []).slice(0, 3).map(humanize).join(', ') || 'unknown'],
+          ['Varsler', (discoveryQuality.warnings || []).slice(0, 3).map(humanize).join(', ') || 'none'],
+        ]) +
+        sourceCard('Økonomi / Proff', economy.status || 'not_enabled', [
+          ['Omsetning', economy.revenue ?? 'not enabled'],
+          ['Resultat', economy.profit ?? 'not enabled'],
+          ['Ansatte', economy.employees ?? 'not enabled'],
+          ['Kilde', economy.source || 'not enabled'],
+          ['Varsler', normalizeList(economy.warnings).map(humanize).join(', ') || 'none'],
+        ]) +
+      '</div></section>' +
+      enrichmentModulesPanel(lead, command) +
+      osintSupportStats(lead) +
+      '<section class="support-info-section"><div><p class="eyebrow">Rådata</p><h3>Firma og kontakt</h3></div>' + kv([
+        ['Bekreftet org.nr', company.organizationNumber || 'none'],
+        ['Kandidat org.nr', company.candidateOrganizationNumber || 'none'],
+        ['Juridisk navn', company.legalName || 'unknown'],
+        ['Kandidat juridisk navn', company.candidateLegalName || 'none'],
+        ['Organisasjonsform', company.organizationForm || 'unknown'],
+        ['Registrert adresse', company.registeredAddress || 'unknown'],
+        ['Kommune', company.municipality || 'unknown'],
+        ['NACE', [company.naceCode, company.naceDescription].filter(Boolean).join(' - ') || 'unknown'],
+        ['Ansatte', company.employees ?? 'unknown'],
+        ['Registrert', company.registrationDate || 'unknown'],
+        ['Status', company.activeStatus || 'unknown'],
+        ['Treffstatus', readable(company.matchStatus || 'not_run')],
+        ['Treffsikkerhet', company.matchConfidence ?? 'unknown'],
+        ['Varsler', normalizeList(company.warnings).map(humanize).join(', ') || 'none'],
+        ['Brreg-kilde', link(company.sourceUrl)],
+        ['Nettside', link(websiteValue(contact.website || lead.website))],
+        ['Telefon', phoneLink(contact.phone || lead.phone || 'unknown')],
+        ['E-post', contact.email || lead.email || 'unknown'],
+        ['Adresse', contact.address || lead.address || 'unknown'],
+        ['City', contact.city || lead.city || 'unknown'],
+      ]) + '</section>' +
+      candidateSection(company) +
+      '<section class="support-info-section support-evidence"><div><p class="eyebrow">Bevis / obs</p><h3>Beslutningsgrunnlag</h3></div><div class="support-evidence-grid">' +
+        '<div><h4>Bevis</h4>' + bullets((website.topEvidence || lead.topEvidence || lead.evidence || []).map(humanizeEvidence)) + '</div>' +
+        '<div><h4>Obs</h4>' + bullets((ranking.caution || lead.caution || []).map(humanizeEvidence)) + '</div>' +
+      '</div></section>' +
+    '</div></details>'
 }
 
 function mobileCallBar(lead) {
@@ -2477,7 +2456,7 @@ function isFastLead(lead) {
 
 function enrichmentTool(lead) {
   if (isHostedContextRefresh(lead)) return `<section class="detail-tool detail-tool-status"><strong>Verifiser firma (hosted)</strong><span>Lett firma-/kontakt-/kildeoppfrisking. Full lokal sjekk er ikke kjørt.</span></section>`
-  if (!isFastLead(lead)) return `<section class="detail-tool detail-tool-status"><strong>Verified & enriched</strong><span>Selected-lead verification has run. Digital synlighet is one secondary module.</span></section>`
+  if (!isFastLead(lead)) return ''
   return `<section class="detail-tool enrichment-tool">
     <div><strong>Trenger du sterkere bevis?</strong><span>Hold tempoet - kjør sjekken bare når leaden er verdt en grundig identitets-, kontakt- og kildesjekk.</span></div>
     <button type="button" id="runDeepQualification">Verifiser firma</button>
@@ -2489,14 +2468,14 @@ function isHostedContextRefresh(lead = {}) {
   return lead.enrichment?.enrichmentMode === 'hosted_context_refresh' || lead.meta?.enrichmentMode === 'hosted_context_refresh'
 }
 
-function deepEnrichmentModules(lead, command) {
+function enrichmentModulesFor(lead, command) {
   const company = lead.company || {}
   const website = lead.website || {}
   const economy = lead.economy || {}
   const liveModules = Array.isArray(lead.enrichmentModules) && lead.enrichmentModules.length
     ? lead.enrichmentModules
     : Array.isArray(lead.enrichment?.modules) ? lead.enrichment.modules : []
-  const modules = liveModules.length ? liveModules : [
+  return liveModules.length ? liveModules : [
     { name: 'Nettsidesjekk', status: isFastLead(lead) ? 'not_run' : (website.auditStatus || 'completed'), summary: isFastLead(lead) ? 'Run enrichment to check digital presence.' : 'Digitale signaler er lagt ved.' },
     { name: 'Brreg verification', status: company.organizationNumber ? 'completed' : company.candidateOrganizationNumber ? 'manual_verify' : brregStatusLabel(company), summary: company.organizationNumber ? 'Offisiell identitet er bekreftet.' : company.candidateOrganizationNumber ? 'Kandidat-identitet må verifiseres manuelt.' : 'Ikke bekreftet i raskt søk; Verifiser firma prøver Brreg på nytt.' },
     { name: 'Økonomi / Proff', status: economy.status || 'not_enabled', summary: economyModuleSummary(economy) },
@@ -2506,12 +2485,32 @@ function deepEnrichmentModules(lead, command) {
     { name: 'Selgermatch-sammendrag', status: command.sellerReadinessKey === 'weak' ? 'manual_verify' : 'completed', summary: 'Bruker kontakt-, firma-, sted- og kildesignaler.' },
     { name: 'OSINT public evidence', status: lead.osint ? 'completed' : 'not_run', summary: lead.osint ? osintSummaryText(lead.osint) : 'Runs on selected-lead enrichment from public business evidence.' },
   ]
-  return `<details class="detail-tool enrichment-modules">
-    <summary>Enrichment modules</summary>
-    <div class="module-grid">
-      ${modules.map((module) => `<div class="module-card"><div>${badge(module.status)}<strong>${escapeHtml(module.name)}</strong></div><small>${escapeHtml(module.summary || module.note || '')}</small></div>`).join('')}
-    </div>
-  </details>`
+}
+
+function enrichmentModulesPanel(lead, command) {
+  const modules = enrichmentModulesFor(lead, command)
+  return '<section class="support-info-section enrichment-modules-panel"><div><p class="eyebrow">Enrichment modules</p><h3>Tilleggsmoduler</h3></div><div class="module-grid">' +
+    modules.map((module) => '<div class="module-card"><div>' + badge(module.status) + '<strong>' + escapeHtml(module.name) + '</strong></div><small>' + escapeHtml(module.summary || module.note || '') + '</small></div>').join('') +
+  '</div></section>'
+}
+
+function deepEnrichmentModules(lead, command) {
+  const modules = enrichmentModulesFor(lead, command)
+  return '<details class="detail-tool enrichment-modules"><summary>Enrichment modules</summary><div class="module-grid">' +
+    modules.map((module) => '<div class="module-card"><div>' + badge(module.status) + '<strong>' + escapeHtml(module.name) + '</strong></div><small>' + escapeHtml(module.summary || module.note || '') + '</small></div>').join('') +
+  '</div></details>'
+}
+
+function osintSupportStats(lead) {
+  const osint = lead.osint || null
+  if (!osint) return ''
+  const summary = osint.summary || {}
+  return '<section class="support-info-section osint-support-panel"><div><p class="eyebrow">OSINT public evidence</p><h3>Offentlige signaler</h3></div>' +
+    '<section class="osint-summary">' +
+      commandMetric('Bevis', String(summary.evidenceCount || 0), 'Offentlige firmasignaler funnet') +
+      commandMetric('Risks', String(summary.riskCount || 0), 'Checks before seller use') +
+      commandMetric('Kilder', String(summary.sourceCount || 0), 'Offentlige kildereferanser') +
+    '</section></section>'
 }
 
 function osintPanel(lead) {
@@ -3107,20 +3106,16 @@ function humanize(value) {
 
 function renderExport(result) {
   if (!result) {
-    els.exportPanel.innerHTML = '<p class="eyebrow">Eksport</p><div class="empty-state">CSV- og JSON-lenker vises etter en fullført kjøring.</div><p class="export-tools"><button type="button" class="quiet-export" data-workspace-export>Last ned testdata</button></p>'
+    els.exportPanel.innerHTML = '<details class="export-collapse"><summary>Eksport</summary><div class="empty-state">CSV- og JSON-lenker vises etter en fullført kjøring.</div><p class="export-tools"><button type="button" class="quiet-export" data-workspace-export>Last ned testdata</button></p></details>'
     return
   }
   const leads = result.summary?.marketSweep ? (result.leadPacks || []).slice().sort(compareLeadsByCity) : (result.leadPacks || [])
-  els.exportPanel.innerHTML = `
-    <p class="eyebrow">Eksport</p>
-    <p class="muted">Kjøringssti: <code>${escapeHtml(result.outputDir)}</code></p>
-    <p><a href="${escapeAttr(withBetaToken(result.downloads.csv))}">Last ned CSV</a> · <a href="${escapeAttr(withBetaToken(result.downloads.json))}">Last ned JSON</a> · <button type="button" id="copyPath">Kopier kjøringssti</button> <button type="button" class="quiet-export" data-workspace-export>Last ned testdata</button></p>
-    ${callListLinks(result.downloads || {})}
-    <table>
-      <thead><tr><th>nr</th><th>firma</th><th>telefon</th><th>by</th><th>kø</th><th>prioritet</th><th>trygghet</th><th>osint</th><th>arbeidsflyt</th><th>respons</th><th>oppfølging</th><th>sist kontaktet</th><th>neste handling</th></tr></thead>
-      <tbody>${leads.map((lead, index) => { const workflow = lead.workflow || {}; return `<tr><td>${index + 1}</td><td>${escapeHtml(lead.company?.displayName || lead.companyName || '')}</td><td>${phoneLink(lead.contact?.phone || lead.phone || '')}</td><td>${escapeHtml(lead.contact?.city || lead.city || '')}</td><td>${escapeHtml(workQueueLabel(leadWorkQueue(lead)))}</td><td>${escapeHtml(lead.callPriority || lead.priority || '')}</td><td>${escapeHtml(sourceFusionExportCell(lead))}</td><td>${escapeHtml(osintExportCell(lead))}</td><td>${escapeHtml(readable(workflow.status || 'new'))}</td><td>${escapeHtml(readable(workflow.response || ''))}</td><td>${escapeHtml(workflow.nextFollowUpAt || workflow.followUpDate || '')}</td><td>${escapeHtml(workflow.lastContactedAt || '')}</td><td>${escapeHtml(workflow.nextAction || '')}</td></tr>` }).join('')}</tbody>
-    </table>
-  `
+  els.exportPanel.innerHTML = '<details class="export-collapse"><summary>Eksport</summary><div class="export-collapse-body">' +
+    '<p class="muted">Kjøringssti: <code>' + escapeHtml(result.outputDir) + '</code></p>' +
+    '<p><a href="' + escapeAttr(withBetaToken(result.downloads.csv)) + '">Last ned CSV</a> · <a href="' + escapeAttr(withBetaToken(result.downloads.json)) + '">Last ned JSON</a> · <button type="button" id="copyPath">Kopier kjøringssti</button> <button type="button" class="quiet-export" data-workspace-export>Last ned testdata</button></p>' +
+    callListLinks(result.downloads || {}) +
+    '<table><thead><tr><th>nr</th><th>firma</th><th>telefon</th><th>by</th><th>kø</th><th>prioritet</th><th>trygghet</th><th>osint</th><th>arbeidsflyt</th><th>respons</th><th>oppfølging</th><th>sist kontaktet</th><th>neste handling</th></tr></thead>' +
+    '<tbody>' + leads.map((lead, index) => { const workflow = lead.workflow || {}; return '<tr><td>' + (index + 1) + '</td><td>' + escapeHtml(lead.company?.displayName || lead.companyName || '') + '</td><td>' + phoneLink(lead.contact?.phone || lead.phone || '') + '</td><td>' + escapeHtml(lead.contact?.city || lead.city || '') + '</td><td>' + escapeHtml(workQueueLabel(leadWorkQueue(lead))) + '</td><td>' + escapeHtml(lead.callPriority || lead.priority || '') + '</td><td>' + escapeHtml(sourceFusionExportCell(lead)) + '</td><td>' + escapeHtml(osintExportCell(lead)) + '</td><td>' + escapeHtml(readable(workflow.status || 'new')) + '</td><td>' + escapeHtml(readable(workflow.response || '')) + '</td><td>' + escapeHtml(workflow.nextFollowUpAt || workflow.followUpDate || '') + '</td><td>' + escapeHtml(workflow.lastContactedAt || '') + '</td><td>' + escapeHtml(workflow.nextAction || '') + '</td></tr>' }).join('') + '</tbody></table></div></details>'
   const copy = document.getElementById('copyPath')
   copy?.addEventListener('click', () => navigator.clipboard?.writeText(result.outputDir))
 }

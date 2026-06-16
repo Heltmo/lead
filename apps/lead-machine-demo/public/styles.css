@@ -134,7 +134,7 @@ button, input, select { font: inherit; }
 .instant-decision-grid .command-metric { background: #fff; border-color: #c7e5d6; min-height: 92px; }
 .lead-name-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; }
 .lead-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.title-phone { display: inline-flex; align-items: baseline; color: var(--green); font-size: clamp(26px, 2.8vw, 42px); font-weight: 900; line-height: 1; text-decoration: none; white-space: nowrap; }
+.title-phone { display: inline-flex; align-items: baseline; color: var(--green); font-size: clamp(24px, 2.3vw, 34px); font-weight: 900; line-height: 1; text-decoration: none; white-space: nowrap; }
 .title-phone:hover { text-decoration: underline; }
 .primary-call { justify-content: center; border-color: var(--green); background: var(--green); color: #fff; min-height: 38px; padding: 8px 12px; }
 .primary-call:hover, .primary-call:focus-visible { background: #0b6848; color: #fff; outline: none; text-decoration: none; }
@@ -144,16 +144,16 @@ button, input, select { font: inherit; }
 .seller-flow-hero { display: grid; gap: 10px; }
 .seller-flow-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 340px); gap: 14px; align-items: stretch; }
 .seller-flow-title { min-width: 0; }
-.seller-flow-title h2 { margin: 0; font-size: clamp(26px, 3vw, 40px); line-height: 1.02; letter-spacing: 0; overflow-wrap: anywhere; }
+.seller-flow-title h2 { margin: 0; font-size: clamp(24px, 2.4vw, 32px); line-height: 1.04; letter-spacing: 0; overflow-wrap: anywhere; }
 .seller-flow-title small { display: block; margin-top: 4px; color: var(--muted); line-height: 1.35; }
-.seller-flow-contact { display: grid; align-content: center; gap: 6px; padding: 12px; border: 1px solid #c7e5d6; border-radius: 8px; background: #fff; }
+.seller-flow-contact { display: grid; align-content: center; gap: 6px; padding: 10px; border: 1px solid #c7e5d6; border-radius: 8px; background: #fff; }
 .seller-flow-contact > span { color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 780; }
 .seller-flow-contact small { color: var(--muted); line-height: 1.35; }
-.seller-flow-steps { display: grid; grid-template-columns: minmax(180px, .85fr) minmax(260px, 1.25fr) minmax(200px, 1fr); gap: 8px; }
-.seller-flow-step { display: grid; align-content: start; gap: 5px; min-height: 112px; border: 1px solid #d5e4dc; border-radius: 8px; background: #fff; padding: 10px; }
+.seller-flow-steps { display: grid; grid-template-columns: minmax(160px, .8fr) minmax(240px, 1.2fr) minmax(180px, .9fr); gap: 7px; }
+.seller-flow-step { display: grid; align-content: start; gap: 4px; min-height: 78px; border: 1px solid #d5e4dc; border-radius: 8px; background: #fff; padding: 8px 9px; }
 .seller-flow-step-main { border-color: #b9dfcb; background: #f8fffb; }
 .seller-flow-step span, .seller-flow-info-item span { color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 850; }
-.seller-flow-step strong, .seller-flow-info-item strong { display: block; font-size: 16px; line-height: 1.2; overflow-wrap: anywhere; }
+.seller-flow-step strong, .seller-flow-info-item strong { display: block; font-size: 14px; line-height: 1.2; overflow-wrap: anywhere; }
 .seller-flow-step small, .seller-flow-info-item small { color: var(--muted); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
 .seller-flow-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
 .seller-flow-primary, .seller-flow-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; border-radius: 8px; padding: 8px 11px; font-size: 12px; font-weight: 900; text-decoration: none; cursor: pointer; }
@@ -164,7 +164,7 @@ button, input, select { font: inherit; }
 .seller-flow-secondary:hover, .seller-flow-secondary:focus-visible { border-color: var(--green); background: var(--green-soft); outline: none; }
 .seller-flow-outcomes .quick-actions.compact { margin: 0; }
 .seller-flow-info-strip { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 7px; }
-.seller-flow-info-item { min-height: 70px; border: 1px solid #d5e4dc; border-radius: 8px; background: rgba(255,255,255,.82); padding: 8px 9px; }
+.seller-flow-info-item { min-height: 58px; border: 1px solid #d5e4dc; border-radius: 8px; background: rgba(255,255,255,.82); padding: 7px 8px; }
 .lead-info-collapse { margin: 10px 0; border-color: #d5e4dc; }
 .lead-info-body { display: grid; gap: 8px; margin: 10px; }
 .lead-info-body > .seller-desk-v2, .lead-info-body > .command-card, .lead-info-body > .osint-panel { margin: 0; }
@@ -209,6 +209,24 @@ button, input, select { font: inherit; }
 .module-card div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .module-card strong { font-size: 14px; line-height: 1.25; }
 .module-card small { color: var(--muted); line-height: 1.35; }
+
+
+.support-info-panel { margin-top: 10px; }
+.support-info-panel summary, .export-collapse summary { cursor: pointer; padding: 10px 12px; font-weight: 850; color: var(--ink); background: #f8faf9; }
+.support-info-panel[open] summary, .export-collapse[open] summary { border-bottom: 1px solid var(--line); }
+.support-info-body { display: grid; gap: 10px; padding: 10px; }
+.support-info-section { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; }
+.support-info-section h3 { margin: 0; font-size: 15px; line-height: 1.2; }
+.support-info-section .eyebrow { margin-bottom: 2px; }
+.support-priority { border-color: #c7e5d6; background: #f3faf7; }
+.support-evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.support-evidence-grid h4 { margin: 0 0 6px; font-size: 13px; }
+.support-info-panel .seller-desk-v2 { margin: 0; }
+.support-info-panel .command-card { margin: 0; }
+.support-info-panel .source-grid, .support-info-panel .module-grid, .support-info-panel .osint-summary { margin: 0; }
+.export-collapse { min-width: 0; }
+.export-collapse-body { padding: 10px 12px 12px; }
+.export-collapse-body p { margin-top: 0; }
 
 .detail-tools { display: grid; gap: 8px; margin-top: 12px; }
 .detail-tool { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 0; overflow: hidden; }
