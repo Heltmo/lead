@@ -11,7 +11,7 @@ const SAMPLE_HTML = `<!doctype html><html><head>
 
 function fakeFetch({ pageOk = true, apiBody, apiStatus = 200 } = {}) {
   return async (url) => {
-    if (String(url).includes('api.anthropic.com')) {
+    if (String(url).includes('api.openai.com/v1/responses')) {
       return {
         ok: apiStatus === 200,
         status: apiStatus,
@@ -24,33 +24,36 @@ function fakeFetch({ pageOk = true, apiBody, apiStatus = 200 } = {}) {
 }
 
 const GOOD_API_BODY = {
-  model: 'claude-opus-4-8',
+  model: 'gpt-5.5',
   usage: { input_tokens: 1200, output_tokens: 180 },
-  content: [{
-    type: 'text',
-    text: JSON.stringify({
-      estimatedEra: 'ca. 2012-2014',
-      outdated: 'ja',
-      summary: 'Gammel WordPress-side uten mobiltilpasning og uten kontaktskjema.',
-      topIssues: ['Ikke mobiltilpasset', 'Gammel jQuery/WordPress', 'Ingen tydelig kontaktvei'],
-      missing: ['Kontaktskjema', 'Mobilvisning'],
-      candidate: 'sterk_kandidat',
-    }),
+  output: [{
+    type: 'message',
+    content: [{
+      type: 'output_text',
+      text: JSON.stringify({
+        estimatedEra: 'ca. 2012-2014',
+        outdated: 'ja',
+        summary: 'Gammel WordPress-side uten mobiltilpasning og uten kontaktskjema.',
+        topIssues: ['Ikke mobiltilpasset', 'Gammel jQuery/WordPress', 'Ingen tydelig kontaktvei'],
+        missing: ['Kontaktskjema', 'Mobilvisning'],
+        candidate: 'sterk_kandidat',
+      }),
+    }],
   }],
 }
 
 async function withoutAuditKeyEnv(fn) {
-  const previousProjectKey = process.env.LEAD_MACHINE_ANTHROPIC_API_KEY
-  const previousLegacyKey = process.env.ANTHROPIC_API_KEY
-  delete process.env.LEAD_MACHINE_ANTHROPIC_API_KEY
-  delete process.env.ANTHROPIC_API_KEY
+  const previousProjectKey = process.env.LEAD_MACHINE_OPENAI_API_KEY
+  const previousStandardKey = process.env.OPENAI_API_KEY
+  delete process.env.LEAD_MACHINE_OPENAI_API_KEY
+  delete process.env.OPENAI_API_KEY
   try {
     return await fn()
   } finally {
-    if (previousProjectKey === undefined) delete process.env.LEAD_MACHINE_ANTHROPIC_API_KEY
-    else process.env.LEAD_MACHINE_ANTHROPIC_API_KEY = previousProjectKey
-    if (previousLegacyKey === undefined) delete process.env.ANTHROPIC_API_KEY
-    else process.env.ANTHROPIC_API_KEY = previousLegacyKey
+    if (previousProjectKey === undefined) delete process.env.LEAD_MACHINE_OPENAI_API_KEY
+    else process.env.LEAD_MACHINE_OPENAI_API_KEY = previousProjectKey
+    if (previousStandardKey === undefined) delete process.env.OPENAI_API_KEY
+    else process.env.OPENAI_API_KEY = previousStandardKey
   }
 }
 
@@ -77,7 +80,7 @@ async function main() {
 
   {
     const result = await withoutAuditKeyEnv(() => auditWebsite({ url: 'example.no', apiKey: '', fetcher: fakeFetch({ apiBody: GOOD_API_BODY }) }))
-    assert(!result.ok && result.error.includes('LEAD_MACHINE_ANTHROPIC_API_KEY'), 'missing key should explain itself')
+    assert(!result.ok && result.error.includes('LEAD_MACHINE_OPENAI_API_KEY'), 'missing key should explain itself')
   }
 
   {

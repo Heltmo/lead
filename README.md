@@ -9,7 +9,7 @@ Lead Machine is the seller desk product: sellers search for a market, review ran
 - `core/lead-discovery-agent`: Brreg, Google Places, mock, and manual-source discovery.
 - `core/company-profile`: conservative Brreg/company identity enrichment.
 - `core/seller-fit`: interprets each lead based on what the seller sells.
-- `core/website-audit`: manual per-lead AI check of the lead's website (Claude) - short Norwegian verdict on age, weaknesses and gaps that feeds the sales verdict.
+- `core/website-audit`: manual per-lead AI check of the lead's website (OpenAI GPT-5.5) - short Norwegian verdict on age, weaknesses and gaps that feeds the sales verdict.
 - `core/website-sales-fit`: the MVP wedge verdict — is this company a good lead for selling websites, and why? No website found counts as a positive signal.
 - `core/source-fusion`: combines Brreg, Google/contact data, seller fit, and workflow context into Proof & Confidence.
 - `core/osint`: narrow public-evidence summary for one selected lead.

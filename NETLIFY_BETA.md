@@ -18,6 +18,7 @@ Set these in Netlify before sharing the URL:
 - `BETA_ACCESS_TOKEN`: required API gate for invited testers.
 - `GOOGLE_PLACES_API_KEY`: required for live Google Places searches.
 - `PROFF_API_KEY`: optional only; not required for beta calling workflow.
+- `LEAD_MACHINE_OPENAI_API_KEY`: optional for the manual AI nettsidesjekk button. It uses GPT-5.5 through the OpenAI Responses API and never runs in bulk.
 
 Netlify Functions read runtime environment variables from the Netlify environment, not from `netlify.toml`.
 

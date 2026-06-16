@@ -1,15 +1,15 @@
 // AI-nettsidesjekk for én valgt lead: henter forsiden, trekker ut signaler og
-// ber Claude om en kort, strukturert vurdering på norsk. Kjøres alltid manuelt
+// ber GPT-5.5 om en kort, strukturert vurdering på norsk. Kjøres alltid manuelt
 // per lead (aldri i bulk), og produserer observasjoner og mangler - aldri
 // pitch-manus; selgeren eier ordlyden.
 //
-// Repoet er bevisst avhengighetsfritt, så Claude kalles med innebygd fetch
-// (Messages API, structured outputs) i stedet for SDK-en.
+// Repoet er bevisst avhengighetsfritt, så OpenAI kalles med innebygd fetch
+// (Responses API, Structured Outputs) i stedet for SDK-en.
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const PROJECT_API_KEY_ENV = 'LEAD_MACHINE_ANTHROPIC_API_KEY'
-const LEGACY_API_KEY_ENV = 'ANTHROPIC_API_KEY'
-const DEFAULT_MODEL = 'claude-opus-4-8'
+const OPENAI_RESPONSES_API_URL = 'https://api.openai.com/v1/responses'
+const PROJECT_API_KEY_ENV = 'LEAD_MACHINE_OPENAI_API_KEY'
+const STANDARD_API_KEY_ENV = 'OPENAI_API_KEY'
+const DEFAULT_MODEL = 'gpt-5.5'
 const MAX_HTML_BYTES = 300000
 const MAX_TEXT_CHARS = 7000
 
@@ -29,7 +29,7 @@ const AUDIT_SCHEMA = {
 
 async function auditWebsite({ url, companyName = '', city = '', apiKey, model, fetcher, timeoutMs = 20000 } = {}) {
   const doFetch = fetcher || globalThis.fetch
-  const key = apiKey || process.env[PROJECT_API_KEY_ENV] || process.env[LEGACY_API_KEY_ENV] || ''
+  const key = apiKey || process.env[PROJECT_API_KEY_ENV] || process.env[STANDARD_API_KEY_ENV] || ''
   if (!url) return { ok: false, error: 'mangler nettside-URL' }
   if (!key) return { ok: false, error: PROJECT_API_KEY_ENV + ' mangler - legg den i .env og restart serveren' }
   if (typeof doFetch !== 'function') return { ok: false, error: 'fetch er ikke tilgjengelig i denne Node-versjonen' }
@@ -42,42 +42,53 @@ async function auditWebsite({ url, companyName = '', city = '', apiKey, model, f
 
   let response
   try {
-    response = await doFetch(ANTHROPIC_API_URL, {
+    response = await doFetch(OPENAI_RESPONSES_API_URL, {
       method: 'POST',
       headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
+        authorization: 'Bearer ' + key,
         'content-type': 'application/json',
       },
       body: JSON.stringify({
         model: model || process.env.LEAD_MACHINE_AUDIT_MODEL || DEFAULT_MODEL,
-        max_tokens: 1000,
-        system: 'Du er en nøktern norsk rådgiver som vurderer småbedrifters nettsider for en selger av nye nettsider. Vær kort, konkret og ærlig. Aldri skriv salgsmanus, ringeskript eller ferdige formuleringer selgeren skal si - kun observasjoner om siden.',
-        messages: [{ role: 'user', content: prompt }],
-        output_config: { format: { type: 'json_schema', schema: AUDIT_SCHEMA } },
+        store: false,
+        max_output_tokens: 1000,
+        reasoning: { effort: 'low' },
+        input: [
+          { role: 'system', content: 'Du er en nøktern norsk rådgiver som vurderer småbedrifters nettsider for en selger av nye nettsider. Vær kort, konkret og ærlig. Aldri skriv salgsmanus, ringeskript eller ferdige formuleringer selgeren skal si - kun observasjoner om siden.' },
+          { role: 'user', content: prompt },
+        ],
+        text: {
+          verbosity: 'low',
+          format: {
+            type: 'json_schema',
+            name: 'lead_machine_website_audit',
+            strict: true,
+            schema: AUDIT_SCHEMA,
+          },
+        },
       }),
     })
   } catch (error) {
-    return { ok: false, error: 'Claude-kallet feilet: ' + (error.message || 'ukjent nettverksfeil') }
+    return { ok: false, error: 'OpenAI-kallet feilet: ' + (error.message || 'ukjent nettverksfeil') }
   }
 
   let payload
   try {
     payload = await response.json()
   } catch (_) {
-    return { ok: false, error: 'Claude-svaret var ikke gyldig JSON' }
+    return { ok: false, error: 'OpenAI-svaret var ikke gyldig JSON' }
   }
   if (!response.ok) {
     const message = payload?.error?.message || ('HTTP ' + response.status)
-    return { ok: false, error: 'Claude API: ' + message }
+    return { ok: false, error: 'OpenAI API: ' + message }
   }
 
-  const text = (payload.content || []).filter((block) => block.type === 'text').map((block) => block.text).join('')
+  const text = extractOpenAIText(payload)
   let audit
   try {
     audit = JSON.parse(text)
   } catch (_) {
-    return { ok: false, error: 'klarte ikke å tolke vurderingen fra Claude' }
+    return { ok: false, error: 'klarte ikke å tolke vurderingen fra OpenAI' }
   }
 
   return {
@@ -86,6 +97,18 @@ async function auditWebsite({ url, companyName = '', city = '', apiKey, model, f
     usage: payload.usage || null,
     model: payload.model || '',
   }
+}
+
+function extractOpenAIText(payload = {}) {
+  if (typeof payload.output_text === 'string') return payload.output_text
+  const chunks = []
+  for (const item of Array.isArray(payload.output) ? payload.output : []) {
+    if (item && item.type === 'output_text' && typeof item.text === 'string') chunks.push(item.text)
+    for (const content of Array.isArray(item && item.content) ? item.content : []) {
+      if (content && content.type === 'output_text' && typeof content.text === 'string') chunks.push(content.text)
+    }
+  }
+  return chunks.join('')
 }
 
 function normalizeAudit(audit = {}, url = '') {
