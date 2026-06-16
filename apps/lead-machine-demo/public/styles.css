@@ -558,6 +558,16 @@ a { color: var(--blue); }
 .call-focus-last-note { margin: 0; color: var(--muted); font-size: 13px; font-style: italic; }
 @media (max-width: 620px) { .lead-note-add { flex-direction: column; } .lead-note-add button { width: 100%; } }
 
+.sales-angles-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.sales-angles-row small { color: var(--muted); font-size: 12px; }
+.sales-angles-row button, .sales-angles-rerun { min-height: 36px; border: 1px solid var(--green); border-radius: 8px; background: #fff; color: var(--green); padding: 7px 12px; font-weight: 850; cursor: pointer; }
+.sales-angles-row button:hover, .sales-angles-rerun:hover, .sales-angles-row button:focus-visible, .sales-angles-rerun:focus-visible { background: var(--green-soft); outline: none; }
+.sales-angles-row button[disabled], .sales-angles-rerun[disabled] { opacity: .6; cursor: wait; }
+.sales-angles-result { margin-top: 10px; padding: 10px 12px; border: 1px solid #d5e4dc; border-radius: 8px; background: #fff; display: grid; gap: 6px; }
+.sales-angles-head, .sales-angles-risk, .sales-angles-next { margin: 0; font-size: 13px; line-height: 1.4; }
+.sales-angles-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.4; display: grid; gap: 6px; }
+.sales-angles-list small { color: var(--muted); }
+.sales-angles-rerun { justify-self: start; min-height: 30px; padding: 4px 9px; font-size: 12px; }
 .website-audit-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .website-audit-row small { color: var(--muted); font-size: 12px; }
 .website-audit-row button, .website-audit-rerun { min-height: 36px; border: 1px solid var(--green); border-radius: 8px; background: #fff; color: var(--green); padding: 7px 12px; font-weight: 850; cursor: pointer; }

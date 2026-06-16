@@ -19,6 +19,7 @@ const { runLeadMachine } = require('../../core/lead-machine/leadMachine')
 const { evaluateSellerFit, normalizeSellerIntent, normalizeSellerProfile } = require('../../core/seller-fit/sellerFit')
 const { evaluateWebsiteSalesFit } = require('../../core/website-sales-fit/websiteSalesFit')
 const { auditWebsite } = require('../../core/website-audit/websiteAudit')
+const { researchSalesAngles } = require('../../core/sales-angle/salesAngle')
 const { buildNorwaySweepRunOptions, NORWAY_SWEEP_MAX_RESULTS } = require('../../core/lead-discovery-agent/providers/norwaySweep')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { enrichCompanyProfile } = require('../../core/company-profile/companyProfile')
@@ -51,6 +52,10 @@ exports.handler = async function handler(event) {
     }
     if (event.httpMethod === 'POST' && apiPath === '/api/website-audit') {
       const result = await hostedWebsiteAuditFromEvent(event)
+      return result.error ? jsonResponse(result.statusCode || 502, { error: result.error }) : jsonResponse(200, result)
+    }
+    if (event.httpMethod === 'POST' && apiPath === '/api/sales-angles') {
+      const result = await hostedSalesAnglesFromEvent(event)
       return result.error ? jsonResponse(result.statusCode || 502, { error: result.error }) : jsonResponse(200, result)
     }
     if (event.httpMethod === 'GET' && apiPath === '/api/workspace-export') return jsonResponse(200, exportSnapshot(state))
@@ -328,6 +333,15 @@ async function hostedWebsiteAuditFromEvent(event) {
   const updated = JSON.parse(JSON.stringify(lead))
   updated.website = { ...(updated.website || {}), aiAudit: result.audit }
   return { audit: result.audit, websiteSalesFit: evaluateWebsiteSalesFit(updated), model: result.model, usage: result.usage }
+}
+
+async function hostedSalesAnglesFromEvent(event) {
+  const body = parseJsonBody(event)
+  const lead = body.lead && typeof body.lead === 'object' ? body.lead : null
+  if (!lead) return { error: 'Lead er påkrevd', statusCode: 400 }
+  const result = await researchSalesAngles({ lead })
+  if (!result.ok) return { error: result.error, statusCode: 502 }
+  return { salesAngles: result.salesAngles, model: result.model, usage: result.usage }
 }
 
 async function hostedSelectedCompanyProfile(lead = {}) {

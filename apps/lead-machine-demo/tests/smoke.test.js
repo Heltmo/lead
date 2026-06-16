@@ -572,6 +572,8 @@ async function main() {
   assert(lower.includes('websiteinfoitem'), 'Selected lead info strip should show website found/not-found next to contact')
   assert(lower.includes('salgsåpning for nettsidesalg'), 'Missing website should read as a sales opening in the info strip')
   assert(lower.includes('openingstatusfor') && lower.includes('åpent nå'), 'UI should compute and show opening hours status')
+  assert(lower.includes('data-run-sales-angles') && lower.includes('/api/sales-angles'), 'Selected lead should offer AI sales angle research')
+  assert(lower.includes('finn salgsvinkler'), 'AI sales angle research should use Norwegian seller-facing copy')
   assert(lower.includes('data-run-website-audit') && lower.includes('/api/website-audit'), 'Selected lead should offer the AI website check')
   assert(lower.includes('kjør nettsidesjekk'), 'AI website check should use Norwegian copy')
   assert(lower.includes('data-save-card-note') && lower.includes('notat på kortet'), 'Selected lead should support quick card notes')

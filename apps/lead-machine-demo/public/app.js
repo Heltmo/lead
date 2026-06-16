@@ -105,6 +105,8 @@ document.addEventListener('click', (event) => {
   if (cardNoteButton) { saveCardNote(cardNoteButton); return }
   const websiteAuditButton = event.target.closest('[data-run-website-audit]')
   if (websiteAuditButton) { runWebsiteAudit(websiteAuditButton); return }
+  const salesAnglesButton = event.target.closest('[data-run-sales-angles]')
+  if (salesAnglesButton) { runSalesAngles(salesAnglesButton); return }
 })
 renderCommandCenter(null)
 renderExport(null)
@@ -1123,8 +1125,30 @@ function websiteSalesPanel(lead) {
     ${why.length ? `<ul class="website-sales-why">${why.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
     ${caution.length ? `<ul class="website-sales-caution">${caution.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
     ${deepHint}
+    ${salesAnglesBlock(lead)}
     ${websiteAuditBlock(lead)}
   </section>`
+}
+
+function salesAnglesBlock(lead) {
+  const analysis = lead.salesAngles
+  if (!analysis) {
+    return '<div class="sales-angles-row"><button type="button" data-run-sales-angles>Finn salgsvinkler</button><small>GPT søker offentlig nettinfo for valgt lead og foreslår korte, kildebaserte vinkler. Kjøres manuelt.</small></div>'
+  }
+  const angles = Array.isArray(analysis.angles) ? analysis.angles : []
+  const risks = Array.isArray(analysis.risks) ? analysis.risks : []
+  return '<div class="sales-angles-result">' +
+    '<p class="sales-angles-head"><strong>AI-vinkler:</strong> ' + escapeHtml(analysis.summary || '') + '</p>' +
+    (angles.length ? '<ul class="sales-angles-list">' + angles.map((angle) => '<li><strong>' + escapeHtml(angle.title || 'Vinkel') + ':</strong> ' + escapeHtml(angle.offer || angle.why || '') + (angle.why ? '<br><span>' + escapeHtml(angle.why) + '</span>' : '') + evidenceList(angle.evidence) + '</li>').join('') + '</ul>' : '') +
+    (risks.length ? '<p class="sales-angles-risk"><strong>Sjekk først:</strong> ' + escapeHtml(risks.join(' · ')) + '</p>' : '') +
+    (analysis.nextStep ? '<p class="sales-angles-next"><strong>Neste:</strong> ' + escapeHtml(analysis.nextStep) + '</p>' : '') +
+    '<button type="button" class="sales-angles-rerun" data-run-sales-angles>Kjør på nytt</button>' +
+  '</div>'
+}
+
+function evidenceList(items) {
+  const list = Array.isArray(items) ? items.filter(Boolean).slice(0, 3) : []
+  return list.length ? '<br><small>Bevis: ' + escapeHtml(list.join(' · ')) + '</small>' : ''
 }
 
 function websiteAuditBlock(lead) {
@@ -1161,6 +1185,32 @@ async function persistLeadNote(lead, index, line) {
   if (!response.ok) throw new Error(payload.error || 'Lagring av notat feilet')
   lead.workflow = payload.workflow
   syncLeadQueueQuality(lead)
+}
+
+async function runSalesAngles(button) {
+  const index = state.selectedIndex
+  const lead = state.result?.leadPacks?.[index]
+  if (!lead) return setStatus('feilet: ingen valgt lead for salgsvinkler', 'failed')
+  const originalText = button.textContent
+  button.disabled = true
+  button.textContent = 'Søker vinkler...'
+  setStatus('søker etter salgsvinkler med AI...', 'running')
+  try {
+    const response = await apiFetch('/api/sales-angles', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lead }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload.error || 'Salgsvinkel-søket feilet')
+    lead.salesAngles = payload.salesAngles
+    setStatus('salgsvinkler funnet', '')
+    renderAll()
+  } catch (error) {
+    setStatus('feilet: ' + (error.message || 'salgsvinkel-søket feilet'), 'failed')
+    button.disabled = false
+    button.textContent = originalText
+  }
 }
 
 async function runWebsiteAudit(button) {

@@ -8,6 +8,7 @@ const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { evaluateSellerFit, normalizeSellerIntent, normalizeSellerProfile } = require('../../core/seller-fit/sellerFit')
 const { evaluateWebsiteSalesFit } = require('../../core/website-sales-fit/websiteSalesFit')
 const { auditWebsite } = require('../../core/website-audit/websiteAudit')
+const { researchSalesAngles } = require('../../core/sales-angle/salesAngle')
 const { enrichOsint } = require('../../core/osint/osint')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { buildOpportunityCommandCenter } = require('../../core/opportunity-command-center/opportunityCommandCenter')
@@ -59,6 +60,7 @@ function createServer(options = {}) {
         return
       }
       if (req.method === 'POST' && url.pathname === '/api/website-audit') return handleWebsiteAudit(req, res)
+      if (req.method === 'POST' && url.pathname === '/api/sales-angles') return handleSalesAngles(req, res)
       if (req.method === 'POST' && url.pathname === '/api/deep-qualify') {
         await handleDeepQualify(req, res, { deepQualifier, runsDir, workflowStore })
         return
@@ -481,6 +483,15 @@ async function handleWebsiteAudit(req, res) {
   const updated = JSON.parse(JSON.stringify(lead))
   updated.website = { ...(updated.website || {}), aiAudit: result.audit }
   return json(res, 200, { audit: result.audit, websiteSalesFit: evaluateWebsiteSalesFit(updated), model: result.model, usage: result.usage })
+}
+
+async function handleSalesAngles(req, res) {
+  const body = await readJsonBody(req)
+  const lead = body.lead && typeof body.lead === 'object' ? body.lead : null
+  if (!lead) return json(res, 400, { error: 'Lead er påkrevd' })
+  const result = await researchSalesAngles({ lead })
+  if (!result.ok) return json(res, 502, { error: result.error })
+  return json(res, 200, { salesAngles: result.salesAngles, model: result.model, usage: result.usage })
 }
 
 async function handleDeepQualify(req, res, context) {
