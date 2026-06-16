@@ -8,7 +8,7 @@ const { loadEnvFiles } = require('../../core/lead-machine/loadEnv')
 const { evaluateSellerFit, normalizeSellerIntent, normalizeSellerProfile } = require('../../core/seller-fit/sellerFit')
 const { evaluateWebsiteSalesFit } = require('../../core/website-sales-fit/websiteSalesFit')
 const { auditWebsite } = require('../../core/website-audit/websiteAudit')
-const { researchSalesAngles } = require('../../core/sales-angle/salesAngle')
+const { startSalesAngleResearch, retrieveSalesAngleResearch } = require('../../core/sales-angle/salesAngle')
 const { enrichOsint } = require('../../core/osint/osint')
 const { evaluateSourceFusion, sourceFusionSummary } = require('../../core/source-fusion/sourceFusion')
 const { buildOpportunityCommandCenter } = require('../../core/opportunity-command-center/opportunityCommandCenter')
@@ -61,6 +61,7 @@ function createServer(options = {}) {
       }
       if (req.method === 'POST' && url.pathname === '/api/website-audit') return handleWebsiteAudit(req, res)
       if (req.method === 'POST' && url.pathname === '/api/sales-angles') return handleSalesAngles(req, res)
+      if (req.method === 'GET' && url.pathname === '/api/sales-angles') return handleSalesAnglesStatus(url, res)
       if (req.method === 'POST' && url.pathname === '/api/deep-qualify') {
         await handleDeepQualify(req, res, { deepQualifier, runsDir, workflowStore })
         return
@@ -489,9 +490,17 @@ async function handleSalesAngles(req, res) {
   const body = await readJsonBody(req)
   const lead = body.lead && typeof body.lead === 'object' ? body.lead : null
   if (!lead) return json(res, 400, { error: 'Lead er påkrevd' })
-  const result = await researchSalesAngles({ lead })
+  const result = await startSalesAngleResearch({ lead })
   if (!result.ok) return json(res, 502, { error: result.error })
-  return json(res, 200, { salesAngles: result.salesAngles, model: result.model, usage: result.usage })
+  return json(res, 200, { pending: true, responseId: result.responseId, status: result.status, model: result.model })
+}
+
+async function handleSalesAnglesStatus(url, res) {
+  const responseId = url.searchParams.get('id') || url.searchParams.get('responseId')
+  const result = await retrieveSalesAngleResearch({ responseId })
+  if (!result.ok) return json(res, 502, { error: result.error, status: result.status })
+  if (result.pending) return json(res, 200, { pending: true, responseId: result.responseId, status: result.status, model: result.model })
+  return json(res, 200, { pending: false, responseId: result.responseId, status: result.status, salesAngles: result.salesAngles, model: result.model, usage: result.usage })
 }
 
 async function handleDeepQualify(req, res, context) {

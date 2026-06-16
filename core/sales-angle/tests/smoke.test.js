@@ -1,5 +1,5 @@
 const assert = require('assert')
-const { researchSalesAngles, SALES_ANGLE_SCHEMA } = require('../salesAngle')
+const { researchSalesAngles, startSalesAngleResearch, retrieveSalesAngleResearch, SALES_ANGLE_SCHEMA } = require('../salesAngle')
 
 const SAMPLE_RESPONSE = {
   model: 'gpt-5.5',
@@ -52,6 +52,35 @@ async function main() {
   assert(calls[0].body.tools[0].user_location.country === 'NO', 'should bias web search to Norway')
   assert(JSON.stringify(calls[0].body).includes('Aldri') || JSON.stringify(calls[0].body).includes('Ikke skriv ferdig'), 'prompt should forbid scripts')
   assert(!JSON.stringify(SALES_ANGLE_SCHEMA).toLowerCase().includes('pitch'), 'schema should not request pitch copy')
+
+  const startCalls = []
+  const started = await startSalesAngleResearch({
+    apiKey: 'test-key',
+    lead: { companyName: 'Halden Frisør', contact: { city: 'Halden' } },
+    fetcher: async (url, options) => {
+      startCalls.push({ url, body: JSON.parse(options.body) })
+      return { ok: true, status: 200, json: async () => ({ id: 'resp_test_123', status: 'queued', model: 'gpt-5.5' }) }
+    },
+  })
+  assert(started.ok && started.pending && started.responseId === 'resp_test_123', 'background research should start and return response id')
+  assert(startCalls[0].body.background === true && startCalls[0].body.store === true, 'background research should store the response for polling')
+
+  const pending = await retrieveSalesAngleResearch({
+    apiKey: 'test-key',
+    responseId: 'resp_test_123',
+    fetcher: async (url) => {
+      assert(url.endsWith('/resp_test_123'), 'retrieve should call the response id URL')
+      return { ok: true, status: 200, json: async () => ({ id: 'resp_test_123', status: 'in_progress', model: 'gpt-5.5' }) }
+    },
+  })
+  assert(pending.ok && pending.pending && pending.status === 'in_progress', 'retrieve should expose pending status')
+
+  const completed = await retrieveSalesAngleResearch({
+    apiKey: 'test-key',
+    responseId: 'resp_test_123',
+    fetcher: async () => ({ ok: true, status: 200, json: async () => ({ ...SAMPLE_RESPONSE, id: 'resp_test_123', status: 'completed' }) }),
+  })
+  assert(completed.ok && !completed.pending && completed.salesAngles.angles.length === 1, 'retrieve should parse completed background output')
 
   const missingKey = await researchSalesAngles({ lead: { companyName: 'Halden Frisør' }, fetcher: async () => ({}) })
   assert(!missingKey.ok && missingKey.error.includes('LEAD_MACHINE_OPENAI_API_KEY'), 'missing key should explain itself')

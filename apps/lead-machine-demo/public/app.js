@@ -1194,15 +1194,20 @@ async function runSalesAngles(button) {
   const originalText = button.textContent
   button.disabled = true
   button.textContent = 'Søker vinkler...'
-  setStatus('søker etter salgsvinkler med AI...', 'running')
+  setStatus('starter AI-søk etter salgsvinkler...', 'running')
   try {
     const response = await apiFetch('/api/sales-angles', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ lead }),
     })
-    const payload = await response.json()
+    const payload = await readApiJson(response, 'Salgsvinkel-søket feilet')
     if (!response.ok) throw new Error(payload.error || 'Salgsvinkel-søket feilet')
+    if (payload.pending && payload.responseId) {
+      await pollSalesAngles(lead, payload.responseId)
+      return
+    }
+    if (!payload.salesAngles) throw new Error(payload.error || 'Salgsvinkel-søket feilet')
     lead.salesAngles = payload.salesAngles
     setStatus('salgsvinkler funnet', '')
     renderAll()
@@ -1213,6 +1218,37 @@ async function runSalesAngles(button) {
   }
 }
 
+async function pollSalesAngles(lead, responseId) {
+  for (let attempt = 0; attempt < 45; attempt += 1) {
+    await wait(attempt < 3 ? 1500 : 2500)
+    const response = await apiFetch('/api/sales-angles?id=' + encodeURIComponent(responseId))
+    const payload = await readApiJson(response, 'Salgsvinkel-status feilet')
+    if (!response.ok) throw new Error(payload.error || 'Salgsvinkel-status feilet')
+    if (payload.pending) {
+      setStatus('søker etter salgsvinkler med AI... ' + (payload.status || 'venter'), 'running')
+      continue
+    }
+    if (!payload.salesAngles) throw new Error(payload.error || 'Salgsvinkel-søket feilet')
+    lead.salesAngles = payload.salesAngles
+    setStatus('salgsvinkler funnet', '')
+    renderAll()
+    return
+  }
+  throw new Error('Salgsvinkel-søket tar for lang tid - prøv igjen om litt')
+}
+
+async function readApiJson(response, fallbackMessage) {
+  const text = await response.text()
+  if (!text) return {}
+  try { return JSON.parse(text) } catch (_) {
+    const cleaned = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+    return { error: cleaned ? fallbackMessage + ': ' + cleaned : fallbackMessage }
+  }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 async function runWebsiteAudit(button) {
   const index = state.selectedIndex
   const lead = state.result?.leadPacks?.[index]

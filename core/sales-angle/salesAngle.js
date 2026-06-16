@@ -99,6 +99,134 @@ async function researchSalesAngles({ lead, apiKey, model, fetcher } = {}) {
   }
 }
 
+async function startSalesAngleResearch({ lead, apiKey, model, fetcher } = {}) {
+  const doFetch = fetcher || globalThis.fetch
+  const key = apiKey || process.env[PROJECT_API_KEY_ENV] || process.env[STANDARD_API_KEY_ENV] || ''
+  if (!lead || typeof lead !== 'object') return { ok: false, error: 'Lead er påkrevd' }
+  if (!key) return { ok: false, error: PROJECT_API_KEY_ENV + ' mangler - legg den i .env og restart serveren' }
+  if (typeof doFetch !== 'function') return { ok: false, error: 'fetch er ikke tilgjengelig i denne Node-versjonen' }
+
+  let response
+  try {
+    response = await doFetch(OPENAI_RESPONSES_API_URL, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer ' + key,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(buildOpenAISalesAngleBody(lead, model || process.env.LEAD_MACHINE_AUDIT_MODEL || DEFAULT_MODEL, true)),
+    })
+  } catch (error) {
+    return { ok: false, error: 'OpenAI-søk feilet: ' + (error.message || 'ukjent nettverksfeil') }
+  }
+
+  const payload = await readOpenAIJson(response)
+  if (!payload.ok) return payload
+  if (!response.ok) return openAIHttpError(response, payload.value)
+  if (!payload.value.id) return { ok: false, error: 'OpenAI startet ikke salgsvinkel-søket' }
+  return {
+    ok: true,
+    pending: payload.value.status === 'queued' || payload.value.status === 'in_progress' || !payload.value.status,
+    responseId: payload.value.id,
+    status: payload.value.status || 'queued',
+    model: payload.value.model || '',
+  }
+}
+
+async function retrieveSalesAngleResearch({ responseId, apiKey, fetcher } = {}) {
+  const doFetch = fetcher || globalThis.fetch
+  const key = apiKey || process.env[PROJECT_API_KEY_ENV] || process.env[STANDARD_API_KEY_ENV] || ''
+  const id = String(responseId || '').trim()
+  if (!id) return { ok: false, error: 'OpenAI response id mangler' }
+  if (!key) return { ok: false, error: PROJECT_API_KEY_ENV + ' mangler - legg den i .env og restart serveren' }
+  if (typeof doFetch !== 'function') return { ok: false, error: 'fetch er ikke tilgjengelig i denne Node-versjonen' }
+
+  let response
+  try {
+    response = await doFetch(OPENAI_RESPONSES_API_URL + '/' + encodeURIComponent(id), {
+      method: 'GET',
+      headers: {
+        authorization: 'Bearer ' + key,
+        'content-type': 'application/json',
+      },
+    })
+  } catch (error) {
+    return { ok: false, error: 'OpenAI-status feilet: ' + (error.message || 'ukjent nettverksfeil') }
+  }
+
+  const payload = await readOpenAIJson(response)
+  if (!payload.ok) return payload
+  if (!response.ok) return openAIHttpError(response, payload.value)
+
+  const status = payload.value.status || ''
+  if (status === 'queued' || status === 'in_progress') {
+    return { ok: true, pending: true, responseId: id, status, model: payload.value.model || '' }
+  }
+  if (status && status !== 'completed') {
+    if (isIncompleteResponse(payload.value)) return { ok: false, error: 'OpenAI-svaret ble avbrutt før det var ferdig - prøv igjen' }
+    const detail = payload.value.error?.message || payload.value.incomplete_details?.reason || status
+    return { ok: false, error: 'OpenAI-søket stoppet: ' + detail, status }
+  }
+
+  let parsed
+  try {
+    parsed = JSON.parse(extractOpenAIText(payload.value))
+  } catch (_) {
+    if (isIncompleteResponse(payload.value)) {
+      return { ok: false, error: 'OpenAI-svaret ble avbrutt før det var ferdig - prøv igjen' }
+    }
+    return { ok: false, error: 'klarte ikke å tolke salgsvinklene fra OpenAI' }
+  }
+
+  return {
+    ok: true,
+    pending: false,
+    responseId: id,
+    status: status || 'completed',
+    salesAngles: normalizeSalesAngles(parsed),
+    usage: payload.value.usage || null,
+    model: payload.value.model || '',
+  }
+}
+
+function buildOpenAISalesAngleBody(lead, requestModel, background) {
+  const body = {
+    model: requestModel || DEFAULT_MODEL,
+    store: Boolean(background),
+    max_output_tokens: 3000,
+    reasoning: { effort: 'low' },
+    tools: [webSearchToolForLead(lead)],
+    input: [
+      { role: 'system', content: 'Du hjelper en norsk selger av nettsider/booking/digital tilstedeværelse med korte, kildebaserte observasjoner for én valgt lokal bedrift. Svar svært komprimert. Ikke skriv ferdig salgsmelding, pitchmanus, e-post eller ringeskript. Ikke gjett. Skill tydelig mellom bevis og mulighet.' },
+      { role: 'user', content: buildSalesAnglePrompt(lead) },
+    ],
+    text: {
+      verbosity: 'low',
+      format: {
+        type: 'json_schema',
+        name: 'lead_machine_sales_angles',
+        strict: true,
+        schema: SALES_ANGLE_SCHEMA,
+      },
+    },
+  }
+  if (background) body.background = true
+  return body
+}
+
+async function readOpenAIJson(response) {
+  try {
+    return { ok: true, value: await response.json() }
+  } catch (_) {
+    return { ok: false, error: 'OpenAI-svaret var ikke gyldig JSON' }
+  }
+}
+
+function openAIHttpError(response, payload = {}) {
+  const message = payload?.error?.message || ('HTTP ' + response.status)
+  return { ok: false, error: 'OpenAI API: ' + message }
+}
+
 function webSearchToolForLead(lead = {}) {
   const city = String(lead.contact?.city || lead.city || '').trim()
   const location = { type: 'approximate', country: 'NO' }
@@ -185,4 +313,4 @@ function normalizeList(value) {
   return (Array.isArray(value) ? value : []).map((item) => String(item || '').trim()).filter(Boolean)
 }
 
-module.exports = { researchSalesAngles, SALES_ANGLE_SCHEMA }
+module.exports = { researchSalesAngles, startSalesAngleResearch, retrieveSalesAngleResearch, SALES_ANGLE_SCHEMA }
