@@ -63,6 +63,7 @@ const els = {
   cityChips: document.getElementById('cityChips'),
   callFocusOverlay: document.getElementById('callFocusOverlay'),
   commandCenter: document.getElementById('commandCenterPanel'),
+  dailyCheckin: document.getElementById('dailyCheckin'),
   workflowBoard: document.getElementById('workflowBoard'),
   workQueueTabs: document.getElementById('workQueueTabs'),
   leadCards: document.getElementById('leadCards'),
@@ -98,6 +99,8 @@ document.addEventListener('click', (event) => {
   if (mobileEditSearch) { toggleMobileSearch(); return }
   const workspaceExport = event.target.closest('[data-workspace-export]')
   if (workspaceExport) { exportWorkspaceSnapshot(); return }
+  const dailyCheckinButton = event.target.closest('[data-daily-checkin]')
+  if (dailyCheckinButton) { saveDailyCheckin(); return }
   const mobileMoreToggle = event.target.closest('[data-mobile-more]')
   if (mobileMoreToggle && !event.target.closest('[data-mobile-more-menu]')) { state.mobileMoreOpen = !state.mobileMoreOpen; renderAll(); return }
   if (event.target.closest('[data-mobile-more-menu]')) state.mobileMoreOpen = false
@@ -107,6 +110,7 @@ document.addEventListener('click', (event) => {
   if (salesAnglesButton) { runSalesAngles(salesAnglesButton); return }
 })
 renderCommandCenter(null)
+renderDailyCheckin(null)
 renderExport(null)
 clearStatus()
 loadLatestRun()
@@ -164,6 +168,7 @@ async function runSearch() {
   renderLeads([])
   renderDetail(null)
   renderCommandCenter(null)
+  renderDailyCheckin(null)
   renderExport(null)
 
   try {
@@ -230,6 +235,7 @@ function renderAll() {
   }
   renderCityChips(state.result)
   renderCommandCenter(state.result)
+  renderDailyCheckin(state.result)
   renderWorkQueueTabs(leads)
   renderWorkflowBoard(state.result)
   renderLeads(visibleLeads)
@@ -349,6 +355,144 @@ function commandActionButton(label, target = {}, variant) {
   if (target.queue) return '<button type="button"' + className + ' data-command-queue="' + escapeAttr(target.queue) + '">' + escapeHtml(label) + '</button>'
   if (target.city) return '<button type="button"' + className + ' data-city-filter="' + escapeAttr(target.city) + '">' + escapeHtml(label) + '</button>'
   return ''
+}
+
+
+function renderDailyCheckin(result) {
+  if (!els.dailyCheckin) return
+  const leads = result?.leadPacks || []
+  const today = localDateKey()
+  const saved = readDailyCheckin(today)
+  if (!leads.length) {
+    els.dailyCheckin.innerHTML = '<div class="daily-checkin-head"><div><p class="eyebrow">I dag</p><h2>Dagens innsjekk</h2><small>' + escapeHtml(today) + '</small></div></div><p class="daily-empty">Kjør et søk for å bygge dagslisten.</p>'
+    return
+  }
+  const stats = dailyDeskStats(leads)
+  const nextItems = dailyNextItems(leads)
+  const activities = latestWorkflowActivities(leads)
+  const checkedLabel = saved?.at ? 'Innsjekket ' + formatDailyCheckinTime(saved.at) : 'Sjekk inn i dag'
+  els.dailyCheckin.innerHTML = '<div class="daily-checkin-head"><div><p class="eyebrow">I dag</p><h2>Dagens innsjekk</h2><small>' + escapeHtml([today, activeSearchLabel(result)].filter(Boolean).join(' · ')) + '</small></div>' +
+    '<button type="button" class="daily-checkin-action ' + (saved?.at ? 'checked' : '') + '" data-daily-checkin>' + escapeHtml(checkedLabel) + '</button></div>' +
+    '<div class="daily-metrics" aria-label="Dagens salgstall">' +
+      dailyMetricButton('Oppfølging', stats.followUpToday, 'follow_up_today') +
+      dailyMetricButton('Ring nå', stats.callNow, 'call_now') +
+      dailyMetricButton('SALG', stats.sales, 'interested', 'sales') +
+      dailyMetricButton('Ingen svar', stats.noAnswer, 'no_answer') +
+      dailyMetricButton('Nei', stats.no, 'not_relevant') +
+      '<div class="daily-metric passive"><span>Nye</span><strong>' + escapeHtml(String(stats.notContacted)) + '</strong></div>' +
+    '</div>' +
+    '<section class="daily-checkin-section"><div class="daily-section-head"><h3>Neste</h3><span>' + escapeHtml(String(nextItems.length)) + '</span></div>' +
+      (nextItems.length ? '<div class="daily-next-list">' + nextItems.map(dailyNextRow).join('') + '</div>' : '<p class="daily-empty">Ingen aktive leads i dagslisten.</p>') +
+    '</section>' +
+    '<section class="daily-checkin-section"><div class="daily-section-head"><h3>Siste logg</h3><span>' + escapeHtml(String(activities.length)) + '</span></div>' +
+      (activities.length ? '<ol class="daily-log-list">' + activities.map(dailyActivityRow).join('') + '</ol>' : '<p class="daily-empty">Ingen samtalelogg ennå.</p>') +
+    '</section>'
+}
+
+function dailyMetricButton(label, value, queue, extraClass = '') {
+  return '<button type="button" class="daily-metric ' + escapeAttr(extraClass) + '" data-command-queue="' + escapeAttr(queue) + '"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(String(value || 0)) + '</strong></button>'
+}
+
+function dailyDeskStats(leads) {
+  const counts = workQueueCounts(leads)
+  const notContacted = (Array.isArray(leads) ? leads : []).filter((lead) => {
+    const workflow = lead.workflow || {}
+    return !workflow.contacted && !workflow.response && !workflow.lastContactedAt && !workflow.updatedAt
+  }).length
+  return {
+    followUpToday: counts.follow_up_today || 0,
+    callNow: counts.call_now || 0,
+    sales: (Array.isArray(leads) ? leads : []).filter((lead) => isSalesLead(lead)).length,
+    noAnswer: counts.no_answer || 0,
+    no: counts.not_relevant || 0,
+    notContacted,
+  }
+}
+
+function dailyNextItems(leads) {
+  const rank = { follow_up_today: 0, interested: 1, call_now: 2, no_answer: 3, verify_first: 4 }
+  return (Array.isArray(leads) ? leads : [])
+    .map((lead, index) => ({ lead, index, id: leadId(lead, index), queue: leadWorkQueue(lead) }))
+    .filter(({ queue }) => rank[queue] !== undefined)
+    .sort((a, b) => (rank[a.queue] - rank[b.queue]) || (callQueueSortScore(b.lead) - callQueueSortScore(a.lead)) || leadDisplayName(a.lead).localeCompare(leadDisplayName(b.lead), 'nb'))
+    .slice(0, 5)
+}
+
+function dailyNextRow(entry) {
+  const { lead, id, queue } = entry
+  const city = lead.contact?.city || lead.city || ''
+  const phone = lead.contact?.phone || lead.phone || ''
+  const label = isSalesLead(lead) ? positiveOutcomeLabel(lead) : workQueueLabel(queue)
+  const note = lead.workflow?.nextAction || workQueueReason(lead, queue)
+  return '<button type="button" class="daily-next-row" data-command-lead-id="' + escapeAttr(id) + '">' +
+    '<span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(leadDisplayName(lead)) + '</strong>' +
+    '<small>' + escapeHtml([city, phone].filter(Boolean).join(' · ') || 'Kontaktinfo mangler') + '</small>' +
+    (note ? '<em>' + escapeHtml(note) + '</em>' : '') +
+  '</button>'
+}
+
+function latestWorkflowActivities(leads) {
+  return (Array.isArray(leads) ? leads : []).flatMap((lead, index) => {
+    const id = leadId(lead, index)
+    const activities = Array.isArray(lead.workflow?.activities) ? lead.workflow.activities : []
+    return activities.map((activity) => ({ activity, lead, id, at: activity.at || lead.workflow?.updatedAt || '' }))
+  }).sort((a, b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 5)
+}
+
+function dailyActivityRow(entry) {
+  const activity = entry.activity || {}
+  return '<li><button type="button" data-command-lead-id="' + escapeAttr(entry.id) + '"><div><span>' + escapeHtml(dailyActivityLabel(activity)) + '</span><strong>' + escapeHtml(leadDisplayName(entry.lead)) + '</strong></div><small>' + escapeHtml(formatActivityTime(activity.at)) + '</small><p>' + escapeHtml(activitySummary(activity)) + '</p></button></li>'
+}
+
+function dailyActivityLabel(activity = {}) {
+  const response = String(activity.response || '').toLowerCase()
+  const outcome = String(activity.outcome || '').toLowerCase()
+  if (response === 'meeting_booked' || outcome.includes('sale') || outcome.includes('salg')) return 'Salg'
+  if (response === 'interested') return 'Interessert'
+  if (response === 'no_answer' || response === 'no_response') return 'Ingen svar'
+  if (response === 'negative' || outcome.includes('nei')) return 'Nei'
+  return readable(activity.status || activity.type || 'note')
+}
+
+function saveDailyCheckin() {
+  const leads = state.result?.leadPacks || []
+  if (!leads.length) return
+  const snapshot = {
+    date: localDateKey(),
+    at: new Date().toISOString(),
+    owner: currentOwner(),
+    query: activeSearchLabel(state.result),
+    stats: dailyDeskStats(leads),
+  }
+  try { window.localStorage.setItem(dailyCheckinStorageKey(snapshot.date), JSON.stringify(snapshot)) } catch (_) {}
+  setStatus('daglig innsjekk lagret', '')
+  renderDailyCheckin(state.result)
+}
+
+function dailyCheckinStorageKey(date = localDateKey()) {
+  return 'leadMachineDailyCheckin:' + date
+}
+
+function readDailyCheckin(date = localDateKey()) {
+  try {
+    const value = window.localStorage.getItem(dailyCheckinStorageKey(date))
+    return value ? JSON.parse(value) : null
+  } catch (_) {
+    return null
+  }
+}
+
+function localDateKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10)
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 10)
+}
+
+function formatDailyCheckinTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 
