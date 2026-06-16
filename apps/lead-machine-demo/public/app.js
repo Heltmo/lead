@@ -1943,6 +1943,81 @@ function callFocusWebsiteAction(lead) {
   '</a>'
 }
 
+
+function leadDisplayName(lead = {}) {
+  const company = lead.company || {}
+  return company.displayName || lead.companyName || company.legalName || company.candidateLegalName || 'Ukjent firma'
+}
+
+function isSalesLead(lead = {}) {
+  const workflow = lead.workflow || {}
+  const status = String(workflow.status || '').toLowerCase()
+  const response = String(workflow.response || '').toLowerCase()
+  return leadWorkQueue(lead) === 'interested' || status === 'interested' || response === 'interested' || response === 'meeting_booked'
+}
+
+function workflowSortTime(workflow = {}) {
+  const activities = Array.isArray(workflow.activities) ? workflow.activities : []
+  const latestActivity = activities.reduce((latest, activity) => String(activity.at || '') > latest ? String(activity.at || '') : latest, '')
+  return workflow.updatedAt || latestActivity || workflow.lastContactedAt || workflow.nextFollowUpAt || workflow.followUpDate || ''
+}
+
+function callFocusSalesEntries() {
+  return (state.result?.leadPacks || [])
+    .map((lead, index) => ({ lead, index, id: leadId(lead, index), time: workflowSortTime(lead.workflow || {}) }))
+    .filter(({ lead }) => isSalesLead(lead))
+    .sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')) || leadDisplayName(a.lead).localeCompare(leadDisplayName(b.lead), 'nb'))
+}
+
+function callFocusSalesSidebar(activeLead) {
+  const salesEntries = callFocusSalesEntries()
+  return '<aside class="call-focus-sidebar" aria-label="Salg og historikk">' +
+    callFocusSessionPanel() +
+    '<section class="call-focus-side-panel call-focus-sales-panel"><div class="call-focus-side-head"><span>SALG</span><strong>' + escapeHtml(String(salesEntries.length)) + '</strong></div>' +
+      (salesEntries.length ? '<ol class="call-focus-sales-list">' + salesEntries.slice(0, 7).map(salesLeadRow).join('') + '</ol>' : '<p class="call-focus-side-empty">Ingen leads lagret som SALG ennå.</p>') +
+    '</section>' +
+    (activeLead ? callFocusHistoryPanel(activeLead) : '') +
+  '</aside>'
+}
+
+function salesLeadRow({ lead }) {
+  const workflow = lead.workflow || {}
+  const city = lead.contact?.city || lead.city || ''
+  const phone = lead.contact?.phone || lead.phone || ''
+  const followUp = workflow.nextFollowUpAt || workflow.followUpDate || ''
+  const note = latestLeadNote(lead) || workflow.nextAction || (followUp ? 'Oppfølging ' + followUp : '')
+  return '<li>' +
+    '<div><span class="call-focus-sales-tag">SALG</span><strong>' + escapeHtml(leadDisplayName(lead)) + '</strong></div>' +
+    '<small>' + escapeHtml([city, phone].filter(Boolean).join(' · ') || 'Kontaktinfo mangler') + '</small>' +
+    (note ? '<p>' + escapeHtml(note) + '</p>' : '') +
+  '</li>'
+}
+
+function callFocusSessionPanel() {
+  const logged = state.callFocus?.logged || {}
+  const skipped = state.callFocus?.skippedIds?.length || 0
+  return '<section class="call-focus-side-panel call-focus-session-panel"><div class="call-focus-side-head"><span>Logg</span><strong>Denne økten</strong></div>' +
+    '<div class="call-focus-session-grid">' +
+      '<div><strong>' + escapeHtml(String(logged.interested || 0)) + '</strong><span>SALG</span></div>' +
+      '<div><strong>' + escapeHtml(String(logged.no_answer || 0)) + '</strong><span>Ingen svar</span></div>' +
+      '<div><strong>' + escapeHtml(String(logged.mark_called || 0)) + '</strong><span>Ferdig</span></div>' +
+      '<div><strong>' + escapeHtml(String(logged.not_relevant || 0)) + '</strong><span>Ikke relevant</span></div>' +
+      '<div><strong>' + escapeHtml(String(skipped)) + '</strong><span>Hoppet over</span></div>' +
+    '</div></section>'
+}
+
+function callFocusHistoryPanel(lead = {}) {
+  const workflow = lead.workflow || {}
+  const activities = (Array.isArray(workflow.activities) ? workflow.activities : []).slice(-6).reverse()
+  const notes = leadNoteLines(lead).slice(-3).reverse()
+  const status = isSalesLead(lead) ? '<span class="call-focus-sales-tag">SALG</span>' : badge(leadWorkQueue(lead))
+  return '<section class="call-focus-side-panel call-focus-history-panel"><div class="call-focus-side-head"><span>Historikk</span><strong>' + escapeHtml(leadDisplayName(lead)) + '</strong></div>' +
+    '<div class="call-focus-history-status">' + status + '<small>' + escapeHtml(workflow.response ? readable(workflow.response) : 'Ingen respons lagret') + '</small></div>' +
+    (activities.length ? '<ol class="call-focus-history-list">' + activities.map((activity) => '<li><div><strong>' + escapeHtml(readable(activity.type || activity.status || 'note')) + '</strong><span>' + escapeHtml(formatActivityTime(activity.at)) + '</span></div><p>' + escapeHtml(activitySummary(activity)) + '</p></li>').join('') + '</ol>' : '<p class="call-focus-side-empty">Ingen historikk på denne leaden ennå.</p>') +
+    (notes.length ? '<div class="call-focus-history-notes"><span>Notater</span>' + notes.map((note) => '<p>' + escapeHtml(note) + '</p>').join('') + '</div>' : '') +
+  '</section>'
+}
+
 function renderCallFocus() {
   const overlay = els.callFocusOverlay
   if (!overlay) return
@@ -1959,25 +2034,27 @@ function renderCallFocus() {
   if (!entry) {
     const logged = state.callFocus.logged
     const skipped = state.callFocus.skippedIds.length
-    overlay.innerHTML = '<div class="call-focus-card call-focus-done">' +
+    overlay.innerHTML = '<div class="call-focus-layout"><div class="call-focus-card call-focus-done">' +
       '<header class="call-focus-head"><div><p class="eyebrow">' + callFocusModeLabel() + '</p><strong>Økt ferdig</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Lukk</button></header>' +
       '<h2>Ingen flere ringbare leads</h2>' +
       '<ul class="call-focus-summary">' +
         '<li><strong>' + escapeHtml(String(logged.no_answer)) + '</strong> ingen svar</li>' +
-        '<li><strong>' + escapeHtml(String(logged.interested)) + '</strong> interessert</li>' +
+        '<li><strong>' + escapeHtml(String(logged.interested)) + '</strong> SALG</li>' +
         '<li><strong>' + escapeHtml(String(logged.mark_called)) + '</strong> ferdig</li>' +
         '<li><strong>' + escapeHtml(String(logged.not_relevant)) + '</strong> ikke relevant</li>' +
         (skipped ? '<li><strong>' + escapeHtml(String(skipped)) + '</strong> hoppet over uten logg</li>' : '') +
       '</ul>' +
-      '<p class="call-focus-meta">Ingen svar-leads har fått oppfølging i morgen automatisk. Interesserte ligger i Interessert-køen.</p>' +
-    '</div>'
+      '<p class="call-focus-meta">Ingen svar-leads har fått oppfølging i morgen automatisk. Leads lagret positivt ligger under SALG.</p>' +
+    '</div>' +
+    callFocusSalesSidebar(null) +
+  '</div>'
     return
   }
   const lead = entry.lead
   const company = lead.company || {}
   const phone = lead.contact?.phone || lead.phone || ''
   const callHref = phoneHref(phone)
-  overlay.innerHTML = '<div class="call-focus-card">' +
+  overlay.innerHTML = '<div class="call-focus-layout"><div class="call-focus-card">' +
     '<header class="call-focus-head"><div><p class="eyebrow">' + callFocusModeLabel() + '</p><strong>' + escapeHtml(String(entries.length)) + ' igjen · ' + escapeHtml(String(callFocusLoggedCount())) + ' logget</strong></div><button type="button" class="call-focus-exit" data-call-focus-exit>Avslutt</button></header>' +
     '<div class="badge-row">' + websiteSalesBadge(lead) + badge(leadWorkQueue(lead)) + badge(brregStatusLabel(company)) + badge(lead.sourceQuality?.locationMatchStatus) + fastBadge(lead) + '</div>' +
     '<h2>' + googleNameLink(lead, company.displayName || lead.companyName || 'Ukjent firma') + '</h2>' +
@@ -1998,7 +2075,9 @@ function renderCallFocus() {
       '</div>' +
       '<div class="call-focus-secondary"><button type="button" class="call-focus-skip" data-call-focus-skip>Hopp over uten logg</button><span class="call-focus-keys">Taster: 1 Ingen svar · 2 Interessert · 3 Ferdig · 4 Ikke relevant · Esc avslutt</span></div>' +
     '</div>' +
-  '</div>'
+  '</div>' +
+  callFocusSalesSidebar(lead) +
+'</div>'
 }
 
 async function runCallFocusOutcome(action, button) {

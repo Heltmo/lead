@@ -591,6 +591,27 @@ a { color: var(--blue); }
 .call-focus-mode[hidden] { display: none; }
 body.call-focus-open { overflow: hidden; }
 .call-focus-card { width: min(680px, 100%); display: grid; gap: 12px; background: var(--surface); border-radius: 16px; padding: 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .28); }
+.call-focus-layout { width: min(1120px, 100%); display: grid; grid-template-columns: minmax(0, 680px) minmax(280px, 360px); gap: 14px; align-items: start; }
+.call-focus-layout .call-focus-card { width: 100%; }
+.call-focus-sidebar { display: grid; gap: 10px; align-content: start; max-height: calc(100dvh - 52px); overflow: auto; }
+.call-focus-side-panel { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 12px; display: grid; gap: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, .10); }
+.call-focus-sales-panel { border-color: #b9dfcb; background: #f8fffb; }
+.call-focus-side-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.call-focus-side-head span { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.call-focus-side-head strong { color: var(--ink); font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
+.call-focus-session-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.call-focus-session-grid div { min-height: 54px; border: 1px solid #d5e4dc; border-radius: 8px; background: #f8faf9; padding: 8px; display: grid; align-content: center; gap: 2px; }
+.call-focus-session-grid strong { font-size: 20px; line-height: 1; color: var(--green); }
+.call-focus-session-grid span { color: var(--muted); font-size: 11px; font-weight: 800; }
+.call-focus-sales-list, .call-focus-history-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.call-focus-sales-list li, .call-focus-history-list li { border: 1px solid #d5e4dc; border-radius: 8px; background: #fff; padding: 9px; display: grid; gap: 4px; }
+.call-focus-sales-list div, .call-focus-history-list div, .call-focus-history-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.call-focus-sales-list strong, .call-focus-history-list strong { font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+.call-focus-sales-list small, .call-focus-history-list span, .call-focus-history-status small { color: var(--muted); font-size: 11px; }
+.call-focus-sales-list p, .call-focus-history-list p, .call-focus-history-notes p, .call-focus-side-empty { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.call-focus-sales-tag { flex: 0 0 auto; border-radius: 999px; background: var(--green); color: #fff; padding: 3px 7px; font-size: 10px; font-weight: 900; letter-spacing: 0; }
+.call-focus-history-notes { border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; }
+.call-focus-history-notes > span { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
 .call-focus-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .call-focus-exit { min-height: 36px; border: 1px solid #b8c8c0; border-radius: 999px; background: #fff; color: var(--ink); padding: 6px 12px; font-weight: 850; cursor: pointer; }
 .call-focus-exit:hover, .call-focus-exit:focus-visible { border-color: var(--green); background: var(--green-soft); outline: none; }
@@ -627,10 +648,13 @@ body.call-focus-open { overflow: hidden; }
 .call-focus-keys { color: var(--muted); font-size: 12px; }
 .call-focus-summary { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 @media (max-width: 620px) { .call-focus-outcomes { grid-template-columns: repeat(2, minmax(0, 1fr)); } .call-focus-card h2 { font-size: 23px; } .call-focus-phone { font-size: 28px; } .call-focus-keys { display: none; } .call-focus-secondary { flex-direction: column; align-items: stretch; } }
+@media (max-width: 900px) { .call-focus-layout { grid-template-columns: 1fr; width: min(680px, 100%); } .call-focus-sidebar { max-height: none; overflow: visible; } }
 @media (max-width: 760px) {
   .call-focus-mode { z-index: 120; display: block; place-items: initial; padding: 0; background: var(--surface); }
   .call-focus-mode[hidden] { display: none; }
+  .call-focus-layout { width: 100%; display: block; }
   .call-focus-card { width: 100%; min-height: 100dvh; border-radius: 0; box-shadow: none; padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); gap: 10px; }
+  .call-focus-sidebar { display: none; }
   .call-focus-head { position: sticky; top: 0; z-index: 3; margin: calc(-10px - env(safe-area-inset-top)) -10px 0; padding: calc(10px + env(safe-area-inset-top)) 10px 9px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.96); backdrop-filter: blur(10px); }
   .call-focus-head strong { display: block; font-size: 16px; line-height: 1.18; }
   .call-focus-card h2 { font-size: clamp(27px, 8.2vw, 36px); line-height: 1.05; }

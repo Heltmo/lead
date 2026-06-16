@@ -583,6 +583,8 @@ async function main() {
   assert(lower.includes('callfocuswebsiteaction'), 'Call focus mode should show the current lead website action')
   assert(lower.includes('syncselectedleadtoactivecallfocus'), 'Call focus mode should keep the selected lead card aligned with the active call')
   assert(lower.includes('callfocusreturnentry'), 'Exiting call focus should return the main desk to the active lead')
+  assert(lower.includes('call-focus-sidebar') && lower.includes('salg og historikk'), 'Call focus should include a sales/history sidebar')
+  assert(lower.includes('callfocussalessidebar') && lower.includes('historikk') && lower.includes('salg'), 'Call focus sidebar should expose SALG and history sections')
   assert(lower.includes('ringeøkt'), 'Call focus mode should use seller-facing Norwegian copy')
   assert(lower.includes('hopp over uten logg'), 'Call focus mode should allow skipping a lead without logging')
   assert(lower.includes('sellerintent'), 'UI should send sellerIntent through requests')
