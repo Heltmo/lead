@@ -47,6 +47,7 @@ async function main() {
   assert(result.salesAngles.risks.length === 1, 'risks should pass through')
   assert(calls[0].url.includes('/v1/responses'), 'should call OpenAI Responses API')
   assert(calls[0].body.model === 'gpt-5.5', 'should default to GPT-5.5')
+  assert(calls[0].body.max_output_tokens >= 2500, 'should allow enough output tokens for web-search JSON')
   assert(calls[0].body.tools.some((tool) => tool.type === 'web_search'), 'should use OpenAI web search')
   assert(calls[0].body.tools[0].user_location.country === 'NO', 'should bias web search to Norway')
   assert(JSON.stringify(calls[0].body).includes('Aldri') || JSON.stringify(calls[0].body).includes('Ikke skriv ferdig'), 'prompt should forbid scripts')

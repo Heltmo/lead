@@ -48,11 +48,11 @@ async function researchSalesAngles({ lead, apiKey, model, fetcher } = {}) {
       body: JSON.stringify({
         model: model || process.env.LEAD_MACHINE_AUDIT_MODEL || DEFAULT_MODEL,
         store: false,
-        max_output_tokens: 1200,
+        max_output_tokens: 3000,
         reasoning: { effort: 'low' },
         tools: [webSearchToolForLead(lead)],
         input: [
-          { role: 'system', content: 'Du hjelper en norsk selger av nettsider/booking/digital tilstedeværelse med korte, kildebaserte observasjoner for én valgt lokal bedrift. Ikke skriv ferdig salgsmelding, pitchmanus, e-post eller ringeskript. Ikke gjett. Skill tydelig mellom bevis og mulighet.' },
+          { role: 'system', content: 'Du hjelper en norsk selger av nettsider/booking/digital tilstedeværelse med korte, kildebaserte observasjoner for én valgt lokal bedrift. Svar svært komprimert. Ikke skriv ferdig salgsmelding, pitchmanus, e-post eller ringeskript. Ikke gjett. Skill tydelig mellom bevis og mulighet.' },
           { role: 'user', content: prompt },
         ],
         text: {
@@ -85,6 +85,9 @@ async function researchSalesAngles({ lead, apiKey, model, fetcher } = {}) {
   try {
     parsed = JSON.parse(extractOpenAIText(payload))
   } catch (_) {
+    if (isIncompleteResponse(payload)) {
+      return { ok: false, error: 'OpenAI-svaret ble avbrutt før det var ferdig - prøv igjen' }
+    }
     return { ok: false, error: 'klarte ikke å tolke salgsvinklene fra OpenAI' }
   }
 
@@ -135,7 +138,7 @@ function buildSalesAnglePrompt(lead = {}) {
     '',
     'Søk gjerne etter: ' + searchTerms.join(' | '),
     '',
-    'Svar på norsk. Lag maks 3 vinkler. Hver vinkel skal være en observasjon selgeren kan bruke til å forstå hva som kan selges, ikke en ferdig melding. Hvis beviset er svakt, si det i risks. Foreslå typiske leveranser som enkel landingsside, bookingforespørsel, Google Business-forbedring, prisliste/tjenester, review-lenke eller SMS/rebooking bare når det passer bevisene.',
+    'Svar på norsk. Lag maks 3 korte vinkler. Hold summary, why, offer, risks og nextStep korte. Hver vinkel skal være en observasjon selgeren kan bruke til å forstå hva som kan selges, ikke en ferdig melding. Hvis beviset er svakt, si det i risks. Foreslå typiske leveranser som enkel landingsside, bookingforespørsel, Google Business-forbedring, prisliste/tjenester, review-lenke eller SMS/rebooking bare når det passer bevisene.',
   ].join('\n')
 }
 
@@ -159,11 +162,16 @@ function extractOpenAIText(payload = {}) {
   if (typeof payload.output_text === 'string') return payload.output_text
   const chunks = []
   for (const item of Array.isArray(payload.output) ? payload.output : []) {
+    if (item && item.type === 'output_text' && typeof item.text === 'string') chunks.push(item.text)
     for (const content of Array.isArray(item && item.content) ? item.content : []) {
       if (content && content.type === 'output_text' && typeof content.text === 'string') chunks.push(content.text)
     }
   }
   return chunks.join('')
+}
+
+function isIncompleteResponse(payload = {}) {
+  return (Array.isArray(payload.output) ? payload.output : []).some((item) => item && item.status === 'incomplete')
 }
 
 function websiteValue(value) {
