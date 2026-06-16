@@ -369,7 +369,7 @@ function renderDailyCheckin(result) {
   }
   const stats = dailyDeskStats(leads)
   const nextItems = dailyNextItems(leads)
-  const activities = latestWorkflowActivities(leads)
+  const calledCustomers = latestCalledCustomers(leads)
   const checkedLabel = saved?.at ? 'Innsjekket ' + formatDailyCheckinTime(saved.at) : 'Sjekk inn i dag'
   els.dailyCheckin.innerHTML = '<div class="daily-checkin-head"><div><p class="eyebrow">I dag</p><h2>Dagens innsjekk</h2><small>' + escapeHtml([today, activeSearchLabel(result)].filter(Boolean).join(' · ')) + '</small></div>' +
     '<button type="button" class="daily-checkin-action ' + (saved?.at ? 'checked' : '') + '" data-daily-checkin>' + escapeHtml(checkedLabel) + '</button></div>' +
@@ -384,8 +384,8 @@ function renderDailyCheckin(result) {
     '<section class="daily-checkin-section"><div class="daily-section-head"><h3>Neste</h3><span>' + escapeHtml(String(nextItems.length)) + '</span></div>' +
       (nextItems.length ? '<div class="daily-next-list">' + nextItems.map(dailyNextRow).join('') + '</div>' : '<p class="daily-empty">Ingen aktive leads i dagslisten.</p>') +
     '</section>' +
-    '<section class="daily-checkin-section"><div class="daily-section-head"><h3>Siste logg</h3><span>' + escapeHtml(String(activities.length)) + '</span></div>' +
-      (activities.length ? '<ol class="daily-log-list">' + activities.map(dailyActivityRow).join('') + '</ol>' : '<p class="daily-empty">Ingen samtalelogg ennå.</p>') +
+    '<section class="daily-checkin-section"><div class="daily-section-head"><h3>Siste ringt</h3><span>' + escapeHtml(String(calledCustomers.length)) + '/10</span></div>' +
+      (calledCustomers.length ? '<ol class="daily-log-list">' + calledCustomers.map(dailyCalledCustomerRow).join('') + '</ol>' : '<p class="daily-empty">Ingen ringte kunder ennå.</p>') +
     '</section>'
 }
 
@@ -431,27 +431,43 @@ function dailyNextRow(entry) {
   '</button>'
 }
 
-function latestWorkflowActivities(leads) {
-  return (Array.isArray(leads) ? leads : []).flatMap((lead, index) => {
-    const id = leadId(lead, index)
-    const activities = Array.isArray(lead.workflow?.activities) ? lead.workflow.activities : []
-    return activities.map((activity) => ({ activity, lead, id, at: activity.at || lead.workflow?.updatedAt || '' }))
-  }).sort((a, b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 5)
+function latestCalledCustomers(leads) {
+  return (Array.isArray(leads) ? leads : []).map((lead, index) => {
+    const workflow = lead.workflow || {}
+    const activity = latestCallActivity(workflow)
+    const at = activity?.at || activity?.lastContactedAt || workflow.updatedAt || workflow.lastContactedAt || ''
+    if (!activity && !workflow.contacted && !workflow.response && !workflow.lastContactedAt) return null
+    return { lead, index, id: leadId(lead, index), activity: activity || workflow, at, category: dailyCallCategory(lead, activity || workflow) }
+  }).filter(Boolean).sort((a, b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 10)
 }
 
-function dailyActivityRow(entry) {
+function latestCallActivity(workflow = {}) {
+  const activities = Array.isArray(workflow.activities) ? workflow.activities : []
+  return activities.find((activity) => activity.response || activity.lastContactedAt || activity.channel === 'phone' || activity.type === 'contact_attempt') || null
+}
+
+function dailyCalledCustomerRow(entry) {
+  const lead = entry.lead || {}
   const activity = entry.activity || {}
-  return '<li><button type="button" data-command-lead-id="' + escapeAttr(entry.id) + '"><div><span>' + escapeHtml(dailyActivityLabel(activity)) + '</span><strong>' + escapeHtml(leadDisplayName(entry.lead)) + '</strong></div><small>' + escapeHtml(formatActivityTime(activity.at)) + '</small><p>' + escapeHtml(activitySummary(activity)) + '</p></button></li>'
+  const city = lead.contact?.city || lead.city || ''
+  const phone = lead.contact?.phone || lead.phone || ''
+  const note = activity.nextAction || lead.workflow?.nextAction || latestLeadNote(lead) || activitySummary(activity)
+  return '<li><button type="button" data-command-lead-id="' + escapeAttr(entry.id) + '">' +
+    '<div><span class="daily-log-category ' + escapeAttr(entry.category.key) + '">' + escapeHtml(entry.category.label) + '</span><strong>' + escapeHtml(leadDisplayName(lead)) + '</strong></div>' +
+    '<small>' + escapeHtml([formatActivityTime(entry.at), city, phone].filter(Boolean).join(' · ')) + '</small>' +
+    (note ? '<p>' + escapeHtml(note) + '</p>' : '') +
+  '</button></li>'
 }
 
-function dailyActivityLabel(activity = {}) {
+function dailyCallCategory(lead = {}, activity = {}) {
   const response = String(activity.response || '').toLowerCase()
   const outcome = String(activity.outcome || '').toLowerCase()
-  if (response === 'meeting_booked' || outcome.includes('sale') || outcome.includes('salg')) return 'Salg'
-  if (response === 'interested') return 'Interessert'
-  if (response === 'no_answer' || response === 'no_response') return 'Ingen svar'
-  if (response === 'negative' || outcome.includes('nei')) return 'Nei'
-  return readable(activity.status || activity.type || 'note')
+  const queue = normalizeWorkQueue(activity.toQueue || activity.queue) || leadWorkQueue(lead)
+  if (response === 'meeting_booked' || outcome.includes('sale') || outcome.includes('salg')) return { label: 'Salg', key: 'sale' }
+  if (response === 'interested' || queue === 'interested') return { label: 'Interessert', key: 'interested' }
+  if (response === 'no_answer' || response === 'no_response' || queue === 'no_answer') return { label: 'Ingen svar', key: 'no_answer' }
+  if (response === 'negative' || outcome.includes('nei') || queue === 'not_relevant') return { label: 'Nei', key: 'not_relevant' }
+  return { label: 'Kontaktet', key: 'contacted' }
 }
 
 function saveDailyCheckin() {
